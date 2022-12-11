@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{dfb0b500-242a-4e28-8c7a-63832016ca8d}</ProjectGuid>
+    <RootNamespace>WinAudio</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>WinAudio Player</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <PrecompiledHeaderOutputFile>$(IntDir)stdafx.pch</PrecompiledHeaderOutputFile>
+      <Optimization>Disabled</Optimization>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Comctl32.lib;Shlwapi.lib;uxtheme.lib;d2d1.lib;Dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <PrecompiledHeaderOutputFile>$(IntDir)stdafx.pch</PrecompiledHeaderOutputFile>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <Optimization>MaxSpeed</Optimization>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Comctl32.lib;Shlwapi.lib;uxtheme.lib;d2d1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="biquad.c" />
+    <ClCompile Include="CircleBuffer.c" />
+    <ClCompile Include="WA_DSP_Effect.c" />
+    <ClCompile Include="WA_GEN_Messages.c" />
+    <ClCompile Include="WA_GEN_PluginLoader.c" />
+    <ClCompile Include="WA_GEN_Types.c" />
+    <ClCompile Include="WA_IN_Input.c" />
+    <ClCompile Include="WA_OUT_Output.c" />
+    <ClCompile Include="WA_Playback_Engine.c" />
+    <ClCompile Include="WA_UI_ColorPolicy.c" />
+    <ClCompile Include="WA_UI_DarkMode.c" />
+    <ClCompile Include="DecoderManager.c" />
+    <ClCompile Include="Enhancer.c" />
+    <ClCompile Include="fft.c" />
+    <ClCompile Include="GUI_OpenFileDialog.c" />
+    <ClCompile Include="IN_MediaFoundation.c" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="OUT_Wasapi.c" />
+    <ClCompile Include="SpectrumBuffer.c" />
+    <ClCompile Include="stdafx.c" />
+    <ClCompile Include="IN_StreamWav.c" />
+    <ClCompile Include="WA_UI_ListView.c" />
+    <ClCompile Include="WA_UI_Rebar.c" />
+    <ClCompile Include="WA_UI_StatusBar.c" />
+    <ClCompile Include="WA_UI_Trackbar.c" />
+    <ClCompile Include="WA_UI_UAHMenubar.c" />
+    <ClCompile Include="Utility.c" />
+    <ClCompile Include="Visualization.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="biquad.h" />
+    <ClInclude Include="CircleBuffer.h" />
+    <ClInclude Include="Globals2.h" />
+    <ClInclude Include="WA_DSP_Effect.h" />
+    <ClInclude Include="WA_GEN_Messages.h" />
+    <ClInclude Include="WA_GEN_PluginLoader.h" />
+    <ClInclude Include="WA_GEN_Types.h" />
+    <ClInclude Include="WA_IN_Input.h" />
+    <ClInclude Include="WA_OUT_Output.h" />
+    <ClInclude Include="WA_Playback_Engine.h" />
+    <ClInclude Include="WA_UI_ColorPolicy.h" />
+    <ClInclude Include="d2d1_586.h" />
+    <ClInclude Include="WA_UI_DarkMode.h" />
+    <ClInclude Include="DecoderManager.h" />
+    <ClInclude Include="fft.h" />
+    <ClInclude Include="globals.h" />
+    <ClInclude Include="GUI_OpenFileDialog.h" />
+    <ClInclude Include="IStreamInput.h" />
+    <ClInclude Include="IStreamOutput.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="SpectrumBuffer.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="WA_UI_ListView.h" />
+    <ClInclude Include="WA_UI_Rebar.h" />
+    <ClInclude Include="WA_UI_StatusBar.h" />
+    <ClInclude Include="WA_UI_Trackbar.h" />
+    <ClInclude Include="WA_UI_UAHMenubar.h" />
+    <ClInclude Include="Utility.h" />
+    <ClInclude Include="Visualization.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WinAudio.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\Icons\open.ico" />
+    <Image Include="..\Icons\mainIcon.ico" />
+    <Image Include="..\Icons\mute.ico" />
+    <Image Include="..\Icons\next.ico" />
+    <Image Include="..\Icons\pause.ico" />
+    <Image Include="..\Icons\play.ico" />
+    <Image Include="..\Icons\previous.ico" />
+    <Image Include="..\Icons\stop.ico" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

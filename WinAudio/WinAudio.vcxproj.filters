@@ -1,0 +1,223 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="File di origine">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="File di intestazione">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="File di risorse">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="IN_StreamWav.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="DecoderManager.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="OUT_Wasapi.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI_OpenFileDialog.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="CircleBuffer.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="SpectrumBuffer.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="fft.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="Visualization.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="IN_MediaFoundation.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="Utility.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="biquad.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="Enhancer.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_DarkMode.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_UAHMenubar.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_ColorPolicy.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_StatusBar.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_Trackbar.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_ListView.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_UI_Rebar.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_GEN_Messages.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_GEN_Types.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_IN_Input.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_OUT_Output.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_DSP_Effect.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_GEN_PluginLoader.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="WA_Playback_Engine.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="globals.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="IStreamInput.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="IStreamOutput.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="DecoderManager.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI_OpenFileDialog.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="CircleBuffer.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="SpectrumBuffer.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="fft.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="Visualization.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="d2d1_586.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="biquad.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_DarkMode.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_UAHMenubar.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_ColorPolicy.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_StatusBar.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_Trackbar.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_ListView.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_UI_Rebar.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_GEN_Messages.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_GEN_Types.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_IN_Input.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_OUT_Output.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_DSP_Effect.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_GEN_PluginLoader.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="Globals2.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="WA_Playback_Engine.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WinAudio.rc">
+      <Filter>File di risorse</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\Icons\open.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\mainIcon.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\mute.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\next.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\pause.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\play.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\previous.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\stop.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

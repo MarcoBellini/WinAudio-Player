@@ -1,0 +1,200 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Italiano (Italia) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ITA)
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_MAIN_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\mainIcon.ico"
+
+IDI_OPEN_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\open.ico"
+
+IDI_NEXT_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\next.ico"
+
+IDI_PAUSE_ICON          ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\pause.ico"
+
+IDI_PLAY_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\play.ico"
+
+IDI_PREVIOUS_ICON       ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\previous.ico"
+
+IDI_STOP_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\stop.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAIN_MENU MENU
+BEGIN
+    POPUP "File"
+    BEGIN
+        MENUITEM "Open file...",                ID_FILE_OPENFILE
+        MENUITEM SEPARATOR
+        MENUITEM "Add Folder...",               ID_FILE_ADDFOLDER
+        MENUITEM "Add Files...",                ID_FILE_ADDFILES
+        MENUITEM SEPARATOR
+        MENUITEM "Settings",                    ID_FILE_SETTINGS
+        MENUITEM SEPARATOR
+        MENUITEM "Close",                       ID_FILE_CLOSE
+    END
+    POPUP "Playback"
+    BEGIN
+        MENUITEM "Play",                        ID_PLAYBACK_PLAY
+        MENUITEM "Pause",                       ID_PLAYBACK_PAUSE
+        MENUITEM "Stop",                        ID_PLAYBACK_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "Previous",                    ID_PLAYBACK_PREVIOUS
+        MENUITEM "Next",                        ID_PLAYBACK_NEXT
+    END
+    POPUP "Tools"
+    BEGIN
+        MENUITEM "Enhancer",                    ID_TOOLS_ENHANCER
+    END
+    POPUP "About"
+    BEGIN
+        MENUITEM "Info...",                     ID_ABOUT_INFO
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ENHANCER, DIALOG
+    BEGIN
+        LEFTMARGIN, 6
+        RIGHTMARGIN, 254
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 158
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ENHANCER DIALOGEX 0, 0, 261, 165
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Enhancer"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,153,144,50,14
+    PUSHBUTTON      "Annulla",IDCANCEL,204,144,50,14
+    LTEXT           "Boost control",IDC_STATIC,20,17,50,10
+    CONTROL         "",IDC_SLIDER_BOOST,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,41,28,163,13
+    LTEXT           "Min",IDC_STATIC,23,28,14,11
+    LTEXT           "Max",IDC_STATIC,212,28,14,10
+    LTEXT           "Bass",IDC_STATIC,19,37,50,10
+    CONTROL         "",IDC_SLIDER_BASS,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,41,48,163,13
+    LTEXT           "Min",IDC_STATIC,23,48,14,11
+    LTEXT           "Max",IDC_STATIC,211,48,14,10
+    LTEXT           "Bass range",IDC_STATIC,19,58,50,10
+    CONTROL         "",IDC_SLIDER_BASS_RANGE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,41,70,163,13
+    LTEXT           "Min",IDC_STATIC,23,70,14,11
+    LTEXT           "Max",IDC_STATIC,211,70,14,10
+    LTEXT           "Treble",IDC_STATIC,20,82,50,10
+    CONTROL         "",IDC_SLIDER_TREBLE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,42,94,163,13
+    LTEXT           "Min",IDC_STATIC,24,94,14,11
+    LTEXT           "Max",IDC_STATIC,212,94,14,10
+    LTEXT           "Treble range",IDC_STATIC,19,106,50,10
+    CONTROL         "",IDC_SLIDER_TREBLE_RANGE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,41,118,163,13
+    LTEXT           "Min",IDC_STATIC,23,118,14,11
+    LTEXT           "Max",IDC_STATIC,211,118,14,10
+    CONTROL         "On",IDC_CHECK_ON,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,18,144,25,10
+    CONTROL         "Boost",IDC_CHECK_BOOST,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,48,144,34,10
+    CONTROL         "Reverb",IDC_CHECK_REVERB,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,86,144,39,10
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_ENHANCER AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_STATUS_WELCOME      "Welcome to WinAudio Player!"
+END
+
+#endif    // Italiano (Italia) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
