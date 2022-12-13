@@ -68,6 +68,7 @@ void MainWindow_Play();
 void MainWindow_Pause();
 void MainWindow_Stop();
 bool MainWindow_Open(const wchar_t* wPath);
+bool MainWindow_CloseFile();
 void MainWindow_SplitFilePath(const wchar_t* pInPath, wchar_t* pFolder, wchar_t* pFileName);
 DWORD MainWindow_HandleEndOfStreamMsg();
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue);
@@ -594,7 +595,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         
     }
     case WM_WA_MSG:
-        return MainWindow_HandleMessage(hwnd, lParam, wParam);
+        return MainWindow_HandleMessage(hwnd, wParam, lParam);
 	}
 
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -1116,7 +1117,7 @@ void MainWindow_CreateUI(HWND hMainWindow)
 
 
     // Assign Initial Status to Stopped
-    Globals2.dwCurrentStatus = WA_STATUS_STOP;
+    Globals2.dwCurrentStatus = MW_STOPPED;
     Globals2.bFileIsOpen = false;
     Globals2.bMouseDownOnPosition = false;
     Globals2.bMouseDownOnVolume = false;
@@ -1449,8 +1450,9 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle, LPWSTR lpwsPath)
 /// </summary>
 void MainWindow_Play()
 {
-    WA_Playback_Engine_OpenFile(L"C:\\Users\\Marco\\Desktop\\test.mp3");
-    WA_Playback_Engine_Play();
+    // TODO: Delete This Test Function
+    if (MainWindow_Open(L"C:\\Users\\Marco\\Desktop\\test.mp3"))
+        WA_Playback_Engine_Play();
 
     switch (Globals2.dwCurrentStatus)
     {
@@ -1534,6 +1536,8 @@ void MainWindow_Pause()
 /// </summary>
 void MainWindow_Stop()
 {
+
+    WA_Playback_Engine_Stop();
     // TODO: Handle Stop
     /*
     if (Globals.PlaybackStatus != MW_STOPPED)
@@ -1565,51 +1569,38 @@ void MainWindow_Stop()
 /// <summary>
 /// Open a file to play from a specified Path (not a dialog) 
 /// </summary>
-/// <param name="wPath">Path of file to open</param>
+/// <param name="lpwPath">Path of file to open</param>
 /// <returns>true on success, false otherwise</returns>
-bool MainWindow_Open(const wchar_t* wPath)
+bool MainWindow_Open(const wchar_t* lpwPath)
 {
-    // TODO:Manage Open File
-    /*
-    // Check if file exist
-    if (PathFileExists(wPath) == FALSE)
-        return false;
+    uint64_t uDuration = 0;
 
-    // If File Exist, and we are playing another file stop it first
-    if (Globals2.dwCurrentStatus != WA_STATUS_STOP)
+    if (Globals2.dwCurrentStatus != MW_STOPPED)
         MainWindow_Stop();
 
+    if (Globals2.bFileIsOpen)
+        MainWindow_CloseFile();
 
-    // If These is an opened file, then close it
-    if (Globals2.bFileIsOpen == true)
-    {
-        // Globals2.bFileIsOpen = DecoderManager_CloseFile(Globals.pDecoderManager);
-    }        
+    if (!WA_Playback_Engine_OpenFile(lpwPath))
+        return false;
 
-    
-    // Now Open File and Update UI
-    if (DecoderManager_OpenFile(Globals.pDecoderManager, wPath) == true)
-    {
-        // Set Trackbar Range
-        SendMessage(Globals.hPositionTrackbarHandle, TBM_SETRANGEMIN, false, 0);
-        SendMessage(Globals.hPositionTrackbarHandle, TBM_SETRANGEMAX, true, (LPARAM)Globals.pDecoderManager->uCurrentDurationMs);
+    // TODO: If Fail to Get Duration Disable Trackback for this audio stream
+    WA_Playback_Engine_Get_Duration(&uDuration);
 
+    // Set Trackbar Range
+    SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMIN, false, 0);
+    SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMAX, true, (LPARAM)uDuration);
 
-        Globals.bFileIsOpen = true;
+    // Update Main Window Title with file path
+    MainWindow_UpdateWindowTitle(lpwPath, false);
 
-        // Update Main Window Title with file path
-        MainWindow_UpdateWindowTitle(wPath, false);       
+    return true;
+}
 
-        return true;
-    }
-
-    // On Fail reset title
-    MainWindow_UpdateWindowTitle(NULL, true);
-
-    */
-
-    return false;
-
+bool MainWindow_CloseFile()
+{
+    // TODO: Handle UI States
+    return WA_Playback_Engine_CloseFile();
 }
 
 /// <summary>
@@ -1651,6 +1642,7 @@ DWORD MainWindow_HandleEndOfStreamMsg()
 {
 
     // TODO: Handle End of Stream
+    WA_Playback_Engine_Stop();
     /*
     if (Globals.PlaybackStatus != MW_STOPPED)
     {       

@@ -9,4 +9,7 @@
 #define WA_WASAPI_BUFFERUNDERRUN		0x0005
 #define WA_WASAPI_DEVICEWRITEERROR		0x0006
 
+// Use in WaitSingleObject or Multiple Object Timeout
+#define WA_WASAPI_MAX_WAIT_TIME_MS		1000
+
 #endif

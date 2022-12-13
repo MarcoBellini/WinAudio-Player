@@ -53,6 +53,14 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
     WA_Effect* pEffect = NULL;
     uint32_t uResult;
 
+    // Stop Before Close
+    if (Globals2.dwCurrentStatus != MW_STOPPED)
+        WA_Playback_Engine_Stop();
+
+    // and Close file
+    if (Globals2.bFileIsOpen)
+        WA_Playback_Engine_CloseFile();
+
     if (!PathFileExists(lpwPath))
     {
         MessageBox(Globals2.hMainWindow, L"File not Found", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
@@ -67,15 +75,12 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
         return false;
     }
 
-    // Close File First
-    if (Globals2.bFileIsOpen)
-        WA_Playback_Engine_CloseFile();
 
     uResult = pIn->WA_Input_Open(pIn, lpwPath);
 
     if (uResult != WA_OK)
     {
-        MessageBox(Globals2.hMainWindow, L"File not Supported", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
+        MessageBox(Globals2.hMainWindow, L"Input Plugin cannot open this file", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
         return false;
     }
 
@@ -239,6 +244,12 @@ bool WA_Playback_Engine_Stop(void)
     if (uResult != WA_OK)
         return false;
 
+    // Seek to Begin on Stop
+    uResult = pIn->WA_Input_Seek(pIn, 0);
+
+    if (uResult != WA_OK)
+        return false;
+
     Globals2.dwCurrentStatus = MW_STOPPED;
 
     return true;
@@ -246,31 +257,68 @@ bool WA_Playback_Engine_Stop(void)
 
 bool WA_Playback_Engine_Seek(uint64_t uNewPositionMs)
 {
+    WA_Output* pOut = NULL;
+    uint32_t uResult;
+
     if (!Globals2.bFileIsOpen)
         return false;
+
+    if (Globals2.dwCurrentStatus != MW_PLAYING)
+        return false;
+
+    pOut = Globals2.pOutput;
+
+    uResult = pOut->WA_Output_Seek(pOut, uNewPositionMs);
+
+    return (uResult == WA_OK) ? true : false;
 }
 
 bool WA_Playback_Engine_Get_Position(uint64_t *uCurrentPositionMs)
 {
+    WA_Output* pOut = NULL;
+    uint32_t uResult;
+
     if (!Globals2.bFileIsOpen)
         return false;
+
+    pOut = Globals2.pOutput;
+
+    uResult = pOut->WA_Output_Get_Position(pOut, uCurrentPositionMs);
+
+    return (uResult == WA_OK) ? true : false;
 }
 
 bool WA_Playback_Engine_Get_Duration(uint64_t* uCurrentDurationMs)
 {
+    WA_Input* pIn = NULL;
+    uint32_t uResult;
+
     if (!Globals2.bFileIsOpen)
         return false;
+
+    pIn = Globals2.pInput;
+
+
+    (*uCurrentDurationMs) = pIn->WA_Input_Duration(pIn);
+
+    return true;
 }
 
 bool WA_Playback_Engine_Set_Volume(uint8_t uNewVolume)
 {
     if (!Globals2.bFileIsOpen)
         return false;
+
+    if (Globals2.dwCurrentStatus != MW_PLAYING)
+        return false;
 }
 
 bool WA_Playback_Engine_Get_Volume(uint8_t* puNewVolume)
 {
     if (!Globals2.bFileIsOpen)
+        return false;
+
+    if (Globals2.dwCurrentStatus != MW_PLAYING)
         return false;
 }
 
