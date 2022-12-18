@@ -374,6 +374,12 @@ static bool WA_Wasapi_CleanResources(WA_Output* This)
 	return true;
 }
 
+/// <summary>
+/// Try to close Write Thread and Call CloseHandle to free memory opened
+/// with CreateThread function
+/// </summary>
+/// <param name="This"></param>
+/// <param name="bNeedToSignalAbort">If True Signal hAbortEvent and wait before close</param>
 static inline void WA_Wasapi_ReleaseWriteThread(WA_Output* This, bool bNeedToSignalAbort)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -396,7 +402,10 @@ static inline void WA_Wasapi_ReleaseWriteThread(WA_Output* This, bool bNeedToSig
 	}
 }
 
-
+/// <summary>
+/// Create a new instance of the plugin
+/// </summary>
+/// <returns>Return true on success</returns>
 bool WA_Wasapi_New(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = NULL;
@@ -447,6 +456,9 @@ bool WA_Wasapi_New(WA_Output* This)
 
 }
 
+/// <summary>
+/// Close Plugin Instance
+/// </summary>
 void WA_Wasapi_Delete(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*) This->hPluginData;
@@ -475,6 +487,12 @@ void WA_Wasapi_Delete(WA_Output* This)
 	}
 }
 
+/// <summary>
+/// Open a new Stream.Remember to assign a value to the pointer variables 
+/// pIn and pEffect(See the header for more information)
+/// </summary>
+/// <param name="puBufferLatency">Pointer to uint32_t var to store current buffer latency</param>
+/// <returns>WA_OK on success Otherwise an error code</returns>
 uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -586,6 +604,10 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 
 
 }
+
+/// <summary>
+/// Close the stream previously opened with the Open function.
+/// </summary>
 void WA_Wasapi_Close(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -617,7 +639,12 @@ void WA_Wasapi_Close(WA_Output* This)
 	pInstance->bEndOfStreamHasStoppedPlayback = false;
 }
 
-// TODO: 08_12-22 Strutturare meglio la gestione errori su Play,Pausa e stop
+/// <summary>
+/// Play the open stream. Start the Write Thread, update the 
+/// current position and write to the Buffer from which to read 
+/// the data to the speaker.
+/// </summary>
+/// <returns>WA_OK on success</returns>
 uint32_t WA_Wasapi_Play(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -627,6 +654,9 @@ uint32_t WA_Wasapi_Play(WA_Output* This)
 	uint8_t uVolume;
 
 	if (!pInstance->bDeviceIsOpen)
+		return WA_ERROR_OUTPUTNOTREADY;
+
+	if (pInstance->bWasapiIsPlaying)
 		return WA_ERROR_OUTPUTNOTREADY;
 
 	// Fill device buffer with PCM data
@@ -654,7 +684,7 @@ uint32_t WA_Wasapi_Play(WA_Output* This)
 	if (dwResult != WAIT_OBJECT_0)
 	{
 		WA_Wasapi_ReleaseWriteThread(This, true);
-		return WA_ERROR_OUTPUTNOTREADY;
+		return WA_ERROR_OUTPUTTHREADNOTREADY;
 	}
 
 	// Get Current Volume
@@ -672,11 +702,16 @@ uint32_t WA_Wasapi_Play(WA_Output* This)
 
 	pInstance->bWasapiIsPlaying = true;
 	pInstance->bEndOfStreamHasStoppedPlayback = false;
+	pInstance->bPendingStreamSwitch = false;
 	
 	
 	return WA_OK;
 }
 
+/// <summary>
+/// Pause the currently playing stream
+/// </summary>
+/// <returns>WA_OK on success</returns>
 uint32_t WA_Wasapi_Pause(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -697,16 +732,26 @@ uint32_t WA_Wasapi_Pause(WA_Output* This)
 
 	return WA_OK;
 }
+
+/// <summary>
+/// Resume from a Pause state
+/// </summary>
+/// <returns>WA_OK on success</returns>
 uint32_t WA_Wasapi_Resume(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
 	HRESULT hr;
+	uint8_t uVolume;
 
 	if (!pInstance->bDeviceIsOpen)
 		return WA_ERROR_OUTPUTNOTREADY;
 
 	if (pInstance->bWasapiIsPlaying)
 		return WA_ERROR_OUTPUTNOTREADY;
+
+	// Get and set Current Volume (In a case someone changed volume value in pause state)
+	uVolume = SendMessage(This->Header.hMainWindow, WM_WA_MSG, MSG_GETVOLUME, 0);
+	WA_Wasapi_Set_Volume(This, uVolume);
 
 	hr = IAudioClient_Start(pInstance->pAudioClient);
 
@@ -718,7 +763,10 @@ uint32_t WA_Wasapi_Resume(WA_Output* This)
 	return WA_OK;
 }
 
-
+/// <summary>
+/// Stop playback
+/// </summary>
+/// <returns>WA_OK on success</returns>
 uint32_t WA_Wasapi_Stop(WA_Output* This)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -728,13 +776,17 @@ uint32_t WA_Wasapi_Stop(WA_Output* This)
 	if (!pInstance->bDeviceIsOpen)
 		return WA_ERROR_OUTPUTNOTREADY;
 
+	if (!pInstance->bWasapiIsPlaying)
+		return WA_ERROR_OUTPUTNOTREADY;
+
 	EnterCriticalSection(&pInstance->CriticalSection);
 
-	//TODO: Verifica se evitare lo stop durante l'accesso in End Of Stream
 	if (pInstance->bEndOfStreamHasStoppedPlayback == false)
 	{
 		hr = IAudioClient_Stop(pInstance->pAudioClient);
 		_ASSERT(SUCCEEDED(hr));
+
+		pInstance->bPendingStreamSwitch = false;
 	}
 		
 
@@ -744,18 +796,22 @@ uint32_t WA_Wasapi_Stop(WA_Output* This)
 	LeaveCriticalSection(&pInstance->CriticalSection);
 
 	// Close Write Thread
-	WA_Wasapi_ReleaseWriteThread(This, true);
-
-	
+	WA_Wasapi_ReleaseWriteThread(This, true);	
 
 	pInstance->bWasapiIsPlaying = false;
 	pInstance->bEndOfStreamHasStoppedPlayback = false;
+	
 
 	return WA_OK;
 
 }
 
-// TODO: 11/12/22 Modifica la funzione Seek
+/// <summary>
+/// Seek to a new Position in Ms
+/// </summary>
+/// <param name="uNewPositionMs">New Position in Ms</param>
+/// <returns>WA_OK on success. With error code, the Write Thread is not started. 
+/// Remember to close the open device. </returns>
 uint32_t WA_Wasapi_Seek(WA_Output* This, uint64_t uNewPositionMs)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -771,7 +827,11 @@ uint32_t WA_Wasapi_Seek(WA_Output* This, uint64_t uNewPositionMs)
 	if (!pInstance->bWasapiIsPlaying)
 		return WA_ERROR_OUTPUTNOTREADY;
 
+
 	pIn = This->pIn;
+
+	if (!pIn->WA_Input_IsStreamSeekable(pIn))
+		return WA_ERROR_STREAMNOTSEEKABLE;
 
 	// Seek to a position we can handle
 	if (uNewPositionMs >= (pIn->WA_Input_Duration(pIn) - pInstance->uCurrentLatencyMs))
@@ -785,19 +845,20 @@ uint32_t WA_Wasapi_Seek(WA_Output* This, uint64_t uNewPositionMs)
 	_ASSERT(SUCCEEDED(hr));
 
 	pInstance->bWasapiIsPlaying = false;
+	
 
 	// Wait Output to be ready to a new write
 	bResult = SetEvent(pInstance->hSeekEvent);
 
 	if(!bResult)
-		return WA_ERROR_OUTPUTNOTREADY;
+		return WA_ERROR_OUTPUTTHREADNOTREADY;
 
 	// Wait Until Write Thread is Ready or a timeout occour
 	dwResult = WaitForSingleObject(pInstance->hSyncEvent, WA_WASAPI_MAX_WAIT_TIME_MS);
 
 	// Fail to Seek
 	if (dwResult != WAIT_OBJECT_0)
-		return WA_ERROR_OUTPUTNOTREADY;	
+		return WA_ERROR_OUTPUTTHREADNOTREADY;
 
 
 
@@ -807,25 +868,41 @@ uint32_t WA_Wasapi_Seek(WA_Output* This, uint64_t uNewPositionMs)
 	LeaveCriticalSection(&pInstance->CriticalSection);
 
 	if (uResult != WA_OK)
+	{
+		WA_Wasapi_ReleaseWriteThread(This, true);
 		return WA_ERROR_STREAMNOTSEEKABLE;
+	}
+		
 
 	// Fill device buffer with PCM data
 	uResult = WA_Wasapi_FeedOutput(This);
 
 	if ((uResult != WA_WASAPI_OK) && (uResult != WA_WASAPI_BUFFERUNDERRUN))
+	{
+		WA_Wasapi_ReleaseWriteThread(This, true);
 		return WA_ERROR_OUTPUTNOTREADY;
+	}
 
 
 	hr = IAudioClient_Start(pInstance->pAudioClient);
 
 	if FAILED(hr)
+	{
+		WA_Wasapi_ReleaseWriteThread(This, true);
 		return WA_ERROR_OUTPUTNOTREADY;
+	}
 
 	pInstance->bWasapiIsPlaying = true;
 		
 	return WA_OK;
 
 }
+
+/// <summary>
+/// Get current position 
+/// </summary>
+/// <param name="uPositionMs">Pointer to a uint64_t var</param>
+/// <returns>WA_OK or an error code</returns>
 uint32_t WA_Wasapi_Get_Position(WA_Output* This, uint64_t* uPositionMs)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -839,6 +916,10 @@ uint32_t WA_Wasapi_Get_Position(WA_Output* This, uint64_t* uPositionMs)
 
 	pIn = This->pIn;
 
+	// Position in a stream can only be obtained if it is seekable 
+	if (!pIn->WA_Input_IsStreamSeekable(pIn))
+		return WA_ERROR_STREAMNOTSEEKABLE;
+
 	EnterCriticalSection(&pInstance->CriticalSection);
 	(*uPositionMs) = pIn->WA_Input_Position(pIn) - pInstance->uCurrentLatencyMs;
 	LeaveCriticalSection(&pInstance->CriticalSection);
@@ -846,6 +927,11 @@ uint32_t WA_Wasapi_Get_Position(WA_Output* This, uint64_t* uPositionMs)
 	return WA_OK;
 }
 
+/// <summary>
+/// Set current stream volume (Min=0 | Max=255)
+/// </summary>
+/// <param name="uNewVolume">uint8_t Value</param>
+/// <returns>WA_OK on success</returns>
 uint32_t WA_Wasapi_Set_Volume(WA_Output* This, uint8_t uNewVolume)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -863,6 +949,13 @@ uint32_t WA_Wasapi_Set_Volume(WA_Output* This, uint8_t uNewVolume)
 
 	return SUCCEEDED(hr) ? WA_OK : WA_ERROR_FAIL;
 }
+
+
+/// <summary>
+/// Get Current Stream Volume (Min=0 | Max=255)
+/// </summary>
+/// <param name="puVolume">Pointer to a uint8_t var</param>
+/// <returns>WA_OK on success</returns>
 uint32_t WA_Wasapi_Get_Volume(WA_Output* This, uint8_t* puVolume)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -881,6 +974,14 @@ uint32_t WA_Wasapi_Get_Volume(WA_Output* This, uint8_t* puVolume)
 	return SUCCEEDED(hr) ? WA_OK : WA_ERROR_FAIL;
 }
 
+/// <summary>
+/// Get a copy of the currently playing data on the playback device.
+/// The requested size must not exceed the latency of the output 
+/// buffer, otherwise the function failsand returns an error code
+/// </summary>
+/// <param name="pBuffer">Pointer to an allocated byte buffer</param>
+/// <param name="uBufferLen">Length of pBuffer</param>
+/// <returns>WA_OK on success otherwise an error code</returns>
 uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBufferLen)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
@@ -1071,18 +1172,33 @@ static uint32_t WA_Wasapi_FeedOutput(WA_Output* This)
 /// <summary>
 /// Handle End of Stream. Stop Playing and Notify Main Window
 /// </summary>
-static void WA_Wasapi_Handle_EndOfStream(WA_Output* This)
+static void WA_Wasapi_Handle_EndOfStream(WA_Output* This, DWORD dwSleepTime)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
+	HRESULT hr;
+
 
 	EnterCriticalSection(&pInstance->CriticalSection);
 
-	IAudioClient_Stop(pInstance->pAudioClient);
-	pInstance->bWasapiIsPlaying = false;
-	pInstance->bEndOfStreamHasStoppedPlayback = true;
+	// Prevent multiple calls if end of stream is already in progress
+	if (!pInstance->bPendingStreamSwitch)
+	{
+		// Wait before stop (es. Waiting for the playing buffer to be empty)
+		if (dwSleepTime > 0)
+			Sleep(dwSleepTime);
 
-	// Notify Main window to Stop and Close Output
-	PostMessage(This->Header.hMainWindow, WM_WA_MSG, MSG_NOTIFYENDOFSTREAM, 0);	
+		hr = IAudioClient_Stop(pInstance->pAudioClient);
+
+		_ASSERT(SUCCEEDED(hr));
+
+		pInstance->bWasapiIsPlaying = false;
+		pInstance->bEndOfStreamHasStoppedPlayback = true;
+		pInstance->bPendingStreamSwitch = true;
+
+		// Notify Main window to Stop and Close Output (Post and leave)
+		PostMessage(This->Header.hMainWindow, WM_WA_MSG, MSG_NOTIFYENDOFSTREAM, 0);
+	}
+	
 
 	LeaveCriticalSection(&pInstance->CriticalSection);
 
@@ -1113,18 +1229,17 @@ static bool WA_Wasapi_Handle_WriteEvent(WA_Output* This)
 	switch (uResult)
 	{
 	case WA_WASAPI_ENDOFFILE:
+
 		// Wait Until Buffer is Empty
-		//TODO: Testa questa funzione
 		uWaitTime = pInstance->uCurrentLatencyMs - (WA_Wasapi_GetByteCanWrite(This) / pInstance->StreamWfx.Format.nAvgBytesPerSec);
 		uWaitTime = min(uWaitTime, pInstance->uCurrentLatencyMs);
 
-		Sleep(uWaitTime);
-		WA_Wasapi_Handle_EndOfStream(This);
+		WA_Wasapi_Handle_EndOfStream(This, uWaitTime);
 		return true;
 	case WA_WASAPI_INPUTERROR:
 	case WA_WASAPI_MALLOCERROR:
 	case WA_WASAPI_DEVICEWRITEERROR:
-		WA_Wasapi_Handle_EndOfStream(This);
+		WA_Wasapi_Handle_EndOfStream(This, 0);
 		return false;
 	case WA_WASAPI_BUFFERUNDERRUN:
 		// TODO: Handle Buffer Underrun
@@ -1141,7 +1256,7 @@ static bool WA_Wasapi_Handle_WriteEvent(WA_Output* This)
 
 static void WA_Wasapi_Handle_WaitError(WA_Output* This)
 {	
-	WA_Wasapi_Handle_EndOfStream(This);
+	WA_Wasapi_Handle_EndOfStream(This, 0);
 	_RPTW1(_CRT_WARN, L"Wasapi error code: %d \n", GetLastError());
 }
 

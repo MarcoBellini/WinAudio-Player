@@ -957,7 +957,7 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
     );
 
     // Set ListView style
-    ListView_SetExtendedListViewStyle(hListbox, LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_DOUBLEBUFFER);
+    ListView_SetExtendedListViewStyle(hListbox, LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_DOUBLEBUFFER | LVS_EX_HEADERDRAGDROP | LVS_SHOWSELALWAYS);
 
     // Hide Focus Dots
     SendMessage(hListbox, WM_CHANGEUISTATE, (WPARAM)MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
@@ -1642,6 +1642,7 @@ DWORD MainWindow_HandleEndOfStreamMsg()
 {
 
     // TODO: Handle End of Stream
+    _RPTW0(_CRT_WARN, L"Main Window End Of Stream\n");
     WA_Playback_Engine_Stop();
     /*
     if (Globals.PlaybackStatus != MW_STOPPED)
