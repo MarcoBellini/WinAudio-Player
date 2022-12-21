@@ -391,6 +391,7 @@ uint32_t WA_Mpeg_GetMetadata(WA_Input* This, WA_AudioMetadata* pMetadata)
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
 
 	//TODO: Implement ID3v1 and ID3v2 Tags
+	//TODO: https://taglib.org/
 
 	return WA_ERROR_FAIL;
 }

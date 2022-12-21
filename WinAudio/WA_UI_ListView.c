@@ -3,6 +3,10 @@
 #include "WA_UI_ColorPolicy.h"
 #include "WA_UI_ListView.h"
 
+// Process Custom Draw (Recived in a form of WM_NOTIFY)
+LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd);
+
+
 LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
@@ -79,4 +83,19 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
     default:
         return CDRF_DODEFAULT;
     }
+}
+
+// LRESULT WA_UI_Listview_OnNotify(HWND hWnd, LPNMHDR lpHdr)
+LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    LPNMHDR lpHdr = (LPNMHDR)lParam;
+
+    switch (lpHdr->code)
+    {
+    case NM_CUSTOMDRAW:
+        return WA_UI_Listview_CustomDraw(lpHdr->hwndFrom, (LPNMLVCUSTOMDRAW)lpHdr);
+    default:
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    }
+
 }

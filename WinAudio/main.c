@@ -352,7 +352,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		MainWindow_DestroyUI();          
 
         // Close Message Loop
-		PostQuitMessage(0);
+		PostQuitMessage(EXIT_SUCCESS);
 
 		return 0;
 
@@ -367,7 +367,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
-
 
 		// Fill Background with window color
 		FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
@@ -402,57 +401,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         // Split for Control ID
         switch (lpHdr->idFrom)
         {
-        case MW_ID_LISTVIEW:
-        {
-            LPNMLVCUSTOMDRAW  lplvcd = (LPNMLVCUSTOMDRAW)lParam;
-
-            switch (lplvcd->nmcd.hdr.code)
-            {
-            // Draw a custom Row background of ListView
-            case NM_CUSTOMDRAW:
-                return WA_UI_Listview_CustomDraw(lpHdr->hwndFrom, lplvcd);
-            case NM_DBLCLK:
-            {
-                LPNMITEMACTIVATE lpnmitem = (LPNMITEMACTIVATE)lParam;
-                wchar_t wsFolder[MAX_PATH];
-                wchar_t wsFileName[MAX_PATH];
-                wchar_t wsFilePath[MAX_PATH];
-
-                // Check if we have a valid Item index
-                if (lpnmitem->iItem > -1)
-                {
-
-                    // Get File Coordinates (File Name + Folder)
-                    ListView_GetItemText(lpnmitem->hdr.hwndFrom,
-                        lpnmitem->iItem, 1, wsFileName, MAX_PATH);
-
-                    ListView_GetItemText(lpnmitem->hdr.hwndFrom,
-                        lpnmitem->iItem, 2, wsFolder, MAX_PATH);
-
-                    // Make a File Path and try to open it
-                    if (swprintf_s(wsFilePath, MAX_PATH, L"%s\\%s\0", wsFolder, wsFileName))
-                    {
-                        if (MainWindow_Open(wsFilePath))
-                        {
-                            MainWindow_Play();  
-                            MainWindow_ListView_SetPlayIndex(Globals2.hListView, lpnmitem->iItem);
-                        }
-                        else
-                        {
-                            MessageBox(Globals2.hMainWindow, L"Unable to Open this file", L"Open File Error", MB_ICONERROR | MB_OK);
-                        }                       
-
-                }
-
-                }               
-
-                
-                break;
-            }
-               
-            }
-        }
-            break;
+        case MW_ID_LISTVIEW:      
+            return WA_UI_Listview_OnNotify(hwnd, uMsg, wParam, lParam);
         case MW_ID_REBAR:
         {
             switch (lpHdr->code)
