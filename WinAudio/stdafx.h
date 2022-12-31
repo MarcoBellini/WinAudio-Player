@@ -14,6 +14,7 @@
 // Add visual styles (Only VC Compiler)
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='X86' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
+#define COBJMACROS // Use C Macros
 
 #include <Windows.h>
 #include <Windowsx.h>
@@ -27,7 +28,9 @@
 #include <uxtheme.h>
 #include <math.h>
 #include <dwmapi.h>
+#include <Shlobj.h>
 #include "d2d1_586.h"
+
 
 
 

@@ -7,6 +7,7 @@
 #include "WA_OUT_Output.h"
 #include "WA_UI_ListView.h"
 #include "WA_GEN_Playlist.h"
+#include "WA_GEN_INI.h"
 #include "Globals2.h"
 #define TAGLIB_STATIC
 #include "..\Taglibx86\bindings\tag_c.h"
@@ -152,7 +153,7 @@ static inline void WA_UI_Listview_RebuildOrder(HWND hListview)
     {
         if (Columns[i].bIsVisible)
         {
-            Columns[i].dwColumnIndex = nOrderArray[dwIndex];
+            Columns[i].dwColumnOrder = nOrderArray[dwIndex];
             dwIndex++;
         }
     }
@@ -762,9 +763,94 @@ VOID WA_UI_Listview_Destroy(HWND hListview)
 VOID WA_UI_Listview_SaveSettings(HWND hListview)
 {
 
+    WA_Ini *pIni;
+    wchar_t pBuffer[30];
+
+    pIni = WA_Ini_New();
+
+    // Skip Save Settings on Fail(Fatal Error)
+    if (!pIni)
+        return;
+
+    // Reload View
+    WA_UI_Listview_RebuildIdexes();
+    WA_UI_Listview_RebuildOrder(hListview);
+    WA_UI_Listview_RebuildWitdh(hListview);
+
+    for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        swprintf_s(pBuffer, 30, L"Listview_Column_%u\0", i);
+        WA_Ini_Write_UInt32(pIni, Columns[i].dwColumn, pBuffer, L"ColumnID");
+        WA_Ini_Write_UInt32(pIni, Columns[i].dwColumnOrder, pBuffer, L"ColumnOrder");
+        WA_Ini_Write_UInt32(pIni, Columns[i].dwColumnWidth, pBuffer, L"ColumnWidth");
+        WA_Ini_Write_Bool(pIni, Columns[i].bIsVisible, pBuffer, L"ColumnVisible");
+    }
+
+    WA_Ini_Delete(pIni);
 }
 
 VOID WA_UI_Listview_LoadSettings(HWND hListview)
 {
+    WA_Ini* pIni;
+    wchar_t pBuffer[30];
+    WA_Listview_Column TempColumns[WA_LISTVIEW_COLUMNS_COUNT];
+    int nOrderArray[WA_LISTVIEW_COLUMNS_COUNT];
 
+    pIni = WA_Ini_New();
+
+    // Skip Load Settings on Fail(Fatal Error)
+    if (!pIni)
+        return;
+
+    // Load Settings
+    for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        swprintf_s(pBuffer, 30, L"Listview_Column_%u\0", i);
+
+        TempColumns[i].bIsVisible = WA_Ini_Read_Bool(pIni, true, pBuffer, L"ColumnVisible");
+        TempColumns[i].dwColumn = WA_Ini_Read_UInt32(pIni, 0, pBuffer, L"ColumnID");
+        TempColumns[i].dwColumnOrder = WA_Ini_Read_UInt32(pIni, UINT32_MAX, pBuffer, L"ColumnOrder");
+        TempColumns[i].dwColumnWidth = WA_Ini_Read_UInt32(pIni, 0, pBuffer, L"ColumnWidth");
+    }
+
+    // Set Saved Witdh
+    for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if ((TempColumns[i].dwColumnWidth > 0) && 
+            (TempColumns[i].dwColumnWidth != Columns[i].dwColumnWidth))
+        {
+            Columns[i].dwColumnWidth = TempColumns[i].dwColumnWidth;
+            ListView_SetColumnWidth(hListview, i, Columns[i].dwColumnWidth);
+        }
+
+    }
+
+    // Show Only Visible Columns
+    for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (TempColumns[i].bIsVisible != Columns[i].bIsVisible)
+        {
+            WA_UI_Listview_HideColumn(hListview, Columns[i].dwColumn);
+        }
+    }
+
+    // Reorder Columns
+    DWORD dwIndex = 0;
+    for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if ((Columns[i].bIsVisible) && (TempColumns[i].dwColumnOrder != UINT32_MAX))
+        {
+            nOrderArray[dwIndex] = TempColumns[i].dwColumnOrder;
+            Columns[i].dwColumnOrder = TempColumns[i].dwColumnOrder;
+            dwIndex++;
+        }
+    }
+
+    if (dwIndex > 0)
+    {
+        ListView_SetColumnOrderArray(hListview, dwIndex, nOrderArray);
+    }
+
+
+    WA_Ini_Delete(pIni);
 }

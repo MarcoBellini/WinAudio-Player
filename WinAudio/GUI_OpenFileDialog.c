@@ -1,9 +1,7 @@
 
 #include "stdafx.h"
 
-#define COBJMACROS // Use Macros
 
-#include <shobjidl.h> 
 #include "GUI_OpenFileDialog.h"
 
 

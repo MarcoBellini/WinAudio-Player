@@ -16,6 +16,7 @@
 #include "WA_GEN_PluginLoader.h"
 #include "WA_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
+#include "WA_GEN_INI.h"
 #include "Globals2.h"
 
 
@@ -898,6 +899,9 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
     SetWindowTheme(hHeader, L"ItemsView", NULL); // DarkMode
     SetWindowTheme(hListview, L"ItemsView", NULL); // DarkMode
 
+    // Load Listview Settings
+    WA_UI_Listview_LoadSettings(hListview);
+
     return hListview;
 
 }
@@ -942,6 +946,7 @@ void MainWindow_ListView_InsertRow(HWND hWnd, wchar_t* col1, wchar_t* col2)
 /// </summary>
 void MainWindow_DestroyListView()
 {
+    WA_UI_Listview_SaveSettings(Globals2.hListView);
     WA_UI_Listview_Destroy(Globals2.hListView);
     RemoveWindowSubclass(Globals2.hListView, WA_UI_Listview_Proc, MW_ID_LISTVIEW);
 }
