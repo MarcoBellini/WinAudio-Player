@@ -1,10 +1,501 @@
 #include "stdafx.h"
 #include "WA_UI_DarkMode.h"
 #include "WA_UI_ColorPolicy.h"
+#include "WA_GEN_Types.h"
+#include "WA_IN_Input.h"
+#include "WA_DSP_Effect.h"
+#include "WA_OUT_Output.h"
 #include "WA_UI_ListView.h"
+#include "WA_GEN_Playlist.h"
+#include "Globals2.h"
+#define TAGLIB_STATIC
+#include "..\Taglibx86\bindings\tag_c.h"
+
+// String of Columns
+static wchar_t WA_Listview_Column_Status[] = L"Status\0";
+static wchar_t WA_Listview_Column_Index[] = L"Index\0";
+static wchar_t WA_Listview_Column_TileArtist[] = L"Title / Artist\0";
+static wchar_t WA_Listview_Column_Album[] = L"Album\0";
+static wchar_t WA_Listview_Column_Duration[] = L"Duration\0";
+static wchar_t WA_Listview_Column_Genre[] = L"Genre\0";
+static wchar_t WA_Listview_Column_Size[] = L"File Size(MB)\0";
+static wchar_t WA_Listview_Column_Path[] = L"File Path\0";
 
 // Process Custom Draw (Recived in a form of WM_NOTIFY)
 LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd);
+
+WA_Listview_Column Columns[WA_LISTVIEW_COLUMNS_COUNT];
+
+
+static void WA_UI_Listview_AddColumn(HWND hListview, wchar_t* pwColumnText, int32_t nColumnWidth, int32_t nColumnIndex, int32_t nFlags)
+{
+    LV_COLUMN Column;
+    int32_t nReturn;
+
+    Column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+    Column.mask |= ((nFlags > 0) ? LVCF_FMT : 0);
+
+    Column.cx = nColumnWidth;
+    Column.pszText = pwColumnText;
+    Column.cchTextMax = wcslen(Column.pszText);
+    Column.iSubItem = nColumnIndex + 1;
+    Column.fmt = nFlags;
+
+    nReturn = ListView_InsertColumn(hListview, nColumnIndex, &Column);
+    _ASSERT(nReturn == nColumnIndex);
+}
+
+static void WA_UI_Listview_RemoveColumn(HWND hListview, int32_t nColumnIndex)
+{
+    ListView_DeleteColumn(hListview, nColumnIndex);
+}
+
+static inline WA_Listview_Column* WA_UI_Listview_GetColumnFromID(DWORD dwColumnID)
+{
+    WA_Listview_Column* pColumn = NULL;
+    bool bFound = false;
+    DWORD dwIndex = 0U;
+
+    while ((!bFound) && (dwIndex < WA_LISTVIEW_COLUMNS_COUNT))
+    {
+        if (Columns[dwIndex].dwColumn == dwColumnID)
+        {
+            pColumn = &Columns[dwIndex];
+            bFound = true;
+        }
+
+        dwIndex++;
+    }
+
+    return pColumn;
+}
+
+static inline wchar_t* WA_Listview_GetStringFromID(DWORD dwColumnID)
+{
+    switch (dwColumnID)
+    {
+    case WA_LISTVIEW_COLUMN_STATUS:
+        return WA_Listview_Column_Status;
+    case WA_LISTVIEW_COLUMN_INDEX:
+        return WA_Listview_Column_Index;
+    case WA_LISTVIEW_COLUMN_TITLE_ARTIST:
+        return WA_Listview_Column_TileArtist;
+    case WA_LISTVIEW_COLUMN_ALBUM:
+        return WA_Listview_Column_Album;
+    case WA_LISTVIEW_COLUMN_DURATION:
+        return WA_Listview_Column_Duration;
+    case WA_LISTVIEW_COLUMN_GENRE:
+        return WA_Listview_Column_Genre;
+    case WA_LISTVIEW_COLUMN_SIZE:
+        return WA_Listview_Column_Size;
+    case WA_LISTVIEW_COLUMN_PATH:
+        return WA_Listview_Column_Path;
+    }
+
+    return NULL;
+}
+
+static inline DWORD WA_UI_Listview_GetIDFromIndex(DWORD dwSubitemIndex)
+{
+    DWORD dwIndex = 0U;
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)
+        {
+            if (Columns[i].dwColumnIndex == dwSubitemIndex)
+                return Columns[i].dwColumn;
+
+            dwIndex++;
+        }
+    }
+
+    return 0U;
+}
+
+static inline void WA_UI_Listview_RebuildIdexes()
+{
+    DWORD dwIndex = 0U;
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)
+        {
+            Columns[i].dwColumnIndex = dwIndex;
+            dwIndex++;
+        }
+    }
+}
+
+static inline DWORD WA_UI_Listview_CountVisibleColumns()
+{
+    DWORD dwCount = 0U;
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)           
+            dwCount++;
+    }
+
+    return dwCount;
+}
+
+static inline void WA_UI_Listview_RebuildOrder(HWND hListview)
+{
+    DWORD dwIndex = 0U;
+    DWORD dwCount = WA_UI_Listview_CountVisibleColumns();
+    int32_t nOrderArray[WA_LISTVIEW_COLUMNS_COUNT];
+
+    ListView_GetColumnOrderArray(hListview, dwCount, nOrderArray);
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)
+        {
+            Columns[i].dwColumnIndex = nOrderArray[dwIndex];
+            dwIndex++;
+        }
+    }
+}
+
+static inline void WA_UI_Listview_RebuildWitdh(HWND hListview)
+{
+    DWORD dwIndex = 0U;
+    DWORD dwCount = WA_UI_Listview_CountVisibleColumns();
+    DWORD dwWidth;
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)
+        {
+            dwWidth = ListView_GetColumnWidth(hListview, dwIndex);
+
+            if(dwWidth > 0)
+                Columns[i].dwColumnWidth = dwWidth;
+
+            dwIndex++;
+        }
+    }
+}
+
+static inline DWORD WA_UI_Listview_FindNearLeftIndex(DWORD dwDesideredIndex)
+{
+    DWORD dwIndex = 0U;
+
+    if (dwDesideredIndex == 0U)
+        return 0U;
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)
+        {
+    
+            if (dwDesideredIndex < Columns[i].dwColumnDefaultIndex)
+                return dwIndex;
+
+            dwIndex++;
+        }
+    }
+
+    return dwIndex;
+}
+
+static void WA_UI_Listview_HideColumn(HWND hListview, DWORD dwColumnID)
+{
+    WA_Listview_Column* pColumn;
+    bool bFound = false;
+    DWORD dwIndex = 0U;
+
+    pColumn = WA_UI_Listview_GetColumnFromID(dwColumnID);
+
+    // Do Nothing if Column is Already hidden
+    if (!pColumn->bIsVisible)
+        return;
+
+    //Store Witdh info before remove the column
+    WA_UI_Listview_RebuildWitdh(hListview);
+
+    WA_UI_Listview_RemoveColumn(hListview, pColumn->dwColumnIndex);
+    pColumn->bIsVisible = false;
+
+    WA_UI_Listview_RebuildIdexes();
+    WA_UI_Listview_RebuildOrder(hListview);
+    
+}
+
+static void WA_UI_Listview_ShowColumn(HWND hListview, DWORD dwColumnID)
+{
+    WA_Listview_Column* pColumn;
+    DWORD dwMapIndex;
+
+    pColumn = WA_UI_Listview_GetColumnFromID(dwColumnID);
+
+    // Do Nothing if Column is Already hidden
+    if (pColumn->bIsVisible)
+        return;
+
+    dwMapIndex = WA_UI_Listview_FindNearLeftIndex(pColumn->dwColumnDefaultIndex);
+
+    WA_UI_Listview_AddColumn(hListview,
+        WA_Listview_GetStringFromID(pColumn->dwColumn),
+        pColumn->dwColumnWidth,
+        dwMapIndex,
+        pColumn->uFlags);
+
+    pColumn->bIsVisible = true;
+
+    WA_UI_Listview_RebuildIdexes();
+    WA_UI_Listview_RebuildOrder(hListview);
+    WA_UI_Listview_RebuildWitdh(hListview);
+}
+
+
+
+
+static void WA_UI_Listview_ShowHeaderContextMenu(HWND hHeader, int32_t x, int32_t y)
+{
+    HMENU hMenu = CreatePopupMenu();
+    WA_Listview_Column* pColumn;
+    DWORD dwMenuID;
+    
+    if (!hMenu)
+        return;
+
+    // Handle SHIFT+F10 command to show context menu
+    if ((x < 0) || (y < 0))
+    {
+        RECT HeaderRect;
+
+        GetWindowRect(hHeader, &HeaderRect);
+
+        x = HeaderRect.left;
+        y = HeaderRect.top;
+    }
+
+    for (uint32_t i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        if (Columns[i].bIsVisible)
+        {
+            AppendMenuW(hMenu,
+                MF_CHECKED | MF_STRING, 
+                Columns[i].dwColumn, 
+                WA_Listview_GetStringFromID(Columns[i].dwColumn));
+        }
+        else
+        {
+            AppendMenuW(hMenu,
+                MF_UNCHECKED | MF_STRING,
+                Columns[i].dwColumn,
+                WA_Listview_GetStringFromID(Columns[i].dwColumn));
+        }
+
+    }
+
+    dwMenuID = TrackPopupMenu(hMenu, 
+        TPM_NONOTIFY | TPM_RETURNCMD, 
+        x, y, 0, 
+        hHeader, NULL);
+
+
+    if (dwMenuID > 0)
+    {
+        pColumn = WA_UI_Listview_GetColumnFromID(dwMenuID);
+
+        if (pColumn->bIsVisible)
+            WA_UI_Listview_HideColumn(Globals2.hListView, pColumn->dwColumn);
+        else
+            WA_UI_Listview_ShowColumn(Globals2.hListView, pColumn->dwColumn);
+    }
+
+    DestroyMenu(hMenu);
+}
+
+
+static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
+{    
+    TagLib_File* pTaglib;
+    TagLib_Tag* pTag;
+    const TagLib_AudioProperties* pAudioProp;
+    HANDLE hFile;
+
+    // Read File size
+    hFile = CreateFile(pMetadata->lpwFilePath,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+
+    if (hFile != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER liSize;
+
+        if (GetFileSizeEx(hFile, &liSize))
+            pMetadata->dwFileSizeKB = (DWORD)(liSize.QuadPart / 1000U); // Skip file > 2GB
+
+        CloseHandle(hFile);       
+    }
+    else
+    {
+        pMetadata->dwFileSizeKB = 0U;
+    }
+
+    pTaglib = taglib_file_new(pMetadata->lpwFilePath);
+   
+
+    if (!pTaglib)
+    {
+        pMetadata->dwFileSizeKB = 0;
+        pMetadata->uFileDurationMs = 0;
+        wcscpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, L"\0");
+        wcscpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, L"\0");
+        wcscpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, L"\0");
+        wcscpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, L"\0");
+
+
+        return true;
+    }
+
+    pTag = taglib_file_tag(pTaglib);
+    pAudioProp = taglib_file_audioproperties(pTaglib);
+
+    pMetadata->uFileDurationMs = (uint64_t) taglib_audioproperties_length(pAudioProp) * 1000U;
+
+    wcsncpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, taglib_tag_title(pTag), WA_METADATA_MAX_LEN);
+    wcsncpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, taglib_tag_artist(pTag), WA_METADATA_MAX_LEN);
+    wcsncpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, taglib_tag_album(pTag), WA_METADATA_MAX_LEN);
+    wcsncpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, taglib_tag_genre(pTag), WA_METADATA_MAX_LEN);
+
+    // Use File Name if Tags are empty
+    if ((wcslen(pMetadata->Metadata.Title) == 0) && (wcslen(pMetadata->Metadata.Artist) == 0))
+    {
+        wcsncpy_s(pMetadata->Metadata.Artist,
+            WA_METADATA_MAX_LEN, 
+            PathFindFileName(pMetadata->lpwFilePath),
+            WA_METADATA_MAX_LEN);
+
+        PathRemoveExtension(pMetadata->Metadata.Artist);
+    }
+
+    taglib_tag_free_strings();
+    taglib_file_free(pTaglib);
+    
+    return true;
+}
+
+static void WA_UI_Listview_UpdateCallback(void)
+{
+    DWORD dwCount;
+
+    dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+
+    ListView_SetItemCount(Globals2.hListView, dwCount);
+}
+
+static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
+{
+    WA_Playlist_Metadata* pMetadata;
+    DWORD dwColumnID;
+
+    pMetadata = WA_Playlist_Get_Item(Globals2.pPlaylist, pInfo->item.iItem);
+
+    _ASSERT(pMetadata);
+
+    dwColumnID = WA_UI_Listview_GetIDFromIndex(pInfo->item.iSubItem);    
+
+    if (pInfo->item.mask & LVIF_TEXT)
+    {
+        switch (dwColumnID)
+        {
+        case WA_LISTVIEW_COLUMN_STATUS:
+            if(pMetadata->bFileSelected)
+                wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, L"->\0");
+            else
+                wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, L"\0");
+            break;
+        case WA_LISTVIEW_COLUMN_INDEX:
+        {
+            wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
+            swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%d\0", pInfo->item.iItem);
+            
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            break;
+        }
+        case WA_LISTVIEW_COLUMN_TITLE_ARTIST:
+        {
+            wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
+
+            if(wcslen(pMetadata->Metadata.Title) != 0)
+                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s - %s\0", pMetadata->Metadata.Artist, pMetadata->Metadata.Title);
+            else
+                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Artist);
+
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            break;
+        }
+        case WA_LISTVIEW_COLUMN_ALBUM:
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, pMetadata->Metadata.Album);
+            break;
+        case WA_LISTVIEW_COLUMN_DURATION:
+        {
+            wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
+            uint32_t uHour, uMinute, uSeconds;
+
+            uSeconds = (uint32_t)(pMetadata->uFileDurationMs / 1000U);
+            uMinute = uSeconds / 60;
+            uHour = uMinute / 60;
+
+            uSeconds = uSeconds % 60;
+            uMinute = uMinute % 60;
+
+            if (uHour > 0)
+            {
+                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02d:%2d:%2d\0", uHour, uMinute, uSeconds);
+            }
+            else
+            {
+                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02d:%2d\0", uMinute, uSeconds);
+            }      
+
+
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            break;
+        }
+
+        case WA_LISTVIEW_COLUMN_GENRE:
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, pMetadata->Metadata.Genre);
+            break;
+        case WA_LISTVIEW_COLUMN_SIZE:
+        {  
+            wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
+            DWORD dwSizeMB, dwSizeKB;
+
+            dwSizeKB = (pMetadata->dwFileSizeKB) % 1000U;
+            dwSizeMB = (pMetadata->dwFileSizeKB / 1000U) % 1000U;      
+
+            swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%u,%u MB\0", dwSizeMB, dwSizeKB);
+
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            break;
+        }
+
+        case WA_LISTVIEW_COLUMN_PATH:
+            wcscpy_s(pInfo->item.pszText, MAX_PATH, pMetadata->lpwFilePath);
+            break;
+        default:
+            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, L"\0");
+            break;
+
+        }
+    }
+}
+
+
+static void WA_Listview_PrepCache(NMLVCACHEHINT *pCache)
+{   
+    WA_Playlist_UpdateCache(Globals2.pPlaylist, (DWORD) pCache->iFrom,(DWORD) pCache->iTo);
+}
 
 
 LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
@@ -57,6 +548,24 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
         break;
     }
+    case WM_CONTEXTMENU:
+    {
+        HWND hHeader = ListView_GetHeader(hWnd);
+
+
+        if (hHeader == (HWND)wParam)
+        {
+            WA_UI_Listview_ShowHeaderContextMenu((HWND)wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+            return TRUE;
+        }
+        else
+        {        
+            
+            // TODO: Show Item Context menu
+
+  
+        }
+    }
     }
 
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -86,6 +595,7 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
 }
 
 // LRESULT WA_UI_Listview_OnNotify(HWND hWnd, LPNMHDR lpHdr)
+// TODO: See https://www.codeproject.com/Articles/1298/Rearrange-rows-in-a-ListView-control-by-drag-and-d
 LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR lpHdr = (LPNMHDR)lParam;
@@ -94,8 +604,167 @@ LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     {
     case NM_CUSTOMDRAW:
         return WA_UI_Listview_CustomDraw(lpHdr->hwndFrom, (LPNMLVCUSTOMDRAW)lpHdr);
+    case LVN_GETDISPINFO:
+        WA_Listview_GetItem((NMLVDISPINFO*)lParam);
+        break;
+    case LVN_ODCACHEHINT:
+        WA_Listview_PrepCache((LPNMLVCACHEHINT)lParam);
+        break;
+    case LVN_ODFINDITEM: 
+        // TODO: Implement Find Item
+        _RPTW0(_CRT_WARN, L"ODFINDITEM\n");
+        return -1;
     default:
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
+
+    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+
+}
+
+static void WA_UI_Listview_InitColumns(HWND hListview)
+{
+
+    Columns[0].dwColumn = WA_LISTVIEW_COLUMN_STATUS;
+    Columns[0].dwColumnWidth = 45;
+    Columns[0].bIsVisible = true;
+    Columns[0].dwColumnOrder = 0;
+    Columns[0].dwColumnIndex = 0;
+    Columns[0].dwColumnDefaultIndex = 0;
+    Columns[0].uFlags = LVCFMT_LEFT;
+
+    Columns[1].dwColumn = WA_LISTVIEW_COLUMN_INDEX;
+    Columns[1].dwColumnWidth = 45;
+    Columns[1].bIsVisible = true;
+    Columns[1].dwColumnOrder = 1;
+    Columns[1].dwColumnIndex = 1;
+    Columns[1].dwColumnDefaultIndex = 1;
+    Columns[1].uFlags = LVCFMT_RIGHT;
+
+    Columns[2].dwColumn = WA_LISTVIEW_COLUMN_TITLE_ARTIST;
+    Columns[2].dwColumnWidth = 200;
+    Columns[2].bIsVisible = true;
+    Columns[2].dwColumnOrder = 2;
+    Columns[2].dwColumnIndex = 2;
+    Columns[2].dwColumnDefaultIndex = 2;
+    Columns[2].uFlags = LVCFMT_LEFT;
+
+    Columns[3].dwColumn = WA_LISTVIEW_COLUMN_ALBUM;
+    Columns[3].dwColumnWidth = 100;
+    Columns[3].bIsVisible = true;
+    Columns[3].dwColumnOrder = 3;
+    Columns[3].dwColumnIndex = 3;
+    Columns[3].dwColumnDefaultIndex = 3;
+    Columns[3].uFlags = LVCFMT_LEFT;
+
+    Columns[4].dwColumn = WA_LISTVIEW_COLUMN_DURATION;
+    Columns[4].dwColumnWidth = 90;
+    Columns[4].bIsVisible = true;
+    Columns[4].dwColumnOrder = 4;
+    Columns[4].dwColumnIndex = 4;
+    Columns[4].dwColumnDefaultIndex = 4;
+    Columns[4].uFlags = LVCFMT_RIGHT;
+
+
+    Columns[5].dwColumn = WA_LISTVIEW_COLUMN_GENRE;
+    Columns[5].dwColumnWidth = 100;
+    Columns[5].bIsVisible = true;
+    Columns[5].dwColumnOrder = 5;
+    Columns[5].dwColumnIndex = 5;
+    Columns[5].dwColumnDefaultIndex = 5;
+    Columns[5].uFlags = LVCFMT_LEFT;
+
+    Columns[6].dwColumn = WA_LISTVIEW_COLUMN_SIZE;
+    Columns[6].dwColumnWidth = 90;
+    Columns[6].bIsVisible = true;
+    Columns[6].dwColumnOrder = 6;
+    Columns[6].dwColumnIndex = 6;
+    Columns[6].dwColumnDefaultIndex = 6;
+    Columns[6].uFlags = LVCFMT_RIGHT;
+
+    Columns[7].dwColumn = WA_LISTVIEW_COLUMN_PATH;
+    Columns[7].dwColumnWidth = 200;
+    Columns[7].bIsVisible = true;
+    Columns[7].dwColumnOrder = 7;
+    Columns[7].dwColumnIndex = 7;
+    Columns[7].dwColumnDefaultIndex = 7;
+    Columns[7].uFlags = LVCFMT_LEFT;
+
+    for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
+    {
+        WA_UI_Listview_AddColumn(hListview,
+            WA_Listview_GetStringFromID(Columns[i].dwColumn),
+            Columns[i].dwColumnWidth,
+            Columns[i].dwColumnIndex,
+            Columns[i].uFlags);
+    }
+
+}
+
+HWND WA_UI_Listview_Create(HWND hOwner, PRECT pRect)
+{
+    HWND hListview;
+    DWORD dwStyle;
+
+
+    dwStyle = WS_CHILD | WS_VISIBLE |
+        WS_VSCROLL | WS_HSCROLL |
+        LVS_REPORT | LVS_SHOWSELALWAYS |
+        LVS_SINGLESEL | LVS_OWNERDATA;
+
+    hListview = CreateWindowEx(
+        0,										//	dwExStyle
+        WC_LISTVIEW, 							//	lpClassName
+        L"WA_Playlist",							//	lpWindowName
+        dwStyle,	                            //	dwStyle
+        pRect->left,							//	x
+        pRect->top,                             //	y
+        pRect->right,							//	nWidth
+        pRect->bottom,							//	nHeight
+        hOwner,									//	hWndParent
+        (HMENU)MW_ID_LISTVIEW,					//	hMenu
+        GetModuleHandle(NULL),					//	hInstance
+        NULL								    //	lpParam
+    );
+
+
+    // Set ListView style
+    ListView_SetExtendedListViewStyle(hListview, LVS_EX_FULLROWSELECT |
+        LVS_EX_INFOTIP | 
+        LVS_EX_DOUBLEBUFFER | 
+        LVS_EX_HEADERDRAGDROP);
+
+    // Hide Focus Dots
+    SendMessage(hListview, WM_CHANGEUISTATE, (WPARAM)MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
+
+    // Set ListView Background color(TODO: Manage Light Colors)
+    ListView_SetBkColor(hListview, ColorPolicy_Get_Background_Color());
+    ListView_SetTextColor(hListview, ColorPolicy_Get_TextOnBackground_Color());
+
+    // Create new Empty Playlist
+    Globals2.pPlaylist = WA_Playlist_New(WA_PLAYLIST_INITIAL_MAX_SIZE,
+        WA_UI_Listview_ReadCallback,
+        WA_UI_Listview_UpdateCallback);
+     
+
+    // Create Columns
+    WA_UI_Listview_InitColumns(hListview);
+
+    return hListview;
+}
+
+VOID WA_UI_Listview_Destroy(HWND hListview)
+{
+    if (Globals2.pPlaylist)
+        WA_Playlist_Delete(Globals2.pPlaylist);
+}
+
+VOID WA_UI_Listview_SaveSettings(HWND hListview)
+{
+
+}
+
+VOID WA_UI_Listview_LoadSettings(HWND hListview)
+{
 
 }

@@ -75,6 +75,8 @@ struct
 	WA_Input* pInput;	// Selected When a file is Processed and Open
 	WA_Output* pOutput; // Selected in Settings
 	WA_Effect* pEffect; // Selected in Settings	
+
+	WA_Playlist* pPlaylist; // Store Playlist Informations
 } Globals2;
 
 
@@ -88,5 +90,7 @@ struct
 	bool bEffectIsActive;
 
 } Settings2;
+
+
 
 #endif

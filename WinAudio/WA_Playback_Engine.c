@@ -9,6 +9,7 @@
 #include "WA_GEN_Messages.h"
 #include "WA_GEN_PluginLoader.h"
 #include "WA_Playback_Engine.h"
+#include "WA_GEN_Playlist.h"
 #include "Globals2.h"
 
 /// <summary>
@@ -291,7 +292,6 @@ bool WA_Playback_Engine_Get_Position(uint64_t *uCurrentPositionMs)
 bool WA_Playback_Engine_Get_Duration(uint64_t* uCurrentDurationMs)
 {
     WA_Input* pIn = NULL;
-    uint32_t uResult;
 
     if (!Globals2.bFileIsOpen)
         return false;

@@ -15,7 +15,7 @@
 #include "WA_GEN_Messages.h"
 #include "WA_GEN_PluginLoader.h"
 #include "WA_Playback_Engine.h"
-
+#include "WA_GEN_Playlist.h"
 #include "Globals2.h"
 
 
@@ -99,6 +99,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 {    
     HWND hFoundInstanceHandle = NULL;
     HANDLE hMutex = NULL;
+
+    // Perform Memroy Dumo on Exit
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
     // Before Create new application, find previous opened instance
     hMutex = CreateMutex(NULL, TRUE, WA_MUTEX_NAME);
@@ -235,7 +238,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     if(hMutex)
         ReleaseMutex(hMutex);
 
-    _CrtDumpMemoryLeaks();
 
     return EXIT_SUCCESS;
 }
@@ -865,12 +867,10 @@ void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t* pText)
 /// </summary>
 HWND MainWindow_CreateListView(HWND hOwnerHandle)
 {
-    HWND hListbox;
+    HWND hListview;
     HWND hHeader;
-    RECT WindowRect;
-    RECT RebarRect;
-    RECT ListRect;
-    RECT StatusRect;
+    RECT WindowRect,RebarRect, ListRect, StatusRect;
+
 
     // Get Window Size
     GetClientRect(hOwnerHandle, &WindowRect);
@@ -888,42 +888,17 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
     ListRect.right = WindowRect.right;
     ListRect.bottom = WindowRect.bottom - RebarRect.bottom - StatusRect.bottom;
 
-    hListbox = CreateWindowEx(
-        0,										//	dwExStyle
-        WC_LISTVIEW, 							//	lpClassName
-        L"Playlist",							//	lpWindowName
-        WS_CHILD | WS_VISIBLE |
-        WS_VSCROLL | WS_HSCROLL | 
-        LVS_REPORT | LVS_SHOWSELALWAYS |
-        LVS_SINGLESEL,	//	dwStyle
-        ListRect.left,										//	x
-        ListRect.top,                                       //	y
-        ListRect.right,										//	nWidth
-        ListRect.bottom,									//	nHeight
-        hOwnerHandle,										//	hWndParent
-        (HMENU) MW_ID_LISTVIEW ,							//	hMenu
-        GetModuleHandle(NULL),								//	hInstance
-        NULL												//	lpParam
-    );
 
-    // Set ListView style
-    ListView_SetExtendedListViewStyle(hListbox, LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_DOUBLEBUFFER | LVS_EX_HEADERDRAGDROP | LVS_SHOWSELALWAYS);
+    hListview = WA_UI_Listview_Create(hOwnerHandle, &ListRect);
 
-    // Hide Focus Dots
-    SendMessage(hListbox, WM_CHANGEUISTATE, (WPARAM)MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
+    SetWindowSubclass(hListview, WA_UI_Listview_Proc, MW_ID_LISTVIEW, 0);
 
-    // Set ListView Background color(TODO: Manage Light Colors)
-    ListView_SetBkColor(hListbox, ColorPolicy_Get_Background_Color());
-    ListView_SetTextColor(hListbox, ColorPolicy_Get_TextOnBackground_Color());
-
-    SetWindowSubclass(hListbox, WA_UI_Listview_Proc, MW_ID_LISTVIEW, 0);
-
-    hHeader = ListView_GetHeader(hListbox);
+    hHeader = ListView_GetHeader(hListview);
 
     SetWindowTheme(hHeader, L"ItemsView", NULL); // DarkMode
-    SetWindowTheme(hListbox, L"ItemsView", NULL); // DarkMode
+    SetWindowTheme(hListview, L"ItemsView", NULL); // DarkMode
 
-    return hListbox;
+    return hListview;
 
 }
 
@@ -932,6 +907,7 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
 /// </summary>
 void MainWindow_ListView_InsertRow(HWND hWnd, wchar_t* col1, wchar_t* col2)
 {
+    /*
     LV_ITEM		lvItem;
     int32_t nLastItem;
 
@@ -949,15 +925,16 @@ void MainWindow_ListView_InsertRow(HWND hWnd, wchar_t* col1, wchar_t* col2)
     ListView_SetItem(hWnd, &lvItem);
 
     lvItem.mask = LVIF_TEXT;
-    lvItem.iSubItem = 1;
+    lvItem.iSubItem = 3;
     lvItem.pszText = col1;
     lvItem.cchTextMax = wcslen(lvItem.pszText);
     ListView_SetItem(hWnd, &lvItem);
 
-    lvItem.iSubItem = 2;
+    lvItem.iSubItem = 5;
     lvItem.pszText = col2;
     lvItem.cchTextMax = wcslen(lvItem.pszText);
     ListView_SetItem(hWnd, &lvItem);
+    */
 }
 
 /// <summary>
@@ -965,23 +942,32 @@ void MainWindow_ListView_InsertRow(HWND hWnd, wchar_t* col1, wchar_t* col2)
 /// </summary>
 void MainWindow_DestroyListView()
 {
+    WA_UI_Listview_Destroy(Globals2.hListView);
     RemoveWindowSubclass(Globals2.hListView, WA_UI_Listview_Proc, MW_ID_LISTVIEW);
 }
+
+
 
 /// <summary>
 /// Add Column to ListView
 /// </summary>
 void MainWindow_ListView_AddColumn(HWND hListboxHandle, wchar_t *pColumnText, int32_t ColumnWidth, int32_t ColumnIndex)
 {
+    /*
     LV_COLUMN columns;
 
-    columns.mask = LVCF_TEXT | LVCF_WIDTH;
+    columns.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
     columns.cx = ColumnWidth;
     columns.pszText = pColumnText;
     columns.cchTextMax = wcslen(columns.pszText);
     columns.iSubItem = ColumnIndex;
 
+    
+
     ListView_InsertColumn(hListboxHandle, ColumnIndex, &columns);
+    */
+
+    
 }
 
 /// <summary>
@@ -989,7 +975,7 @@ void MainWindow_ListView_AddColumn(HWND hListboxHandle, wchar_t *pColumnText, in
 /// </summary>
 void MainWindow_ListView_DeleteColumn(HWND hListboxHandle, int32_t ColumnIndex)
 {
-    ListView_DeleteColumn(hListboxHandle, ColumnIndex);
+    // ListView_DeleteColumn(hListboxHandle, ColumnIndex);
 }
 
 /// <summary>
@@ -997,9 +983,11 @@ void MainWindow_ListView_DeleteColumn(HWND hListboxHandle, int32_t ColumnIndex)
 /// </summary>
 void MainWindow_ListView_InitColumns(HWND hListboxHandle)
 {
+    /*
     MainWindow_ListView_AddColumn(Globals2.hListView, L"#", 20, 0);
-    MainWindow_ListView_AddColumn(Globals2.hListView, L"File Name", 350, 1);
-    MainWindow_ListView_AddColumn(Globals2.hListView, L"File Path", 250, 2);
+    MainWindow_ListView_AddColumn(Globals2.hListView, L"File Name", 350, 3);
+    MainWindow_ListView_AddColumn(Globals2.hListView, L"File Path", 250, 5);
+    */
 }
 
 // TODO: Implement Function
@@ -1077,6 +1065,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
        
     // Add columns to listbox
     MainWindow_ListView_InitColumns(Globals2.hListView); 
+
+    MainWindow_ListView_InsertRow(Globals2.hListView, L"LoremIpsum", L"Dolor Sit Amet");
 
 
     // Show Welcome Message in status bar
@@ -1401,8 +1391,11 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle, LPWSTR lpwsPath)
 void MainWindow_Play()
 {
     // TODO: Delete This Test Function
-    if (MainWindow_Open(L"C:\\Users\\Marco\\Desktop\\test.mp3"))
-        WA_Playback_Engine_Play();
+   // if (MainWindow_Open(L"C:\\Users\\Marco\\Desktop\\test.mp3"))
+     //   WA_Playback_Engine_Play();    
+
+    WA_Playlist_Add(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.mp3");
+    WA_Playlist_UpdateView(Globals2.pPlaylist);
 
     switch (Globals2.dwCurrentStatus)
     {
@@ -1810,13 +1803,13 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
 
     case MSG_SETVOLUME:
     {
-        uint16_t dwVolumeValue;
-
-        dwVolumeValue = (uint16_t) lParam;
+        uint8_t dwVolumeValue;
 
         // Skip Invalid Values
-        if (dwVolumeValue > MW_VOLUME_MAX)
+        if (lParam > MW_VOLUME_MAX)
             return WA_ERROR_BADPARAM;
+
+        dwVolumeValue = (uint8_t) lParam;     
 
         SendMessage(Globals2.hVolumeTrackbar, TBM_SETPOS, TRUE, dwVolumeValue);
         Globals2.dwCurrentVolume = dwVolumeValue;

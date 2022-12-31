@@ -3,7 +3,7 @@
 #include "WA_UI_ColorPolicy.h"
 #include "WA_UI_Rebar.h"
 #include "WA_UI_Trackbar.h"
-#include "globals.h"
+
 
 
 void WA_UI_Rebar_Init(HWND hWnd)

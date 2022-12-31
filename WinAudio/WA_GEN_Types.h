@@ -1,6 +1,8 @@
 #ifndef WA_GEN_TYPES_H
 #define WA_GEN_TYPES_H
 
+#define WA_METADATA_MAX_LEN 40
+
 #define WA_SIGNED_SAMPLE	0x002
 #define WA_UNSIGNED_SAMPLE	0x004
 
@@ -19,13 +21,14 @@ typedef struct TagWA_AudioFormat
 // Define a Simple Metadata Container
 typedef struct TagWA_AudioMetadata
 {
-	wchar_t Title[30];
-	wchar_t Artist[30];
-	wchar_t Album[30];
-	uint16_t Genre;
+	wchar_t Title[WA_METADATA_MAX_LEN];
+	wchar_t Artist[WA_METADATA_MAX_LEN];
+	wchar_t Album[WA_METADATA_MAX_LEN];
+	wchar_t Genre[WA_METADATA_MAX_LEN];
 } WA_AudioMetadata;
 
 // Define a Time Holder
+/*
 typedef struct TagWA_TimeSpan
 {
 	uint32_t Hours;
@@ -33,6 +36,7 @@ typedef struct TagWA_TimeSpan
 	uint32_t Seconds;
 	uint32_t Milliseconds;
 } WA_TimeSpan;
+*/
 
 // 0-Index Based
 #define WA_PLUGINTYPE_INVALID	0x0U
