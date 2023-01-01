@@ -1400,7 +1400,7 @@ void MainWindow_Play()
      //   WA_Playback_Engine_Play();    
 
     WA_Playlist_Add(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.mp3");
-    WA_Playlist_UpdateView(Globals2.pPlaylist);
+    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
 
     switch (Globals2.dwCurrentStatus)
     {

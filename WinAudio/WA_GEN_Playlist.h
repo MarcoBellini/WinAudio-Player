@@ -24,7 +24,7 @@ typedef struct TagWA_Playlist_Metadata
 // Called by this function to get metadata when needed
 // It fills file path and return 0 = OK 1 = fail
 typedef bool (WA_Playlist_ReadCallback)(WA_Playlist_Metadata* pMetadata);
-typedef void (WA_Playlist_UpdateCallback)(void);
+typedef void (WA_Playlist_UpdateCallback)(bool bRedrawItems);
 
 WA_Playlist* WA_Playlist_New(uint32_t uCacheSize, WA_Playlist_ReadCallback *pRead, WA_Playlist_UpdateCallback *pUpdate);
 void WA_Playlist_Delete(WA_Playlist* This);
@@ -37,10 +37,12 @@ bool WA_Playlist_MoveToIndex(WA_Playlist* This, DWORD dwIndex, DWORD dwNewIndex)
 WA_Playlist_Metadata* WA_Playlist_Get_Item(WA_Playlist* This, DWORD dwIndex);
 DWORD WA_Playlist_Get_Count(WA_Playlist* This);
 
-void WA_Playlist_UpdateView(WA_Playlist* This);
+void WA_Playlist_UpdateView(WA_Playlist* This, bool bRedrawItems);
 void WA_Playlist_UpdateCache(WA_Playlist* This, DWORD dwFrom, DWORD dwTo);
 
 void WA_Playlist_SelectIndex(WA_Playlist* This, DWORD dwIndex);
 void WA_Playlist_DeselectIndex(WA_Playlist* This, DWORD dwIndex);
+
+bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, wchar_t* lpwSearchStr, DWORD* dwFoundIndex);
 
 #endif

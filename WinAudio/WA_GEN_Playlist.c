@@ -242,10 +242,10 @@ DWORD WA_Playlist_Get_Count(WA_Playlist* This)
 /// <summary>
 /// Call the Update Callback function
 /// </summary>
-void WA_Playlist_UpdateView(WA_Playlist* This)
+void WA_Playlist_UpdateView(WA_Playlist* This, bool bRedrawItems)
 {
 	if (This->pUpdate)
-		This->pUpdate();
+		This->pUpdate(bRedrawItems);
 
 }
 
@@ -271,8 +271,8 @@ void WA_Playlist_UpdateCache(WA_Playlist* This, DWORD dwFrom, DWORD dwTo)
 		if (!This->pMetadataArray[i].bFileReaded)
 		{
 		
-			This->pRead(&This->pMetadataArray[i]);
-			This->pMetadataArray[i].bFileReaded = true;
+			if (This->pRead(&This->pMetadataArray[i]))
+				This->pMetadataArray[i].bFileReaded = true;
 		}
 
 	}
@@ -304,5 +304,36 @@ void WA_Playlist_DeselectIndex(WA_Playlist* This, DWORD dwIndex)
 		return;
 
 	This->pMetadataArray[dwIndex].bFileSelected = false;
+
+}
+
+bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, wchar_t* lpwSearchStr, DWORD *dwFoundIndex)
+{
+	DWORD dwIndex, dwSearchStrLen;
+	wchar_t* lpwFileName;
+
+	if (This->dwCount < dwStartIndex)
+		return false;
+
+	dwSearchStrLen = wcslen(lpwSearchStr);
+	dwIndex = dwStartIndex;
+
+	do
+	{
+		
+		lpwFileName = PathFindFileName(This->pMetadataArray[dwIndex].lpwFilePath);
+
+		if (_wcsnicmp(lpwFileName, lpwSearchStr, dwSearchStrLen) == 0)
+		{
+			(*dwFoundIndex) = dwIndex;
+			return true;
+		}
+
+		dwIndex++;
+		dwIndex = dwIndex % This->dwCount;
+
+	} while (dwIndex != dwStartIndex);
+
+	return false;
 
 }

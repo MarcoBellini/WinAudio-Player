@@ -385,13 +385,21 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
     return true;
 }
 
-static void WA_UI_Listview_UpdateCallback(void)
+static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
 {
-    DWORD dwCount;
 
-    dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+    if (bRedrawItems)
+    {
+        UpdateWindow(Globals2.pPlaylist);        
+    }
+    else
+    {
+        DWORD dwCount;
 
-    ListView_SetItemCount(Globals2.hListView, dwCount);
+        dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+
+        ListView_SetItemCount(Globals2.hListView, dwCount);
+    }
 }
 
 static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
@@ -427,7 +435,7 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
         {
             wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
 
-            if(wcslen(pMetadata->Metadata.Title) != 0)
+            if(wcslen(pMetadata->Metadata.Title) != 0U)
                 swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s - %s\0", pMetadata->Metadata.Artist, pMetadata->Metadata.Title);
             else
                 swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Artist);
@@ -497,6 +505,39 @@ static void WA_Listview_PrepCache(NMLVCACHEHINT *pCache)
 {   
     WA_Playlist_UpdateCache(Globals2.pPlaylist, (DWORD) pCache->iFrom,(DWORD) pCache->iTo);
 }
+
+static LRESULT WA_Listview_FindItem(LPNMLVFINDITEM pFindItem)
+{
+    LVFINDINFOW* pFindInfo = &pFindItem->lvfi;
+    DWORD dwStartIndex = (DWORD)(pFindItem->iStart) % WA_Playlist_Get_Count(Globals2.pPlaylist);
+    DWORD dwFoundIndex;
+
+    /*
+
+    See: https://learn.microsoft.com/en-us/windows/win32/api/commctrl/ns-commctrl-lvfindinfoa
+    and https://www.codeproject.com/Articles/7891/Using-virtual-lists
+
+    LVFI_STRING
+        Searches based on the item text. Unless additional values are specified, the item text
+        of the matching item must exactly match the string pointed to by the psz member.
+        However, the search is case-insensitive.
+    */
+
+    if ((pFindInfo->flags & LVFI_STRING) == 0)
+        return -1;
+
+    if (!Globals2.pPlaylist)
+        return -1;
+
+    if(!WA_Playlist_FindByFirstChar(Globals2.pPlaylist, 
+        dwStartIndex, 
+        pFindInfo->psz, 
+        &dwFoundIndex))   
+        return -1;
+
+    return (LRESULT)dwFoundIndex;
+}
+
 
 
 LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
@@ -611,10 +652,8 @@ LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case LVN_ODCACHEHINT:
         WA_Listview_PrepCache((LPNMLVCACHEHINT)lParam);
         break;
-    case LVN_ODFINDITEM: 
-        // TODO: Implement Find Item
-        _RPTW0(_CRT_WARN, L"ODFINDITEM\n");
-        return -1;
+    case LVN_ODFINDITEM:        
+        return WA_Listview_FindItem((LPNMLVFINDITEM) lParam);
     default:
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
@@ -795,6 +834,7 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
     wchar_t pBuffer[30];
     WA_Listview_Column TempColumns[WA_LISTVIEW_COLUMNS_COUNT];
     int nOrderArray[WA_LISTVIEW_COLUMNS_COUNT];
+    DWORD dwIndex;
 
     pIni = WA_Ini_New();
 
@@ -805,7 +845,7 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
     // Load Settings
     for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
     {
-        swprintf_s(pBuffer, 30, L"Listview_Column_%u\0", i);
+        swprintf_s(pBuffer, 30U, L"Listview_Column_%u\0", i);
 
         TempColumns[i].bIsVisible = WA_Ini_Read_Bool(pIni, true, pBuffer, L"ColumnVisible");
         TempColumns[i].dwColumn = WA_Ini_Read_UInt32(pIni, 0, pBuffer, L"ColumnID");
@@ -816,7 +856,7 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
     // Set Saved Witdh
     for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
     {
-        if ((TempColumns[i].dwColumnWidth > 0) && 
+        if ((TempColumns[i].dwColumnWidth > 0U) && 
             (TempColumns[i].dwColumnWidth != Columns[i].dwColumnWidth))
         {
             Columns[i].dwColumnWidth = TempColumns[i].dwColumnWidth;
@@ -835,7 +875,7 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
     }
 
     // Reorder Columns
-    DWORD dwIndex = 0;
+    dwIndex = 0U;
     for (DWORD i = 0U; i < WA_LISTVIEW_COLUMNS_COUNT; i++)
     {
         if ((Columns[i].bIsVisible) && (TempColumns[i].dwColumnOrder != UINT32_MAX))
@@ -846,7 +886,7 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
         }
     }
 
-    if (dwIndex > 0)
+    if (dwIndex > 0U)
     {
         ListView_SetColumnOrderArray(hListview, dwIndex, nOrderArray);
     }
