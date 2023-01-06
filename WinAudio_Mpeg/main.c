@@ -39,7 +39,8 @@ static WA_Input MpegVTable = {
 	NULL,					// WinAudio HWND
 	false					// Enabled or Disabled
 	}, // End Common Header <-----------------
-	L".mp3\nMPEG Layer 3\n.mp2\nMPEG Layer 2\n.mp1\nMpeg Layer 1\0", // Extensions
+	L"MPEG Audio Files\0", // Filter Name
+	L"*.mp3;*.mp2;*.mp1\0", // Filter Extensions
 	WA_Mpeg_New, // WA_Input_New
 	WA_Mpeg_Delete, // WA_Input_Delete
 	WA_Mpeg_Open, // WA_Input_Open

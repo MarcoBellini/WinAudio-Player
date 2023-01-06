@@ -9,10 +9,7 @@ bool WA_Playback_Engine_Delete(void);
 /// Return a copy of a concatenation of all plugin extensions(NULL terminated).
 /// Eg. "*.mp3\nMpeg Layer 3\*.wav\Microsoft PCM wave\0"
 /// </summary>
-/// <param name="lpwFilter">Input buffer</param>
-/// <param name="dwMaxLen">Max len of Inpt buffer</param>
-/// <returns>True on success</returns>
-bool WA_Playback_Engine_GetExtFilter(wchar_t* lpwFilter, uint32_t dwMaxLen);
+uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC** pFilter);
 
 
 bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath);

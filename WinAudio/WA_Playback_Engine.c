@@ -12,6 +12,8 @@
 #include "WA_GEN_Playlist.h"
 #include "Globals2.h"
 
+static wchar_t WA_Playback_Engine_SupportedFileString[] = L"All Supported Files\0";
+
 /// <summary>
 /// Return a Pointer to a WA_Input Plugin that supports input file or return NULL on fail
 /// </summary>
@@ -30,7 +32,7 @@ static WA_Input* WA_Playback_Engine_Find_Decoder(const wchar_t* lpwPath)
         if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
         {
             pIn = (WA_Input*)Plugins.pPluginList[i].hVTable;
-            lpwPluginExtension = pIn->lpwExtensions;
+            lpwPluginExtension = pIn->lpwFilterExtensions;
 
             if (wcsstr(lpwPluginExtension, lpwExtension))
             {
@@ -148,32 +150,67 @@ bool WA_Playback_Engine_CloseFile()
     return true;
 }
 
-bool WA_Playback_Engine_GetExtFilter(wchar_t* lpwFilter, uint32_t dwMaxLen)
+uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC **pFilter)
 {
+    uint32_t uInputCount = 0U;
+    uint32_t uIndex;
 
-    if (Plugins.uPluginsCount == 0)
-        return false;
-
-    if (dwMaxLen == 0)
-        return false;
-    
-    for (uint32_t i = 0; i < Plugins.uPluginsCount; i++)
+    // Count Input plugins
+    for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
     {
-
         if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
-        {
-            WA_Input* pIn = (WA_Input*)Plugins.pPluginList[i].hVTable;
-
-            // Clear in String
-            ZeroMemory(lpwFilter, dwMaxLen * sizeof(wchar_t));
-
-            // Create Extensions String
-            if (wcscat_s(lpwFilter, dwMaxLen, pIn->lpwExtensions) != 0)
-                return false;   
-        }
+            uInputCount++;
     }
 
-    return true;
+    if (uInputCount == 0)
+        return false;
+
+    // Use index = 0 to aggregate all supported types
+    uInputCount++;
+
+    (*pFilter) = (COMDLG_FILTERSPEC*) calloc(uInputCount, sizeof(COMDLG_FILTERSPEC));
+
+    if (!(*pFilter))
+        return false;
+
+    uIndex = 1U;
+
+    for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
+    {
+        if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
+        {
+            WA_Input* pIn = (WA_Input*) Plugins.pPluginList[i].hVTable;
+
+            (*pFilter)[uIndex].pszName = pIn->lpwFilterName;
+            (*pFilter)[uIndex].pszSpec = pIn->lpwFilterExtensions;
+
+            uIndex++;
+        }
+           
+    }
+
+    (*pFilter)[0].pszName = WA_Playback_Engine_SupportedFileString;
+    (*pFilter)[0].pszSpec = calloc(MAX_PATH, sizeof(wchar_t));
+
+    // Free Resources on Fail
+    if (!(*pFilter)[0].pszSpec)
+    {
+        free((*pFilter));
+        (*pFilter) = NULL;
+        return 0U;
+    }
+
+    for (uint32_t i = 1U; i < (uInputCount); i++)
+    {
+        wcscat_s((*pFilter)[0].pszSpec, MAX_PATH, (*pFilter)[i].pszSpec);
+
+        // Add comma to every extensions
+        if(i != (uInputCount - 1U))
+            wcscat_s((*pFilter)[0].pszSpec, MAX_PATH, L";");
+    }       
+    
+
+    return uInputCount;
 }
 
 

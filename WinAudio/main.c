@@ -1350,60 +1350,7 @@ void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
 
 }
 
-// TODO: WARNING TEST ZONE
-#define WA_MAX_EXTENSION 120
-typedef struct TagWA_OpfExtensions
-{
-    wchar_t FilterName[WA_MAX_EXTENSION];
-    wchar_t FilterExtensions[WA_MAX_EXTENSION];
-} WA_OpfExtensions;
 
-static uint32_t MainWindow_PrepareFilter(WA_OpfExtensions **pFilter)
-{
-    uint32_t uCount = 0;
-    wchar_t Extensions[MAX_PATH];
-    uint32_t dwIndex;
-
-    if (!WA_Playback_Engine_GetExtFilter(Extensions, MAX_PATH))
-        return NULL;
-
-    dwIndex = 0;
-    while (Extensions[dwIndex] != L'\0')
-    {
-        if (Extensions[dwIndex] == L'\n')
-        {
-            uCount++;
-        }
-
-        dwIndex++;
-    }
-
-    if (uCount == 0)
-        return 0;
-
-    uCount = (uCount + 1) / 2;
-    uCount++;
-
-    (*pFilter) = (WA_OpfExtensions*)malloc(sizeof(WA_OpfExtensions) * uCount);
-
-    if (!(*pFilter))
-        return 0;
-
-
-    dwIndex = 0;
-    while (Extensions[dwIndex] != L'\0')
-    {
-        if (Extensions[dwIndex] == L'\n')
-        {
-            uCount++;
-        }
-
-        dwIndex++;
-    }
-  
-}
-
-// TODO: END WARNING TEST ZONE
 
 /// <summary>
 /// Show a File Dialog
@@ -1411,14 +1358,18 @@ static uint32_t MainWindow_PrepareFilter(WA_OpfExtensions **pFilter)
 /// <param name="hOwnerHandle">Main Window Handle</param>
 /// <param name="lpwsPath">Pointer to a string that contains the path</param>
 bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
-{
-    // TODO: Sistemare la funzione, non va bene cosi !!
+{  
     IFileOpenDialog* pFileOpen;
     HRESULT hr;   
-    COMDLG_FILTERSPEC *pFilter = NULL;
+    uint32_t uArrayCount;
+    COMDLG_FILTERSPEC* pFilter = NULL;
 
-    MainWindow_PrepareFilter(pFilter);
-    return false;
+    // Get Open File Dialog Filter
+    uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter);
+
+    // The function return 0 on fail
+    if (uArrayCount == 0)
+        return false;
 
     // Create the FileOpenDialog object.
     hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
@@ -1429,12 +1380,7 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 
 
 
-
-
-    //Filter.pszName = L"Supported Files";
-    //Filter.pszSpec = L"*.wav; *.mp3"; // TODO: Make this filter dynamic
-
-    //IFileOpenDialog_SetFileTypes(pFileOpen, 1U, &Filter);
+    IFileOpenDialog_SetFileTypes(pFileOpen, uArrayCount, pFilter);
     IFileOpenDialog_SetFileTypeIndex(pFileOpen, 1U);
 
     IFileOpenDialog_SetTitle(pFileOpen, L"Open an audio file...");
@@ -1478,6 +1424,9 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 
     IFileOpenDialog_Release(pFileOpen);
     pFileOpen = NULL;
+
+    free(pFilter[0].pszSpec);
+    free(pFilter);
 
     return true;
 }

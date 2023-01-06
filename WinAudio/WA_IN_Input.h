@@ -10,7 +10,8 @@ struct TagWA_Input
 {
 	WA_PluginHeader Header;			// Store Common Plugins Info
 
-	wchar_t* lpwExtensions;			// Plugin Supported Extensions ".mp3\n MPEG Layer 3\n .mp2 \n MPEG Layer 2\0"
+	wchar_t* lpwFilterName;			// Plugin Supported Filter Name "MPEG Audio\0"
+	wchar_t* lpwFilterExtensions;	// Plugin Supported Extensions "*.mp3;*.mp2;*mp1\0"
 
 	bool (*WA_Input_New)(WA_Input *This);		// Called at WM_CREATE. Return true to Enable Plugin
 	void (*WA_Input_Delete)(WA_Input* This);  // Called at WM_DESTROY 
