@@ -43,6 +43,6 @@ void WA_Playlist_UpdateCache(WA_Playlist* This, DWORD dwFrom, DWORD dwTo);
 void WA_Playlist_SelectIndex(WA_Playlist* This, DWORD dwIndex);
 void WA_Playlist_DeselectIndex(WA_Playlist* This, DWORD dwIndex);
 
-bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, wchar_t* lpwSearchStr, DWORD* dwFoundIndex);
+bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wchar_t* lpwSearchStr, DWORD* dwFoundIndex);
 
 #endif

@@ -148,6 +148,34 @@ bool WA_Playback_Engine_CloseFile()
     return true;
 }
 
+bool WA_Playback_Engine_GetExtFilter(wchar_t* lpwFilter, uint32_t dwMaxLen)
+{
+
+    if (Plugins.uPluginsCount == 0)
+        return false;
+
+    if (dwMaxLen == 0)
+        return false;
+    
+    for (uint32_t i = 0; i < Plugins.uPluginsCount; i++)
+    {
+
+        if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
+        {
+            WA_Input* pIn = (WA_Input*)Plugins.pPluginList[i].hVTable;
+
+            // Clear in String
+            ZeroMemory(lpwFilter, dwMaxLen * sizeof(wchar_t));
+
+            // Create Extensions String
+            if (wcscat_s(lpwFilter, dwMaxLen, pIn->lpwExtensions) != 0)
+                return false;   
+        }
+    }
+
+    return true;
+}
+
 
 bool WA_Playback_Engine_Play(void)
 {

@@ -307,7 +307,7 @@ void WA_Playlist_DeselectIndex(WA_Playlist* This, DWORD dwIndex)
 
 }
 
-bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, wchar_t* lpwSearchStr, DWORD *dwFoundIndex)
+bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wchar_t* lpwSearchStr, DWORD *dwFoundIndex)
 {
 	DWORD dwIndex, dwSearchStrLen;
 	wchar_t* lpwFileName;

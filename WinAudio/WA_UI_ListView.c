@@ -33,6 +33,8 @@ static void WA_UI_Listview_AddColumn(HWND hListview, wchar_t* pwColumnText, int3
     LV_COLUMN Column;
     int32_t nReturn;
 
+    ZeroMemory(&Column, sizeof(LV_COLUMN));
+
     Column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
     Column.mask |= ((nFlags > 0) ? LVCF_FMT : 0);
 
@@ -363,10 +365,10 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
 
     pMetadata->uFileDurationMs = (uint64_t) taglib_audioproperties_length(pAudioProp) * 1000U;
 
-    wcsncpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, taglib_tag_title(pTag), WA_METADATA_MAX_LEN);
-    wcsncpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, taglib_tag_artist(pTag), WA_METADATA_MAX_LEN);
-    wcsncpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, taglib_tag_album(pTag), WA_METADATA_MAX_LEN);
-    wcsncpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, taglib_tag_genre(pTag), WA_METADATA_MAX_LEN);
+    wcsncpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, taglib_tag_title(pTag), WA_METADATA_MAX_LEN - 1);
+    wcsncpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, taglib_tag_artist(pTag), WA_METADATA_MAX_LEN - 1);
+    wcsncpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, taglib_tag_album(pTag), WA_METADATA_MAX_LEN - 1);
+    wcsncpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, taglib_tag_genre(pTag), WA_METADATA_MAX_LEN - 1);
 
     // Use File Name if Tags are empty
     if ((wcslen(pMetadata->Metadata.Title) == 0) && (wcslen(pMetadata->Metadata.Artist) == 0))
@@ -390,7 +392,7 @@ static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
 
     if (bRedrawItems)
     {
-        UpdateWindow(Globals2.pPlaylist);        
+        UpdateWindow(Globals2.hListView);
     }
     else
     {
@@ -436,7 +438,10 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
             wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
 
             if(wcslen(pMetadata->Metadata.Title) != 0U)
-                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s - %s\0", pMetadata->Metadata.Artist, pMetadata->Metadata.Title);
+                if (wcslen(pMetadata->Metadata.Artist) != 0U)
+                    swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s - %s\0", pMetadata->Metadata.Artist, pMetadata->Metadata.Title);
+                else
+                    swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Title);
             else
                 swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Artist);
 
@@ -460,11 +465,11 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
 
             if (uHour > 0)
             {
-                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02d:%2d:%2d\0", uHour, uMinute, uSeconds);
+                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02u:%02u:%02u\0", uHour, uMinute, uSeconds);
             }
             else
             {
-                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02d:%2d\0", uMinute, uSeconds);
+                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02u:%02u\0", uMinute, uSeconds);
             }      
 
 
@@ -538,7 +543,14 @@ static LRESULT WA_Listview_FindItem(LPNMLVFINDITEM pFindItem)
     return (LRESULT)dwFoundIndex;
 }
 
+static void WA_Listview_DBLCKL(HWND hListview, LPNMITEMACTIVATE pItemActivate)
+{
 
+    if (pItemActivate->iItem == -1)
+        return;
+
+    MainWindow_Open_Playlist_Index((DWORD)pItemActivate->iItem);  
+}
 
 LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
@@ -654,6 +666,37 @@ LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         break;
     case LVN_ODFINDITEM:        
         return WA_Listview_FindItem((LPNMLVFINDITEM) lParam);
+    case NM_DBLCLK:
+        WA_Listview_DBLCKL(hWnd, (LPNMITEMACTIVATE)lParam);
+        return TRUE;
+    case LVN_BEGINDRAG:
+    {
+        // TODO: Continua qui 01/01/23
+        /*
+        int32_t iPos;
+        LPNMLISTVIEW lpListItem;
+        POINT pMouse, pAction;
+        HIMAGELIST hDragImage;
+
+        lpListItem = (LPNMLISTVIEW)lParam;
+        GetCursorPos(&pMouse); 
+
+            
+        hDragImage = ListView_CreateDragImage(hWnd, lpListItem->iItem, &pMouse);
+
+        ImageList_BeginDrag(hDragImage, 0, 0, 0);
+
+        pAction = lpListItem->ptAction;
+
+        ClientToScreen(hWnd, &pAction);
+
+        ImageList_DragEnter(GetDesktopWindow(), pAction.x, pAction.y);
+        */
+       
+
+        _RPTW0(_CRT_WARN, L"Begin Drag\n");
+    }
+        
     default:
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }

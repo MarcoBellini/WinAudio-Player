@@ -63,13 +63,9 @@ void MainWindow_DestroyRebar();
 
 void MainWindow_Resize(LPARAM lParam, BOOL blParamValid);
 void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam);
-bool MainWindow_OpenFileDialog(HWND hOwnerHandle, LPWSTR lpwsPath);
+bool MainWindow_OpenFileDialog(HWND hOwnerHandle);
 
-void MainWindow_Play();
-void MainWindow_Pause();
-void MainWindow_Stop();
-bool MainWindow_Open(const wchar_t* wPath);
-bool MainWindow_CloseFile();
+
 void MainWindow_SplitFilePath(const wchar_t* pInPath, wchar_t* pFolder, wchar_t* pFileName);
 DWORD MainWindow_HandleEndOfStreamMsg();
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue);
@@ -427,9 +423,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 
                 // Seek only if playing
                 if (Globals2.dwCurrentStatus == WA_STATUS_PLAY)
-                    // TODO: Seek
-                    // DecoderManager_Seek(Globals2.pDecoderManager, (uint64_t)uPositionValue);
-
+                    WA_Playback_Engine_Seek((uint64_t)uPositionValue);
                
                 break;
             } 
@@ -466,9 +460,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         switch (TimerID)
         {
-        case MW_ID_POS_TIMER:
-            // TODO: Update Position
-            //MainWindow_UpdatePositionTrackbar(Globals.pDecoderManager->uCurrentPositionMs);            
+        case MW_ID_POS_TIMER:   
+        {
+            uint64_t uPositionMs = 0;
+
+            if(WA_Playback_Engine_Get_Position(&uPositionMs))
+                MainWindow_UpdatePositionTrackbar(uPositionMs);
+        }
+                   
         case MW_ID_SPECTRUM_TIMER:
             MainWindow_DrawSpectrum();
         }
@@ -578,38 +577,9 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case ID_FILE_OPENFILE:
     {
-        // TODO: Open File Command
-        /*
-        wchar_t pFilePath[MAX_PATH] = { 0 };
-        wchar_t Folder[MAX_PATH];
-        wchar_t FileName[MAX_PATH];
-
-        if (MainWindow_OpenFileDialog(Globals.hMainWindowHandle, pFilePath))
-        {
-
-            if (MainWindow_Open(pFilePath))
-            {
-
-                // Delete all items in playlist and add current opened file
-                MainWindow_ListView_DeleteAllRows(Globals.hListViewHandle);
-
-                // Add File into Listview
-                MainWindow_SplitFilePath(pFilePath, Folder, FileName);
-                MainWindow_ListView_InsertRow(Globals.hListViewHandle, FileName, Folder);
-
-                // Highlight Played Item (in this case the first item)
-                MainWindow_ListView_SetPlayIndex(Globals.hListViewHandle, 0);
-
-                // Play file
-                MainWindow_Play();
-            }
-        }
-        else
-        {
-            MessageBox(Globals.hMainWindowHandle, L"Unable to Open this file", L"Open File Error", MB_ICONERROR | MB_OK);
-        }
-
-        */
+        // TODO: Verifica se va bene
+        if (!MainWindow_OpenFileDialog(Globals2.hMainWindow))
+            MessageBox(Globals2.hMainWindow, L"Unable to Show Open FIle Dialog", L"Open File Error", MB_ICONERROR | MB_OK);
 
         break;
     }
@@ -1006,7 +976,7 @@ void MainWindow_ListView_DeleteRow(HWND hListboxHandle, int32_t nIndex)
 /// </summary>
 void MainWindow_ListView_DeleteAllRows(HWND hListboxHandle)
 {
-    ListView_DeleteAllItems(hListboxHandle);
+    //ListView_DeleteAllItems(hListboxHandle);
 }
 
 /// <summary>
@@ -1015,6 +985,7 @@ void MainWindow_ListView_DeleteAllRows(HWND hListboxHandle)
 void MainWindow_ListView_SetPlayIndex(HWND hListboxHandle, int32_t nIndex)
 {
     // Remove Current Item Selection
+    /*
     if (Globals2.nCurrentPlayingIndex != MW_LW_INVALID_INDEX)
     {
         ListView_SetItemText(Globals2.hListView, Globals2.nCurrentPlayingIndex, 0, L"");
@@ -1026,7 +997,7 @@ void MainWindow_ListView_SetPlayIndex(HWND hListboxHandle, int32_t nIndex)
    
     Globals2.nLastPlayedIndex = Globals2.nCurrentPlayingIndex;
     Globals2.nCurrentPlayingIndex = nIndex;
-    
+    */
 }
 
 /// <summary>
@@ -1064,8 +1035,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.bFileIsOpen = false;
     Globals2.bMouseDownOnPosition = false;
     Globals2.bMouseDownOnVolume = false;
-    Globals2.nLastPlayedIndex = MW_LW_INVALID_INDEX;
-    Globals2.nCurrentPlayingIndex = MW_LW_INVALID_INDEX;
+    //Globals2.nLastPlayedIndex = MW_LW_INVALID_INDEX;
+    //Globals2.nCurrentPlayingIndex = MW_LW_INVALID_INDEX;
 
        
     // Add columns to listbox
@@ -1379,139 +1350,277 @@ void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
 
 }
 
+// TODO: WARNING TEST ZONE
+#define WA_MAX_EXTENSION 120
+typedef struct TagWA_OpfExtensions
+{
+    wchar_t FilterName[WA_MAX_EXTENSION];
+    wchar_t FilterExtensions[WA_MAX_EXTENSION];
+} WA_OpfExtensions;
+
+static uint32_t MainWindow_PrepareFilter(WA_OpfExtensions **pFilter)
+{
+    uint32_t uCount = 0;
+    wchar_t Extensions[MAX_PATH];
+    uint32_t dwIndex;
+
+    if (!WA_Playback_Engine_GetExtFilter(Extensions, MAX_PATH))
+        return NULL;
+
+    dwIndex = 0;
+    while (Extensions[dwIndex] != L'\0')
+    {
+        if (Extensions[dwIndex] == L'\n')
+        {
+            uCount++;
+        }
+
+        dwIndex++;
+    }
+
+    if (uCount == 0)
+        return 0;
+
+    uCount = (uCount + 1) / 2;
+    uCount++;
+
+    (*pFilter) = (WA_OpfExtensions*)malloc(sizeof(WA_OpfExtensions) * uCount);
+
+    if (!(*pFilter))
+        return 0;
+
+
+    dwIndex = 0;
+    while (Extensions[dwIndex] != L'\0')
+    {
+        if (Extensions[dwIndex] == L'\n')
+        {
+            uCount++;
+        }
+
+        dwIndex++;
+    }
+  
+}
+
+// TODO: END WARNING TEST ZONE
+
 /// <summary>
 /// Show a File Dialog
 /// </summary>
 /// <param name="hOwnerHandle">Main Window Handle</param>
 /// <param name="lpwsPath">Pointer to a string that contains the path</param>
-bool MainWindow_OpenFileDialog(HWND hOwnerHandle, LPWSTR lpwsPath)
+bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 {
-    // TODO: Create Open File Dialog
+    // TODO: Sistemare la funzione, non va bene cosi !!
+    IFileOpenDialog* pFileOpen;
+    HRESULT hr;   
+    COMDLG_FILTERSPEC *pFilter = NULL;
+
+    MainWindow_PrepareFilter(pFilter);
     return false;
+
+    // Create the FileOpenDialog object.
+    hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+        &IID_IFileOpenDialog, (LPVOID*)(&pFileOpen));
+
+    if FAILED(hr)
+        return false;
+
+
+
+
+
+    //Filter.pszName = L"Supported Files";
+    //Filter.pszSpec = L"*.wav; *.mp3"; // TODO: Make this filter dynamic
+
+    //IFileOpenDialog_SetFileTypes(pFileOpen, 1U, &Filter);
+    IFileOpenDialog_SetFileTypeIndex(pFileOpen, 1U);
+
+    IFileOpenDialog_SetTitle(pFileOpen, L"Open an audio file...");
+
+    // Show the Open dialog box.
+    hr = IFileOpenDialog_Show(pFileOpen, hOwnerHandle);
+
+    // Get the file name from the dialog box
+    if SUCCEEDED(hr)
+    {
+        IShellItem* pItem;
+        hr = IFileOpenDialog_GetResult(pFileOpen, &pItem);
+
+        if (SUCCEEDED(hr))
+        {
+            PWSTR pszFilePath;
+            hr = IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &pszFilePath);
+
+            // Display the file name to the user.
+            if (SUCCEEDED(hr))
+            {
+                // Copy the path to return var
+                if (Globals2.pPlaylist)
+                {
+                    WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+                    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+                }
+                
+                CoTaskMemFree(pszFilePath);
+                
+            }
+
+            
+
+            IShellItem_Release(pItem);
+            pItem = NULL;
+        }
+
+    }
+
+
+    IFileOpenDialog_Release(pFileOpen);
+    pFileOpen = NULL;
+
+    return true;
 }
 
 /// <summary>
 /// Handle Play Command
 /// </summary>
-void MainWindow_Play()
+bool MainWindow_Play()
 {
-    // TODO: Delete This Test Function
-   // if (MainWindow_Open(L"C:\\Users\\Marco\\Desktop\\test.mp3"))
-     //   WA_Playback_Engine_Play();    
+    if (!Globals2.bFileIsOpen)
+        return false;
 
-    WA_Playlist_Add(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.mp3");
-    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+    if (Globals2.dwCurrentStatus == MW_PLAYING)
+        return false;
 
-    switch (Globals2.dwCurrentStatus)
+    if (Globals2.dwCurrentStatus == WA_STATUS_STOP)
     {
-    case WA_STATUS_PAUSE:
-        // TODO: Handle Play / Pause
-        /*
-        if (DecoderManager_UnPause(Globals.pDecoderManager))
-        {
-            Globals.PlaybackStatus = MW_PLAYING;
-
-            // Highlight Play button
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(TRUE, 0));
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
-
-            // Create Timer for position updates
-            SetTimer(Globals.hMainWindowHandle, MW_ID_POS_TIMER, 1000, NULL);
-
-            // Create Timer for Spectrum Analylis
-            SetTimer(Globals.hMainWindowHandle, MW_ID_SPECTRUM_TIMER, 40, NULL);
-
-            // Enable Position Trackbar
-            EnableWindow(Globals.hPositionTrackbarHandle, true);
-        }
-        */
-        break;
-    case WA_STATUS_STOP:
-        /*
-        if (DecoderManager_Play(Globals.pDecoderManager))
-        {
-            Globals.PlaybackStatus = MW_PLAYING;
-
-            // Highlight Play button
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(TRUE, 0));
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(FALSE, 0));
-
-            // Create Timer for position updates
-            SetTimer(Globals.hMainWindowHandle, MW_ID_POS_TIMER, 1000, NULL);
-
-            // Create Timer for Spectrum Analylis
-            SetTimer(Globals.hMainWindowHandle, MW_ID_SPECTRUM_TIMER, 40, NULL);
-
-            // Enable Position Trackbar
-            EnableWindow(Globals.hPositionTrackbarHandle, true);
-        }
-        */
-        break;
+        if (!WA_Playback_Engine_Play())
+            return false;
     }
+    else
+    {
+        if (!WA_Playback_Engine_Resume())
+            return false;
+    }
+
+    Globals2.dwCurrentStatus = MW_PLAYING;
+
+    // Highlight Play button
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(TRUE, 0));
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
+
+    // Create Timer for position updates
+    SetTimer(Globals2.hMainWindow, MW_ID_POS_TIMER, 1000, NULL);
+
+    // Create Timer for Spectrum Analylis
+    // SetTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER, 40, NULL);
+
+    // Enable Position Trackbar
+    EnableWindow(Globals2.hPositionTrackbar, true);
+
+    // Update Listview
+    if (Globals2.pPlaylist)
+    {
+        WA_Playlist_SelectIndex(Globals2.pPlaylist, Globals2.dwCurrentIndex);
+        WA_Playlist_UpdateView(Globals2.pPlaylist, true);
+    }
+        
 }
 
 
 /// <summary>
 /// Handle Pause Command
 /// </summary>
-void MainWindow_Pause()
+bool MainWindow_Pause()
 {
-    // TODO: Handle Pause
-    /*
-    if (Globals.PlaybackStatus == MW_PLAYING)
-    {
-        if (DecoderManager_Pause(Globals.pDecoderManager))
-        {
-            Globals.PlaybackStatus = MW_PAUSING;
+    if (!Globals2.bFileIsOpen)
+        return false;
 
-            // Check Pause Button
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(TRUE, 0));
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
+    if (Globals2.dwCurrentStatus == MW_PAUSING)
+        return false;
 
-            KillTimer(Globals.hMainWindowHandle, MW_ID_POS_TIMER);
-            KillTimer(Globals.hMainWindowHandle, MW_ID_SPECTRUM_TIMER);
+    if (!WA_Playback_Engine_Pause())
+        return false;
 
-            // Disable Position Trackbar
-            EnableWindow(Globals.hPositionTrackbarHandle, false);
-        }
-        
-    }
-    */
+    Globals2.dwCurrentStatus = MW_PAUSING;
+
+    // Check Pause Button
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(TRUE, 0));
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
+
+    KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
+    //KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
+
+    // Disable Position Trackbar
+    EnableWindow(Globals2.hPositionTrackbar, false);
 }
 
 /// <summary>
 /// Handle Stop Command
 /// </summary>
-void MainWindow_Stop()
+bool MainWindow_Stop()
 {
+    if (!Globals2.bFileIsOpen)
+        return false;
 
-    WA_Playback_Engine_Stop();
-    // TODO: Handle Stop
-    /*
-    if (Globals.PlaybackStatus != MW_STOPPED)
+    if (Globals2.dwCurrentStatus == MW_STOPPED)
+        return false;
+
+    if (!WA_Playback_Engine_Stop())
+        return false;
+
+    Globals2.dwCurrentStatus = MW_STOPPED;
+
+
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(TRUE, 0));
+
+    KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
+    // KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
+
+    // Reset Position Trackbar to 0
+    MainWindow_UpdatePositionTrackbar(0);
+
+    // Clear Background
+    MainWindow_DrawSpectrum();
+
+    // Disable Position Trackbar
+    EnableWindow(Globals2.hPositionTrackbar, false);
+
+    // Update Listview
+    if (Globals2.pPlaylist)
     {
-        if (DecoderManager_Stop(Globals.pDecoderManager))
-        {
-            Globals.PlaybackStatus = MW_STOPPED;
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
-            SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(TRUE, 0));
-
-            KillTimer(Globals.hMainWindowHandle, MW_ID_POS_TIMER);
-            KillTimer(Globals.hMainWindowHandle, MW_ID_SPECTRUM_TIMER);
-
-            // Reset Position Trackbar to 0
-            MainWindow_UpdatePositionTrackbar(0);
-
-            // Clear Background
-            MainWindow_DrawSpectrum();
-
-            // Disable Position Trackbar
-            EnableWindow(Globals.hPositionTrackbarHandle, false);
-        }
-       
+        WA_Playlist_DeselectIndex(Globals2.pPlaylist, Globals2.dwCurrentIndex);
+        WA_Playlist_UpdateView(Globals2.pPlaylist, true);
     }
-    */
+  
+}
+
+/// <summary>
+/// Open a file using an Index of Playlist
+/// </summary>
+/// <param name="dwIndex">0-BAsed Index</param>
+/// <returns>True on Success</returns>
+bool MainWindow_Open_Playlist_Index(DWORD dwIndex)
+{
+    WA_Playlist_Metadata* pMetadata;
+
+    if (!Globals2.pPlaylist)
+        return false;
+
+    pMetadata = WA_Playlist_Get_Item(Globals2.pPlaylist, dwIndex);
+
+    if (!pMetadata)
+        return false;
+
+    if (!MainWindow_Open(pMetadata->lpwFilePath))
+        return false;
+
+    Globals2.dwCurrentIndex = dwIndex;
+
+    return true;
 }
 
 /// <summary>
@@ -1527,17 +1636,20 @@ bool MainWindow_Open(const wchar_t* lpwPath)
         MainWindow_Stop();
 
     if (Globals2.bFileIsOpen)
-        MainWindow_CloseFile();
+        MainWindow_Close();
 
     if (!WA_Playback_Engine_OpenFile(lpwPath))
         return false;
 
-    // TODO: If Fail to Get Duration Disable Trackback for this audio stream
-    WA_Playback_Engine_Get_Duration(&uDuration);
+    // If Fail to Get Duration Disable Trackback for this audio stream
+    Globals2.bStreamIsSeekable = WA_Playback_Engine_Get_Duration(&uDuration);
 
-    // Set Trackbar Range
-    SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMIN, false, 0);
-    SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMAX, true, (LPARAM)uDuration);
+    // Set Trackbar Range (Only if stream is seekable)
+    if (Globals2.bStreamIsSeekable)
+    {
+        SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMIN, false, 0);
+        SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMAX, true, (LPARAM)uDuration);
+    }
 
     // Update Main Window Title with file path
     MainWindow_UpdateWindowTitle(lpwPath, false);
@@ -1545,9 +1657,11 @@ bool MainWindow_Open(const wchar_t* lpwPath)
     return true;
 }
 
-bool MainWindow_CloseFile()
+bool MainWindow_Close()
 {
-    // TODO: Handle UI States
+    if (Globals2.dwCurrentStatus != MW_STOPPED)
+        MainWindow_Stop();
+
     return WA_Playback_Engine_CloseFile();
 }
 

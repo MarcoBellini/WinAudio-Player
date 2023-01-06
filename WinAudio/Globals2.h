@@ -42,10 +42,11 @@
 
 #define MW_LW_INVALID_INDEX				-1
 
-// Define Current Playback Statis
-#define MW_PLAYING						0x01
-#define MW_PAUSING						0x02
-#define MW_STOPPED						0x03
+// Define Current Playback Status
+#define MW_PLAYING						WA_STATUS_PLAY
+#define MW_PAUSING						WA_STATUS_PAUSE
+#define MW_STOPPED						WA_STATUS_STOP
+
 
 // Main Window Globals Vars
 struct
@@ -64,8 +65,10 @@ struct
 	DWORD dwCurrentStatus;			// MW_PLAYING, MW_PAUSING, MW_STOPPED
 	uint16_t dwCurrentVolume;
 	bool bFileIsOpen;
-	int32_t nLastPlayedIndex;
-	int32_t nCurrentPlayingIndex;
+	//int32_t nLastPlayedIndex;
+	//int32_t nCurrentPlayingIndex;
+	DWORD dwCurrentIndex;
+	bool bStreamIsSeekable;
 	uint32_t uOutputLatency;		// Store Current Latency of Opened Output Plugin
 
 	// TODO: Is This Userfull??
@@ -90,6 +93,15 @@ struct
 	bool bEffectIsActive;
 
 } Settings2;
+
+
+// Share some window functions
+bool MainWindow_Play();
+bool MainWindow_Pause();
+bool MainWindow_Stop();
+bool MainWindow_Open(const wchar_t* wPath);
+bool MainWindow_Open_Playlist_Index(DWORD dwIndex);
+bool MainWindow_Close();
 
 
 
