@@ -1036,13 +1036,10 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.bMouseDownOnPosition = false;
     Globals2.bMouseDownOnVolume = false;
     //Globals2.nLastPlayedIndex = MW_LW_INVALID_INDEX;
-    //Globals2.nCurrentPlayingIndex = MW_LW_INVALID_INDEX;
+    //Globals2.nCurrentPlayingIndex = MW_LW_INVALID_INDEX;   
 
-       
-    // Add columns to listbox
-    MainWindow_ListView_InitColumns(Globals2.hListView); 
 
-    MainWindow_ListView_InsertRow(Globals2.hListView, L"LoremIpsum", L"Dolor Sit Amet");
+ 
 
 
     // Show Welcome Message in status bar
@@ -1356,13 +1353,17 @@ void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
 /// Show a File Dialog
 /// </summary>
 /// <param name="hOwnerHandle">Main Window Handle</param>
-/// <param name="lpwsPath">Pointer to a string that contains the path</param>
 bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 {  
-    IFileOpenDialog* pFileOpen;
-    HRESULT hr;   
+    IFileOpenDialog* pFileOpen;     
     uint32_t uArrayCount;
     COMDLG_FILTERSPEC* pFilter = NULL;
+    HRESULT hr;
+
+    // Check if we have a working Playlist Object
+    // Should be always valid
+    if (!Globals2.pPlaylist)
+        return false;
 
     // Get Open File Dialog Filter
     uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter);
@@ -1375,56 +1376,83 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
     hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
         &IID_IFileOpenDialog, (LPVOID*)(&pFileOpen));
 
-    if FAILED(hr)
-        return false;
 
-
-
-    IFileOpenDialog_SetFileTypes(pFileOpen, uArrayCount, pFilter);
-    IFileOpenDialog_SetFileTypeIndex(pFileOpen, 1U);
-
-    IFileOpenDialog_SetTitle(pFileOpen, L"Open an audio file...");
-
-    // Show the Open dialog box.
-    hr = IFileOpenDialog_Show(pFileOpen, hOwnerHandle);
-
-    // Get the file name from the dialog box
     if SUCCEEDED(hr)
     {
-        IShellItem* pItem;
-        hr = IFileOpenDialog_GetResult(pFileOpen, &pItem);
+        IFileOpenDialog_SetFileTypes(pFileOpen, uArrayCount, pFilter);
+        IFileOpenDialog_SetFileTypeIndex(pFileOpen, 1U);
 
-        if (SUCCEEDED(hr))
+        IFileOpenDialog_SetTitle(pFileOpen, L"Open audio file(s)...");
+
+        // Allow Multiple Selections
+        IFileOpenDialog_SetOptions(pFileOpen, FOS_ALLOWMULTISELECT);
+
+        // Show the Open dialog box.
+        hr = IFileOpenDialog_Show(pFileOpen, hOwnerHandle);
+
+
+        if SUCCEEDED(hr)
         {
-            PWSTR pszFilePath;
-            hr = IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &pszFilePath);
+            IShellItemArray* pItemsArray;
+            DWORD dwFilesCount;
 
-            // Display the file name to the user.
-            if (SUCCEEDED(hr))
+            hr = IFileOpenDialog_GetResults(pFileOpen, &pItemsArray);
+
+            if SUCCEEDED(hr)
             {
-                // Copy the path to return var
-                if (Globals2.pPlaylist)
+
+                // Get The number of Selected Files
+                hr = IShellItemArray_GetCount(pItemsArray, &dwFilesCount);
+
+
+                if (SUCCEEDED(hr) && (dwFilesCount > 0))
                 {
-                    WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+                    IShellItem* pItem;
+
+                    // Clear Playlist
+                    WA_Playlist_RemoveAll(Globals2.pPlaylist);
+
+                    // Get The Path of Each Selected File
+                    for (DWORD i = 0U; i < dwFilesCount; i++)
+                    {
+
+                        hr = IShellItemArray_GetItemAt(pItemsArray, i, &pItem);
+
+                        if SUCCEEDED(hr)
+                        {
+                            LPWSTR pszFilePath;
+                            hr = IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &pszFilePath);
+
+                            if SUCCEEDED(hr)
+                            {
+
+                                // Add item to Playlist
+                                WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+
+                                CoTaskMemFree(pszFilePath);
+                            }
+
+                            IShellItem_Release(pItem);
+
+                        }
+
+                    }
+
+                    // Update Listview Count
                     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+
                 }
-                
-                CoTaskMemFree(pszFilePath);
-                
+
+
+                IShellItemArray_Release(pItemsArray);
             }
-
-            
-
-            IShellItem_Release(pItem);
-            pItem = NULL;
         }
 
+        IFileOpenDialog_Release(pFileOpen);
+        pFileOpen = NULL;
     }
 
-
-    IFileOpenDialog_Release(pFileOpen);
-    pFileOpen = NULL;
-
+    // Free resources from WA_Playback_Engine_GetExtFilter function
     free(pFilter[0].pszSpec);
     free(pFilter);
 
@@ -1458,6 +1486,7 @@ bool MainWindow_Play()
     // Highlight Play button
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(TRUE, 0));
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(FALSE, 0));
 
     // Create Timer for position updates
     SetTimer(Globals2.hMainWindow, MW_ID_POS_TIMER, 1000, NULL);
@@ -1475,6 +1504,7 @@ bool MainWindow_Play()
         WA_Playlist_UpdateView(Globals2.pPlaylist, true);
     }
         
+    return true;
 }
 
 
@@ -1497,12 +1527,15 @@ bool MainWindow_Pause()
     // Check Pause Button
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(TRUE, 0));
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
+    SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(FALSE, 0));
 
     KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
     //KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
 
     // Disable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, false);
+
+    return true;
 }
 
 /// <summary>
@@ -1545,6 +1578,7 @@ bool MainWindow_Stop()
         WA_Playlist_UpdateView(Globals2.pPlaylist, true);
     }
   
+    return true;
 }
 
 /// <summary>

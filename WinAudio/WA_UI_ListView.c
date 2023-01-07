@@ -549,6 +549,7 @@ static void WA_Listview_DBLCKL(HWND hListview, LPNMITEMACTIVATE pItemActivate)
     if (pItemActivate->iItem == -1)
         return;
 
+    // TODO: Manage return value
     MainWindow_Open_Playlist_Index((DWORD)pItemActivate->iItem);  
 }
 
