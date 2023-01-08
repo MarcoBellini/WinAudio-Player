@@ -38,10 +38,11 @@ HWND MainWindow_CreateVolumeTrackbar(HWND hOwnerHandle);
 HWND MainWindow_CreateSpectrumBar(HWND hOwnerHandle);
 
 HWND MainWindow_CreateStatus(HWND hOwnerHandle);
-void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t *pText);
+void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t *pText, bool bResetMessage);
 void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uint32_t uSamplerate,
     uint32_t uChannels,
+    uint16_t uBitsPerSample,
     uint64_t uPositionInMs);
 
 // Listview Helpers
@@ -828,9 +829,20 @@ void MainWindow_DestroyStatus()
 /// </summary>
 /// <param name="hStatusHandle">Handle to Main Window Statusbar</param>
 /// <param name="pText">Pointer to Text value</param>
-void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t* pText)
+void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t* pText, bool bResetMessage)
 {
-   SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)pText);
+    if (bResetMessage)
+    {
+        wchar_t pWelcomeString[MAX_PATH];
+        LoadString(GetModuleHandle(NULL), IDS_STATUS_WELCOME, pWelcomeString, MAX_PATH);
+
+        SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)pWelcomeString);
+    }
+    else
+    {
+        SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)pText);   
+    }
+
 }
 
 /// <summary>
@@ -1006,7 +1018,6 @@ void MainWindow_ListView_SetPlayIndex(HWND hListboxHandle, int32_t nIndex)
 /// <param name="hMainWindow">= Parent Window Handle</param>
 void MainWindow_CreateUI(HWND hMainWindow)
 {
-    wchar_t pWelcomeString[MAX_PATH];
 
     // Switch to Dark Mode (If Enabled)
     if (DarkMode_IsSupported() && DarkMode_IsEnabled())
@@ -1039,12 +1050,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
     //Globals2.nCurrentPlayingIndex = MW_LW_INVALID_INDEX;   
 
 
- 
-
-
     // Show Welcome Message in status bar
-    LoadString(GetModuleHandle(NULL), IDS_STATUS_WELCOME, pWelcomeString, MAX_PATH);
-    MainWindow_Status_SetText(Globals2.hStatus, pWelcomeString);
+    MainWindow_Status_SetText(Globals2.hStatus, NULL, true);  
 }
 
 /// <summary>
@@ -1577,6 +1584,9 @@ bool MainWindow_Stop()
         WA_Playlist_DeselectIndex(Globals2.pPlaylist, Globals2.dwCurrentIndex);
         WA_Playlist_UpdateView(Globals2.pPlaylist, true);
     }
+
+    // Reset status
+    MainWindow_Status_SetText(Globals2.hStatus, NULL, true);
   
     return true;
 }
@@ -1634,8 +1644,8 @@ bool MainWindow_Open(const wchar_t* lpwPath)
         SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMAX, true, (LPARAM)uDuration);
     }
 
-    // Update Main Window Title with file path
-    MainWindow_UpdateWindowTitle(lpwPath, false);
+    // Update Main Window Title with file name    
+    MainWindow_UpdateWindowTitle(PathFindFileName(lpwPath), false);
 
     return true;
 }
@@ -1644,6 +1654,9 @@ bool MainWindow_Close()
 {
     if (Globals2.dwCurrentStatus != MW_STOPPED)
         MainWindow_Stop();
+
+    // Clear Window Title
+    MainWindow_UpdateWindowTitle(NULL, true);
 
     return WA_Playback_Engine_CloseFile();
 }
@@ -1669,15 +1682,22 @@ void MainWindow_SplitFilePath(const wchar_t* pInPath, wchar_t* pFolder, wchar_t*
 /// </summary>
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 {
+    WA_AudioFormat Format;
+
     // Update only if there is no mouse operations in progress
     if (!Globals2.bMouseDownOnPosition)
         SendMessage(Globals2.hPositionTrackbar, TBM_SETPOS, TRUE, (LPARAM)uNewValue);
-    /*
-    MainWindow_UpdateStatusText(Globals2.hStatus,
-        Globals.pDecoderManager->uCurrentSamplerate,
-        Globals.pDecoderManager->uCurrentChannels,
-        uNewValue);
-     */
+
+
+    if (WA_Playback_Engine_Get_Current_Format(&Format))
+    {
+        MainWindow_UpdateStatusText(Globals2.hStatus,
+            Format.uSamplerate,
+            Format.uChannels,
+            Format.uBitsPerSample,
+            uNewValue);
+    }
+
 }
 
 /// <summary>
@@ -1685,31 +1705,10 @@ void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 /// </summary>
 DWORD MainWindow_HandleEndOfStreamMsg()
 {
-
-    // TODO: Handle End of Stream
     _RPTW0(_CRT_WARN, L"Main Window End Of Stream\n");
-    WA_Playback_Engine_Stop();
-    /*
-    if (Globals.PlaybackStatus != MW_STOPPED)
-    {       
-        Globals.PlaybackStatus = MW_STOPPED;
-        SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
-        SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
-        SendMessage(Globals.hToolbarHandle, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(TRUE, 0));
-
-        KillTimer(Globals.hMainWindowHandle, MW_ID_POS_TIMER);
-        KillTimer(Globals.hMainWindowHandle, MW_ID_SPECTRUM_TIMER);
-
-        // Reset Position Trackbar to 0
-        MainWindow_UpdatePositionTrackbar(0);
-
-        // Clear Background
-        MainWindow_DrawSpectrum();
-
-        // Disable Position Trackbar
-        EnableWindow(Globals.hPositionTrackbarHandle, false);
-    }
-    */
+    MainWindow_Stop();
+    MainWindow_Close();
+    // TODO: Play next file(if allowed in UI)
 
     return WA_OK;
 }
@@ -1724,11 +1723,9 @@ LRESULT CALLBACK PositionSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     {
     case WM_LBUTTONDOWN:
         Globals2.bMouseDownOnPosition = true;
-       // _RPTF0(_CRT_WARN, "Position Trackbar: Mouse Down\n");
         break;
     case WM_LBUTTONUP:
         Globals2.bMouseDownOnPosition = false;
-        //_RPTF0(_CRT_WARN, "Position Trackbar: Mouse Up\n");
         break;
     }
 
@@ -1742,29 +1739,25 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     switch (uMsg)
     {
     case WM_LBUTTONDOWN:
-        Globals2.bMouseDownOnVolume = true;
-        //_RPTF0(_CRT_WARN, "Volume Trackbar: Mouse Down\n");
+        Globals2.bMouseDownOnVolume = true;  
         break;
     case WM_LBUTTONUP:
         Globals2.bMouseDownOnVolume = false;
-       // _RPTF0(_CRT_WARN, "Volume Trackbar: Mouse Up\n");
         break;
     case WM_CAPTURECHANGED:
-    {
-        //_RPTF0(_CRT_WARN, "Volume Trackbar: Capture Changed\n");    
-
+    { 
         MainWindow_UpdateVolumeFromTrackbarValue();
 
         break;
     }
-
     case WM_MOUSEMOVE:
     {
         // If Mouse is Down Update Volume
         if (Globals2.bMouseDownOnVolume)
         {
-            MainWindow_UpdateVolumeFromTrackbarValue();
+            MainWindow_UpdateVolumeFromTrackbarValue();            
         }
+
         break;
     }        
     }
@@ -1792,9 +1785,9 @@ void MainWindow_UpdateVolumeFromTrackbarValue()
     DWORD dwVolumeValue;
 
     dwVolumeValue = SendMessage(Globals2.hVolumeTrackbar, TBM_GETPOS, 0, 0);
-    dwVolumeValue = min(dwVolumeValue, UINT8_MAX);      
+    dwVolumeValue = min(dwVolumeValue, UINT8_MAX);  
 
-    //DecoderManager_SetVolume(Globals.pDecoderManager, (uint8_t*)&dwVolumeValue); 
+    WA_Playback_Engine_Set_Volume((uint8_t)dwVolumeValue);
 
 }
 
@@ -1827,31 +1820,33 @@ void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClear)
 void MainWindow_UpdateStatusText(HWND hStatusHandle, 
     uint32_t uSamplerate, 
     uint32_t uChannels, 
+    uint16_t uBitsPerSample,
     uint64_t uPositionInMs)
 {
     wchar_t StatusText[MAX_PATH];
     uint32_t uHour, uMinute, uSeconds;
 
-    uSeconds = (uint32_t) (uPositionInMs / 1000);
-    uMinute = uSeconds / 60;
-    uHour = uMinute / 60;
+    uSeconds = (uint32_t) (uPositionInMs / 1000U);
+    uMinute = uSeconds / 60U;
+    uHour = uMinute / 60U;
 
-    uSeconds = uSeconds % 60;
-    uMinute = uMinute % 60;
+    uSeconds = uSeconds % 60U;
+    uMinute = uMinute % 60U;
 
-    ZeroMemory(StatusText, sizeof(StatusText));
+    StatusText[0] = L'\0'; 
 
 
     if (swprintf_s(StatusText, 
         MAX_PATH, 
-        L"%d Hz | %d Channels | Playback: %02d:%02d:%02d", 
+        L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u:%02u", 
         uSamplerate, 
         uChannels,
+        uBitsPerSample,
         uHour,
         uMinute,
         uSeconds))
     {
-        MainWindow_Status_SetText(hStatusHandle, StatusText);
+        MainWindow_Status_SetText(hStatusHandle, StatusText, false);
     }
 }
 

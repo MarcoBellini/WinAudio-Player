@@ -371,20 +371,44 @@ bool WA_Playback_Engine_Get_Duration(uint64_t* uCurrentDurationMs)
 
 bool WA_Playback_Engine_Set_Volume(uint8_t uNewVolume)
 {
+    WA_Output *pOut;
+    uint32_t uResult;
+
     if (!Globals2.bFileIsOpen)
         return false;
 
     if (Globals2.dwCurrentStatus != MW_PLAYING)
         return false;
+
+    pOut = Globals2.pOutput;
+
+    if (!pOut)
+        return false;
+
+    uResult = pOut->WA_Output_Set_Volume(pOut, uNewVolume);
+
+    return (uResult == WA_OK) ? true : false;
 }
 
 bool WA_Playback_Engine_Get_Volume(uint8_t* puNewVolume)
 {
+    WA_Output* pOut;
+    uint32_t uResult;
+
     if (!Globals2.bFileIsOpen)
         return false;
 
     if (Globals2.dwCurrentStatus != MW_PLAYING)
         return false;
+
+    pOut = Globals2.pOutput;
+
+    if (!pOut)
+        return false;
+
+    uResult = pOut->WA_Output_Get_Volume(pOut, puNewVolume);
+
+    return (uResult == WA_OK) ? true : false;
 }
 
 
@@ -398,6 +422,30 @@ bool WA_Playback_Engine_Get_Buffer(int8_t* pBuffer, uint32_t uBufferLen)
 {
     if (!Globals2.bFileIsOpen)
         return false;
+}
+
+/// <summary>
+/// Get Current Stream Audio Format
+/// </summary>
+/// <param name="pFormat"></param>
+/// <returns></returns>
+bool WA_Playback_Engine_Get_Current_Format(WA_AudioFormat* pFormat)
+{
+    WA_Input* pIn;
+
+    // Check for Bad Pointer
+    if (!pFormat)
+        return false;
+
+    if (!Globals2.bFileIsOpen)
+        return false;
+
+    pIn = Globals2.pInput;
+
+    if (!pIn)
+        return false;
+
+    return (pIn->WA_Input_GetFormat(pIn, pFormat) == WA_OK) ? true : false;
 }
 
 /// <summary>
