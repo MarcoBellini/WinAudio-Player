@@ -420,8 +420,31 @@ bool WA_Playback_Engine_Get_Volume(uint8_t* puNewVolume)
 /// <returns>True on Success</returns>
 bool WA_Playback_Engine_Get_Buffer(int8_t* pBuffer, uint32_t uBufferLen)
 {
+    WA_Output* pOut;
+    uint32_t uResult;
+
     if (!Globals2.bFileIsOpen)
         return false;
+
+    if (Globals2.dwCurrentStatus != MW_PLAYING)
+        return false;
+
+    /*
+    if (uBufferLen == 0U)
+        return false;
+
+    if(!pBuffer)
+        return false;
+    */
+
+    pOut = Globals2.pOutput;
+
+    if (!pOut)
+        return false;
+
+    uResult = pOut->WA_Output_Get_BufferData(pOut, pBuffer, uBufferLen);
+
+    return (uResult == WA_OK) ? true : false;
 }
 
 /// <summary>

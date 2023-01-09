@@ -1499,7 +1499,7 @@ bool MainWindow_Play()
     SetTimer(Globals2.hMainWindow, MW_ID_POS_TIMER, 1000, NULL);
 
     // Create Timer for Spectrum Analylis
-    // SetTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER, 40, NULL);
+    SetTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER, 500, NULL);
 
     // Enable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, true);
@@ -1537,7 +1537,7 @@ bool MainWindow_Pause()
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(FALSE, 0));
 
     KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
-    //KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
+    KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
 
     // Disable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, false);
@@ -1567,7 +1567,7 @@ bool MainWindow_Stop()
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(TRUE, 0));
 
     KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
-    // KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
+    KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
 
     // Reset Position Trackbar to 0
     MainWindow_UpdatePositionTrackbar(0);
@@ -1772,7 +1772,7 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 /// </summary>
 void MainWindow_DrawSpectrum()
 {
-    
+    WA_Playback_Engine_Get_Buffer(NULL, 0);
   
 }
 

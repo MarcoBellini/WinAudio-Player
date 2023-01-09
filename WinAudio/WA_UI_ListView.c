@@ -376,7 +376,7 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
         wcsncpy_s(pMetadata->Metadata.Artist,
             WA_METADATA_MAX_LEN, 
             PathFindFileName(pMetadata->lpwFilePath),
-            WA_METADATA_MAX_LEN);
+            WA_METADATA_MAX_LEN - 1);
 
         PathRemoveExtension(pMetadata->Metadata.Artist);
     }

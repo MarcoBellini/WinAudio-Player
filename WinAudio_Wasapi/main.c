@@ -544,6 +544,7 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 	HRESULT hr;
 	WA_Input* pIn;
 	WA_AudioFormat WAFormat;
+	uint16_t uCircleBufferSize;
 
 	if (!This->pIn)
 		return WA_ERROR_INPUTOUTPUTNOTFOUND;
@@ -631,8 +632,11 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 		return false;
 	}
 
-	// Create Cicle Buffer
-	pInstance->pCircle = WA_CircleBuffer_New(pInstance->uCurrentLatencyMs / 1000U * pWfx->Format.nAvgBytesPerSec);
+	// Create Cicle Buffer(Aligned)
+	uCircleBufferSize = pInstance->uCurrentLatencyMs * pWfx->Format.nAvgBytesPerSec / 1000U;
+	uCircleBufferSize = uCircleBufferSize - (uCircleBufferSize % pWfx->Format.nBlockAlign);
+
+	pInstance->pCircle = WA_CircleBuffer_New(uCircleBufferSize);
 
 	// Create Critical Section
 	InitializeCriticalSection(&pInstance->CriticalSection);
@@ -1062,12 +1066,10 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
 	UINT64 uDeviceFrequency;
-	UINT64 uDevicePosition;
-	UINT64 uDevicePositionQPC;
-	HRESULT hr;
-	LARGE_INTEGER qpCounter;
-	UINT64 uCounterValue, uDelayValue;
-	float fDelayMs;
+	UINT64 uDevicePosition;	
+	UINT64 uPositionMs;
+	HRESULT hr;	
+	
 
 	if (!pInstance->bDeviceIsOpen)
 		return WA_ERROR_OUTPUTNOTREADY;
@@ -1084,10 +1086,43 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 
 	hr = IAudioClock_GetPosition(pInstance->pAudioClock,
 		&uDevicePosition,
-		&uDevicePositionQPC);
+		NULL);
 
 	if FAILED(hr)
 		return WA_ERROR_OUTPUTNOTREADY;
+
+	/*
+	* Code snippet to get a more precise location on the order of 100 nanoseconds of units. 
+	  In this case it is not needed because in Milliseconds it is precise enough.
+	
+	LARGE_INTEGER llNowCounter;
+	UINT64 uCounterValue, uDelayValue100Ns;
+	UINT64 uDevicePositionQPC;
+
+	if ((pInstance->uPCFrequency.QuadPart > 0LL) && QueryPerformanceCounter(&llNowCounter))
+	{
+		// Position = Device Position / Device Frequency
+		llNowCounter.QuadPart *= 10000000;
+		llNowCounter.QuadPart = llNowCounter.QuadPart / pInstance->uPCFrequency.QuadPart;
+		uDelayValue100Ns = (UINT64)(llNowCounter.QuadPart) - uDevicePositionQPC;	
+		_RPTW1(_CRT_WARN, L"Delay (100-ns): %u\n", uDelayValue100Ns);
+
+		uPositionMs = (uDevicePosition * 1000ULL) / uDeviceFrequency;
+
+	
+	}
+	*/
+
+
+
+	// Position in Seconds = Device Position / Device Frequency
+	uPositionMs = (uDevicePosition * 1000ULL) / uDeviceFrequency;
+
+	// Convert to Circle Buffer Index
+	uPositionMs = uPositionMs % (UINT64) pInstance->uCurrentLatencyMs;
+
+
+	
 
 
 	// TODO: Continua qui 08/01/23
