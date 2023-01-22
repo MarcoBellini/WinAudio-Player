@@ -80,6 +80,7 @@ struct
 	WA_Effect* pEffect; // Selected in Settings	
 
 	WA_Playlist* pPlaylist; // Store Playlist Informations
+	WA_Visualizations* pVisualizations; // Store Visualizations Handle
 } Globals2;
 
 

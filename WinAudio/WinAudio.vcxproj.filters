@@ -39,10 +39,10 @@
     <ClCompile Include="SpectrumBuffer.c">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="fft.c">
+    <ClCompile Include="WA_FFT.c">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="Visualization.c">
+    <ClCompile Include="WA_UI_Visualizations.c">
       <Filter>File di origine</Filter>
     </ClCompile>
     <ClCompile Include="IN_MediaFoundation.c">
@@ -134,10 +134,10 @@
     <ClInclude Include="SpectrumBuffer.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
-    <ClInclude Include="fft.h">
+    <ClInclude Include="WA_FFT.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
-    <ClInclude Include="Visualization.h">
+    <ClInclude Include="WA_UI_Visualizations.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="d2d1_586.h">

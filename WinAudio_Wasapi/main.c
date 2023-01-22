@@ -544,7 +544,7 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 	HRESULT hr;
 	WA_Input* pIn;
 	WA_AudioFormat WAFormat;
-	uint16_t uCircleBufferSize;
+	uint32_t uCircleBufferSize;
 
 	if (!This->pIn)
 		return WA_ERROR_INPUTOUTPUTNOTFOUND;
@@ -633,8 +633,9 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 	}
 
 	// Create Cicle Buffer(Aligned)
-	uCircleBufferSize = pInstance->uCurrentLatencyMs * pWfx->Format.nAvgBytesPerSec / 1000U;
+	uCircleBufferSize = (pInstance->uCurrentLatencyMs * pWfx->Format.nAvgBytesPerSec) / 1000U;
 	uCircleBufferSize = uCircleBufferSize - (uCircleBufferSize % pWfx->Format.nBlockAlign);
+
 
 	pInstance->pCircle = WA_CircleBuffer_New(uCircleBufferSize);
 
@@ -1068,6 +1069,7 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 	UINT64 uDeviceFrequency;
 	UINT64 uDevicePosition;	
 	UINT64 uPositionMs;
+	uint32_t uPositionInBytes;
 	HRESULT hr;	
 	
 
@@ -1122,66 +1124,13 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 	uPositionMs = uPositionMs % (UINT64) pInstance->uCurrentLatencyMs;
 
 
-	
-
-
-	// TODO: Continua qui 08/01/23
-	/*
-	if (pInstance->uPCFrequency.QuadPart > 0)
-	{
-		// Use High Resolution Performance Counter
-		if (QueryPerformanceCounter(&qpCounter))
-		{
-			lldiv_t result = lldiv(qpCounter.QuadPart, pWasapiInstance->uPCFrequency.QuadPart);
-
-			uCounterValue = (result.quot * 10000000) + ((result.rem * 10000000) / pWasapiInstance->uPCFrequency.QuadPart);
-			uDelayValue = uCounterValue - uDevicePositionQPC;
-			fDelayMs = uDelayValue / 10000.0f;
-
-			(*fPlayTimeMs) = (float)(uDevicePosition) / (float)(uDeviceFrequency);
-			(*fPlayTimeMs) = (*fPlayTimeMs) * 1000.0f;
-			(*fPlayTimeMs) += fDelayMs;
-		}
-		else
-		{
-			(*fPlayTimeMs) = (float)(uDevicePosition) / (float)(uDeviceFrequency);
-
-			// Convert from Seconds to Milliseconds
-			(*fPlayTimeMs) = (*fPlayTimeMs) * 1000.0f;
-		}
-	}
-	else
-	{
-		(*fPlayTimeMs) = (float)(uDevicePosition) / (float)(uDeviceFrequency);
-
-		// Convert from Seconds to Milliseconds
-		(*fPlayTimeMs) = (*fPlayTimeMs) * 1000.0f;
-	}
-
-	*/
-
-	/*
-	
-	// Calculate module
-	fPlayTimeMs = fmodf(fPlayTimeMs, WA_OUTPUT_LEN_MS_F);	
-
-	// Round to a nearest int
-	fPlayTimeMs = rintf(fPlayTimeMs);
-
-
 	// Cast to an unsigned int value and convert to a byte position
-	uPositionInBytes = (pEngine->uAvgBytesPerSec * (uint32_t)fPlayTimeMs) / 1000;
+	uPositionInBytes = (uint32_t) ((pInstance->StreamWfx.Format.nAvgBytesPerSec * (DWORD)uPositionMs) / 1000U);
 
 	// Align to PCM blocks
-	uPositionInBytes = uPositionInBytes - (uPositionInBytes % pEngine->uBlockAlign);
+	uPositionInBytes = uPositionInBytes - (uPositionInBytes % pInstance->StreamWfx.Format.nBlockAlign);
 
-	// Read data from Circle buffer (data is always valid. Write index is > of read index)
-	if (!pCircle->CircleBuffer_ReadFrom(pCircle, pBuffer, uPositionInBytes, nDataToRead))
-		return WINAUDIO_REQUESTFAIL;
-	*/
-
-
-	return WA_OK;
+	return WA_CircleBuffer_ReadFrom(pInstance->pCircle, pBuffer, uBufferLen, uPositionInBytes) ? WA_OK : WA_ERROR_FAIL;
 }
 
 uint32_t WA_Wasapi_Process_DSP(WA_Output* This, bool bEnable)

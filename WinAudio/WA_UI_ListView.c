@@ -8,6 +8,7 @@
 #include "WA_UI_ListView.h"
 #include "WA_GEN_Playlist.h"
 #include "WA_GEN_INI.h"
+#include "WA_UI_Visualizations.h"
 #include "Globals2.h"
 #define TAGLIB_STATIC
 #include "..\Taglibx86\bindings\tag_c.h"

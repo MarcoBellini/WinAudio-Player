@@ -10,6 +10,7 @@
 #include "WA_GEN_PluginLoader.h"
 #include "WA_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
+#include "WA_UI_Visualizations.h"
 #include "Globals2.h"
 
 static wchar_t WA_Playback_Engine_SupportedFileString[] = L"All Supported Files\0";
@@ -428,14 +429,13 @@ bool WA_Playback_Engine_Get_Buffer(int8_t* pBuffer, uint32_t uBufferLen)
 
     if (Globals2.dwCurrentStatus != MW_PLAYING)
         return false;
-
-    /*
+   
     if (uBufferLen == 0U)
         return false;
 
     if(!pBuffer)
         return false;
-    */
+    
 
     pOut = Globals2.pOutput;
 

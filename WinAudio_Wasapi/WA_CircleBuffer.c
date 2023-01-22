@@ -10,13 +10,13 @@
 /// </summary>
 struct tagWA_CircleBuffer
 {
-	uint16_t uWriteIndex;
+	uint32_t uWriteIndex;
 	int8_t* pBuffer;
-	uint16_t uBufferSize;
+	uint32_t uBufferSize;
 };
 
 
-WA_CircleBuffer* WA_CircleBuffer_New(uint16_t uBufferSize)
+WA_CircleBuffer* WA_CircleBuffer_New(uint32_t uBufferSize)
 {
 	WA_CircleBuffer* This;
 
@@ -38,6 +38,7 @@ WA_CircleBuffer* WA_CircleBuffer_New(uint16_t uBufferSize)
 	}
 
 	This->uBufferSize = uBufferSize;	
+	This->uWriteIndex = 0;
 
 	return This;
 }
@@ -54,9 +55,9 @@ void WA_CircleBuffer_Delete(WA_CircleBuffer* This)
 	This = NULL;
 }
 
-bool WA_CircleBuffer_Write(WA_CircleBuffer* This, int8_t* pBuffer, uint16_t uBufferSize)
+bool WA_CircleBuffer_Write(WA_CircleBuffer* This, int8_t* pBuffer, uint32_t uBufferSize)
 {
-	uint16_t uIndex;
+	uint32_t uIndex;
 
 	if (!This)
 		return false;
@@ -68,15 +69,16 @@ bool WA_CircleBuffer_Write(WA_CircleBuffer* This, int8_t* pBuffer, uint16_t uBuf
 		uIndex++;
 		This->uWriteIndex++;
 		This->uWriteIndex = This->uWriteIndex % This->uBufferSize;
+		
 	}
 
 
 	return true;
 }
 
-bool WA_CircleBuffer_ReadFrom(WA_CircleBuffer* This, int8_t* pBuffer, uint16_t uBufferSize, uint16_t uPosition)
+bool WA_CircleBuffer_ReadFrom(WA_CircleBuffer* This, int8_t* pBuffer, uint32_t uBufferSize, uint32_t uPosition)
 {
-	uint16_t uIndex;
+	uint32_t uIndex;
 
 	if (!This)
 		return false;
@@ -87,17 +89,18 @@ bool WA_CircleBuffer_ReadFrom(WA_CircleBuffer* This, int8_t* pBuffer, uint16_t u
 	if (!pBuffer)
 		return false;
 
-	if (!uBufferSize == 0U)
+	if (uBufferSize == 0U)
 		return false;
 	
 
 	uIndex = 0U;
 	while (uIndex < uBufferSize)
 	{
-		This->pBuffer[uPosition] = pBuffer[uIndex];
+		pBuffer[uIndex] = This->pBuffer[uPosition];
 		uIndex++;
 		uPosition++;
-		uPosition = uPosition % This->uBufferSize;
+		uPosition = uPosition % This->uBufferSize;	
+
 	}
 
 	return true;

@@ -3,7 +3,7 @@
 #define GLOBALS_H
 
 #include "DecoderManager.h"
-#include "Visualization.h"
+
 #include "GUI_OpenFileDialog.h"
 
 
@@ -71,7 +71,6 @@ struct
 	bool bFileIsOpen;
 	bool bMouseDownOnPosition;
 	bool bMouseDownOnVolume;
-	Visualization* pVisual;
 	bool bVisualEnabled;
 	int32_t nLastPlayedIndex;
 	int32_t nCurrentPlayingIndex;
@@ -92,11 +91,6 @@ struct
 } Settings;
 
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-BOOL CALLBACK EnhancerProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
-void Enhancer_DspCallback(float* pLeftSamples, float* pRightSamples, uint32_t uSamplesSize);
-void Enhancer_Update(uint32_t uSamplerate);
-void Enhancer_Init();
-void Enhancer_Destroy();
+
 
 #endif

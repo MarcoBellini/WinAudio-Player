@@ -109,7 +109,7 @@
     <ClCompile Include="WA_UI_DarkMode.c" />
     <ClCompile Include="DecoderManager.c" />
     <ClCompile Include="Enhancer.c" />
-    <ClCompile Include="fft.c" />
+    <ClCompile Include="WA_FFT.c" />
     <ClCompile Include="GUI_OpenFileDialog.c" />
     <ClCompile Include="IN_MediaFoundation.c" />
     <ClCompile Include="main.c" />
@@ -123,7 +123,7 @@
     <ClCompile Include="WA_UI_Trackbar.c" />
     <ClCompile Include="WA_UI_UAHMenubar.c" />
     <ClCompile Include="Utility.c" />
-    <ClCompile Include="Visualization.c" />
+    <ClCompile Include="WA_UI_Visualizations.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="biquad.h" />
@@ -142,7 +142,7 @@
     <ClInclude Include="d2d1_586.h" />
     <ClInclude Include="WA_UI_DarkMode.h" />
     <ClInclude Include="DecoderManager.h" />
-    <ClInclude Include="fft.h" />
+    <ClInclude Include="WA_FFT.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="GUI_OpenFileDialog.h" />
     <ClInclude Include="IStreamInput.h" />
@@ -156,7 +156,7 @@
     <ClInclude Include="WA_UI_Trackbar.h" />
     <ClInclude Include="WA_UI_UAHMenubar.h" />
     <ClInclude Include="Utility.h" />
-    <ClInclude Include="Visualization.h" />
+    <ClInclude Include="WA_UI_Visualizations.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="WinAudio.rc" />

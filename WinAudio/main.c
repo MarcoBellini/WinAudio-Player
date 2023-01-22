@@ -17,6 +17,7 @@
 #include "WA_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
 #include "WA_GEN_INI.h"
+#include "WA_UI_Visualizations.h"
 #include "Globals2.h"
 
 
@@ -387,7 +388,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if (lParam)
             {
-                MainWindow_DrawSpectrum();
+                if (Globals2.pVisualizations)
+                    WA_Visualizations_Clear(Globals2.pVisualizations);
+
                 return true;
             }
             
@@ -1033,13 +1036,11 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.hListView = MainWindow_CreateListView(hMainWindow);
 
 
-    // Create Visualizations resources for Globals.hStaticHandle
-   // Globals.bVisualEnabled = vis_Init(&Globals.pVisual, Globals.hStaticHandle, VIS_INSAMPLES);
+    // Create Visualizations resources for Our Static
+    Globals2.pVisualizations = WA_Visualizations_New(Globals2.hStatic);
 
-    // Init Enhancer and create a callback to DSP function 
-    // in Enhancer.c
-
-
+    if (Globals2.pVisualizations)
+        WA_Visualizations_Clear(Globals2.pVisualizations);
 
     // Assign Initial Status to Stopped
     Globals2.dwCurrentStatus = MW_STOPPED;
@@ -1059,6 +1060,9 @@ void MainWindow_CreateUI(HWND hMainWindow)
 /// </summary>
 void MainWindow_DestroyUI()
 {
+    // Destroy Visualizations
+    if(Globals2.pVisualizations)
+        WA_Visualizations_Delete(Globals2.pVisualizations);
    
     MainWindow_DestroyRebar();
     MainWindow_DestroyStatus();
@@ -1284,7 +1288,7 @@ HWND MainWindow_CreateSpectrumBar(HWND hOwnerHandle)
     HWND hStaticControl;
 
     hStaticControl = CreateWindowEx(
-        WS_EX_STATICEDGE,                               // no extended styles 
+        0,                               // no extended styles 
         L"STATIC",                  // class name 
         L"",              // title (caption) 
         WS_CHILD |
@@ -1499,7 +1503,7 @@ bool MainWindow_Play()
     SetTimer(Globals2.hMainWindow, MW_ID_POS_TIMER, 1000, NULL);
 
     // Create Timer for Spectrum Analylis
-    SetTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER, 500, NULL);
+    SetTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER, 30, NULL);
 
     // Enable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, true);
@@ -1572,8 +1576,10 @@ bool MainWindow_Stop()
     // Reset Position Trackbar to 0
     MainWindow_UpdatePositionTrackbar(0);
 
-    // Clear Background
-    MainWindow_DrawSpectrum();
+    // Clear Static Background
+    if (Globals2.pVisualizations)
+        WA_Visualizations_Clear(Globals2.pVisualizations);
+
 
     // Disable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, false);
@@ -1624,6 +1630,7 @@ bool MainWindow_Open_Playlist_Index(DWORD dwIndex)
 bool MainWindow_Open(const wchar_t* lpwPath)
 {
     uint64_t uDuration = 0;
+    WA_AudioFormat Format;
 
     if (Globals2.dwCurrentStatus != MW_STOPPED)
         MainWindow_Stop();
@@ -1642,6 +1649,16 @@ bool MainWindow_Open(const wchar_t* lpwPath)
     {
         SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMIN, false, 0);
         SendMessage(Globals2.hPositionTrackbar, TBM_SETRANGEMAX, true, (LPARAM)uDuration);
+    }
+
+    // Update Visualizations
+    if (WA_Playback_Engine_Get_Current_Format(&Format))
+    {
+        if(Globals2.pVisualizations)
+            WA_Visualizations_UpdateFormat(Globals2.pVisualizations, 
+                Format.uSamplerate, 
+                Format.uChannels, 
+                Format.uBitsPerSample);
     }
 
     // Update Main Window Title with file name    
@@ -1772,7 +1789,25 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 /// </summary>
 void MainWindow_DrawSpectrum()
 {
-    WA_Playback_Engine_Get_Buffer(NULL, 0);
+    int8_t* pBuffer;
+    uint32_t uBufferSize;
+
+    if (!Globals2.pVisualizations)
+        return;
+
+    pBuffer = WA_Visualizations_AllocBuffer(Globals2.pVisualizations, &uBufferSize);
+
+    if (!pBuffer)
+        return;
+
+
+    if(WA_Playback_Engine_Get_Buffer(pBuffer, uBufferSize))
+    {
+        WA_Visualizations_Draw(Globals2.pVisualizations, pBuffer);
+    }    
+
+
+    WA_Visualizations_FreeBuffer(Globals2.pVisualizations, pBuffer);
   
 }
 
