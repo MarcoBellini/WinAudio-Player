@@ -5,10 +5,8 @@
 #include "Utility.h"
 #include "WA_UI_ColorPolicy.h"
 
-
-#define RGB_TO_D2D_COLORF(this,rf,gf,bf, af) this.r = rf / 255.0f; this.g = gf/ 255.0f; this.b = bf / 255.0f; this.a = af / 255.0f
-
-const static IID IID_ID2D1Factory = { 0x06152247,0x6F50,0x465A,0x92,0x45,0x11,0x8B,0xFD,0x3B,0x60,0x07};	// 06152247-6f50-465a-9245-118bfd3b6007
+// 06152247-6f50-465a-9245-118bfd3b6007
+static const IID IID_ID2D1Factory = { 0x06152247,0x6F50,0x465A,0x92,0x45,0x11,0x8B,0xFD,0x3B,0x60,0x07};	
 
 LRESULT CALLBACK StaticSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 	LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
@@ -17,8 +15,7 @@ LRESULT CALLBACK StaticSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 struct TagWA_Visualizations
 {
 	ID2D1Factory* pFactory;
-	ID2D1HwndRenderTarget* pTarget;
-	ID2D1SolidColorBrush* pFillBrush;
+	ID2D1HwndRenderTarget* pTarget;	
 
 	HWND hStatic;
 	D2D1_SIZE_U StaticSize;
@@ -46,7 +43,7 @@ static inline uint32_t WA_Visualizations_Get_VisibleBands(WA_Visualizations* Thi
 	if (This->StaticSize.width == 0)
 		return 0U;
 	
-	uVisibleBands = (uint32_t)(This->StaticSize.width / (WA_VISUALIZATIONS_BAND_WIDTH + WA_VISUALIZATIONS_BAND_SPACE));
+	uVisibleBands = (uint32_t)(This->StaticSize.width / (WA_VISUALIZATIONS_BAND_WIDTH + WA_VISUALIZATIONS_BAND_SPACE)) + 1;
 	uVisibleBands = min(WA_VISUALIZATIONS_OUTPUT_FFT_HALF, uVisibleBands);
 
 	return uVisibleBands;
@@ -107,87 +104,44 @@ static void WA_Visualizations_Cache_IndexesTable(WA_Visualizations* This)
 
 }
 
-
 static void WA_Visualizations_Bytes_To_Float(WA_Visualizations* This, int8_t* pByte, float* pFloatSamples)
 {
+	
+	uint16_t uChuckSize = This->uBitsPerSample / 8U;
+	uint32_t uIndex = 0;
+	
 
-	uint32_t i;
-
-	switch (This->uChannels)
+	for (uint32_t i = 0; i < WA_VISUALIZATIONS_INPUT_BUFFER; i++)
 	{
-	case 1:
-		switch (This->uBitsPerSample)
-		{
-		case 8:
-		{
-			uint32_t uOffset = 0;
-			int8_t nMono;
+		pFloatSamples[i] = 0.0f;		
 
-			for (i = 0; i < WA_VISUALIZATIONS_INPUT_BUFFER; i++)
+		for (uint32_t j = 1; j <= This->uChannels; j++)
+		{
+
+			switch (This->uBitsPerSample)
 			{
-				memcpy(&nMono, pByte + uOffset, 1);
-				uOffset += 1;
-
-				pFloatSamples[i] = nMono / 127.0f;
+			case 8:
+				pFloatSamples[i] += pByte[uIndex] / 127.0f;
+				break;
+			case 16:
+				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8)) / 32767.0f;				
+				break;
+			case 24:
+				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8) + 
+									(pByte[uIndex + 1] << 16)) / 8388607.0f;
+				break;
+			case 32:
+				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8) + 
+									(pByte[uIndex + 1] << 16) + (pByte[uIndex + 1] << 24)) / 2147483647.0f;				
 			}
+			
 
-			break;
+			uIndex += uChuckSize;
+			
 		}
-		case 16:
-		{
-			uint32_t uOffset = 0;
-			int16_t nMono;
 
-			for (i = 0; i < WA_VISUALIZATIONS_INPUT_BUFFER; i++)
-			{
-				memcpy(&nMono, pByte + uOffset, 2);
-				uOffset += 2;
-
-				pFloatSamples[i] = nMono / 32767.0f;
-			}
-
-			break;
-		}
-		}
-	case 2:
-		switch (This->uBitsPerSample)
-		{
-		case 8:
-		{	
-
-			uint32_t uOffset = 0;
-			int8_t Channels[2];
-
-			for (uint32_t i = 0U; i < WA_VISUALIZATIONS_INPUT_BUFFER; i++)
-			{
-				memcpy(&Channels, pByte + uOffset, 2);
-				uOffset += 2;
-
-				pFloatSamples[i] = (Channels[0] + Channels[1]) / 255.0f;
-			}
-
-			break;
-		}
-		case 16:
-		{
-			uint32_t uOffset = 0;
-			int16_t Channels[2];
-
-			for (uint32_t i = 0U; i < WA_VISUALIZATIONS_INPUT_BUFFER; i++)
-			{
-				memcpy(&Channels, pByte + uOffset, 4);
-				uOffset += 4;		
-
-				pFloatSamples[i] = (Channels[0] + Channels[1]) / 65534.0f;			
-			}
-
-			break;
-		}
-		}
+		pFloatSamples[i] /= This->uChannels;
 	}
-
-	// TODO: IMPLEMENT 24 bits and 32 bits Samples
-
 }
 
 
@@ -195,14 +149,14 @@ static void WA_Visualizations_Bytes_To_Float(WA_Visualizations* This, int8_t* pB
 static float WA_Visualizations_Avg_Bands(WA_Visualizations* This, float* fSamples, uint32_t uStartIndex, uint32_t uEndIndex)
 {
 	uint32_t i;
-	float fValue = 0.00001f;
+	float fValue = 0.0f;
 
 	if (uStartIndex == uEndIndex)
 		return fSamples[uStartIndex];
 
 	for (i = uStartIndex; i < uEndIndex; i++)
 	{
-		fValue += fSamples[i] > 0.00001f ? fSamples[i] : 0.00001f;
+		fValue += fSamples[i] > WA_VISUALIZATIONS_MIN_SAMPLE ? fSamples[i] : 0.0f;
 	}
 
 	return (fValue / (uEndIndex - uStartIndex));
@@ -219,7 +173,6 @@ WA_Visualizations* WA_Visualizations_New(HWND hStatic)
 	RECT StaticRect;
 	WA_Visualizations* This;
 	D2D1_FACTORY_OPTIONS FactoryOptions;
-	D2D1_COLOR_F FillColor;
 	
 	if (!hStatic)
 		return false;
@@ -270,10 +223,8 @@ WA_Visualizations* WA_Visualizations_New(HWND hStatic)
 	TargetProperies.type = D2D1_RENDER_TARGET_TYPE_DEFAULT;
 	TargetProperies.pixelFormat = PixelFormat;
 
-
 	// Set Hwnd Render target properties
 	HwndTargetProperies.hwnd = hStatic;
-
 
 	if (GetClientRect(hStatic, &StaticRect))
 	{
@@ -306,26 +257,6 @@ WA_Visualizations* WA_Visualizations_New(HWND hStatic)
 		return NULL;
 	}
 
-	FillColor.a = 1.0f;
-	FillColor.r = GetRValue(ColorPolicy_Get_Primary_Color()) / 255.0f;
-	FillColor.g = GetGValue(ColorPolicy_Get_Primary_Color()) / 255.0f;
-	FillColor.b = GetBValue(ColorPolicy_Get_Primary_Color()) / 255.0f;
-
-
-	hr = ID2D1HwndRenderTarget_CreateSolidColorBrush(This->pTarget, &FillColor, NULL, &This->pFillBrush);
-
-	if FAILED(hr)
-	{
-		ID2D1HwndRenderTarget_Release(This->pTarget);
-		ID2D1Factory_Release(This->pFactory);
-
-		This->pTarget = NULL;
-		This->pFactory = NULL;
-
-		free(This);
-		return NULL;
-	}
-
 
 	ZeroMemory(This->fBandDB, sizeof(float)* WA_VISUALIZATIONS_OUTPUT_FFT_HALF);
 
@@ -345,8 +276,7 @@ void WA_Visualizations_Delete(WA_Visualizations* This)
 
 	RemoveWindowSubclass(This->hStatic, StaticSubclassProc, WA_VISUALIZATIONS_SUBCLASS_ID);
 
-	if (This->pFillBrush)
-		ID2D1SolidColorBrush_Release(This->pFillBrush);
+
 
 	if (This->pTarget)
 		ID2D1HwndRenderTarget_Release(This->pTarget);
@@ -376,6 +306,7 @@ void WA_Visualizations_UpdateFormat(WA_Visualizations* This, uint32_t uSamplerat
 	This->FrequencyMaxIndex = (uint32_t)((fMaxFrequencyAllowed / (uSamplerate / 2.0f)) * WA_VISUALIZATIONS_OUTPUT_FFT_HALF);
 
 	WA_Visualizations_Cache_IndexesTable(This);
+
 	ZeroMemory(This->fBandDB, sizeof(float) * WA_VISUALIZATIONS_OUTPUT_FFT_HALF);
 }
 
@@ -383,38 +314,47 @@ void WA_Visualizations_UpdateFormat(WA_Visualizations* This, uint32_t uSamplerat
 
 void WA_Visualizations_Draw(WA_Visualizations* This, int8_t* pBuffer)
 {
-	D2D1_COLOR_F BackgroundColor;
+	ID2D1SolidColorBrush* pFillBrush;
+	D2D1_COLOR_F BackgroundColor, FillColor;
 	D2D1_RECT_F DrawRect;
+	HRESULT hr;
 	uint32_t uVisibleBand, i, uDrawIndex, uPrevIndex;
 	float fDrawValue, fBarX, fMaxHeight;
 
-	RGB_TO_D2D_COLORF(BackgroundColor, 0.0f, 0.0f, 0.0f, 255.0f);
+	BackgroundColor.a = 1.0f;
+	BackgroundColor.r = GetRValue(ColorPolicy_Get_Background_Color()) / 255.0f;
+	BackgroundColor.g = GetGValue(ColorPolicy_Get_Background_Color()) / 255.0f;
+	BackgroundColor.b = GetBValue(ColorPolicy_Get_Background_Color()) / 255.0f;
 
-	uVisibleBand = WA_Visualizations_Get_VisibleBands(This);
+	FillColor.a = 1.0f;
+	FillColor.r = GetRValue(ColorPolicy_Get_Primary_Color()) / 255.0f;
+	FillColor.g = GetGValue(ColorPolicy_Get_Primary_Color()) / 255.0f;
+	FillColor.b = GetBValue(ColorPolicy_Get_Primary_Color()) / 255.0f;
+
+	hr = ID2D1HwndRenderTarget_CreateSolidColorBrush(This->pTarget, &FillColor, NULL, &pFillBrush);
+
+	if FAILED(hr)
+		return;	
 
 	WA_Visualizations_Bytes_To_Float(This, pBuffer, This->InBuffer);
-
 	WA_FFT_TimeToFrequencyDomain(This->pFFT, This->InBuffer, This->OutBuffer, true);
 
 	fMaxHeight = (float)This->StaticSize.height;
-
+	uVisibleBand = WA_Visualizations_Get_VisibleBands(This);
 
 	ID2D1HwndRenderTarget_BeginDraw(This->pTarget);
-
-	// Clear Background
 	ID2D1HwndRenderTarget_Clear(This->pTarget, &BackgroundColor);
-
-	// Draw Bands
-	uPrevIndex = 0;
-	uDrawIndex = 0;
+	
+	uPrevIndex = This->pIndexesTable[0];
+	uDrawIndex = 0U;
 	fBarX = 1.0f;
 
-	for (i = 0; i < uVisibleBand; i++)
+	for (i = 1U; i < uVisibleBand; i++)
 	{				
-		uDrawIndex = This->pIndexesTable[i]; 
+		uDrawIndex = This->pIndexesTable[i]; 		
 
 		fDrawValue = WA_Visualizations_Avg_Bands(This, This->OutBuffer, uPrevIndex, uDrawIndex);
-		fDrawValue = (fDrawValue / 8.5f) * fMaxHeight;
+		fDrawValue = fDrawValue * WA_VISUALIZATIONS_SCALE_FACTOR * fMaxHeight;
 		fDrawValue = min(fMaxHeight, fDrawValue);
 
 
@@ -424,42 +364,36 @@ void WA_Visualizations_Draw(WA_Visualizations* This, int8_t* pBuffer)
 		}
 		else
 		{
-			This->fBandDB[i] -= 0.8f;
+			This->fBandDB[i] -= WA_VISUALIZATIONS_FALLOFF_VELOCITY;
 			This->fBandDB[i] = max(This->fBandDB[i], 0.0f);
-		}
-		
-		fDrawValue = This->fBandDB[i];				
-
+		}	
 
 		DrawRect.left = fBarX;
 		DrawRect.right = fBarX + WA_VISUALIZATIONS_BAND_WIDTH;
 		DrawRect.bottom = (float) This->StaticSize.height;
-		DrawRect.top = (float) This->StaticSize.height - fDrawValue;
+		DrawRect.top = (float) This->StaticSize.height - This->fBandDB[i];
 
-		ID2D1HwndRenderTarget_FillRectangle(This->pTarget, &DrawRect, (ID2D1Brush*) This->pFillBrush);
+		ID2D1HwndRenderTarget_FillRectangle(This->pTarget, &DrawRect, (ID2D1Brush*) pFillBrush);
 					
 		fBarX += WA_VISUALIZATIONS_BAND_WIDTH + WA_VISUALIZATIONS_BAND_SPACE;
 		uPrevIndex = uDrawIndex;
 	}
 
-
-	// End Drawing
-	ID2D1HwndRenderTarget_EndDraw(This->pTarget, 0, 0);
-	
-
+	ID2D1HwndRenderTarget_EndDraw(This->pTarget, 0, 0);	
+	ID2D1SolidColorBrush_Release(pFillBrush);
 }
 
 void WA_Visualizations_Clear(WA_Visualizations* This)
 {
 	D2D1_COLOR_F BackgroundColor;
 
-	RGB_TO_D2D_COLORF(BackgroundColor, 0.0f, 0.0f, 0.0f, 255.0f);
+	BackgroundColor.a = 1.0f;
+	BackgroundColor.r = GetRValue(ColorPolicy_Get_Background_Color()) / 255.0f;
+	BackgroundColor.g = GetGValue(ColorPolicy_Get_Background_Color()) / 255.0f;
+	BackgroundColor.b = GetBValue(ColorPolicy_Get_Background_Color()) / 255.0f;
 
 	ID2D1HwndRenderTarget_BeginDraw(This->pTarget);
-
-	// Clear Background
-	ID2D1HwndRenderTarget_Clear(This->pTarget, &BackgroundColor);	
-
+	ID2D1HwndRenderTarget_Clear(This->pTarget, &BackgroundColor);
 	ID2D1HwndRenderTarget_EndDraw(This->pTarget, 0, 0);
 
 	ZeroMemory(This->fBandDB, sizeof(float) * WA_VISUALIZATIONS_OUTPUT_FFT_HALF);
@@ -475,8 +409,7 @@ LRESULT CALLBACK StaticSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 	case WM_SIZE:
 	{
 		WA_Visualizations* This = (WA_Visualizations *) dwRefData;
-
-		// Check if we have a valid pointer
+		
 		if (This)
 		{
 			D2D1_SIZE_U dSize;
@@ -485,10 +418,8 @@ LRESULT CALLBACK StaticSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 			dSize.height = HIWORD(lParam);
 
 			This->StaticSize = dSize;
-
-			if(This)
-				ID2D1HwndRenderTarget_Resize(This->pTarget, &dSize);
-
+		
+			ID2D1HwndRenderTarget_Resize(This->pTarget, &dSize);
 		}		
 	}
 

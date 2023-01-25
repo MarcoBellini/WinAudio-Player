@@ -42,7 +42,7 @@ static const UIColors DarkMode_Red =
 {
 RGB(123,59,50), // Primary
 RGB(73,55,54), // PrimaryVariant
-RGB(102,130,132), // Secondary
+RGB(242,112,89), // Secondary
 RGB(185,215,217), // SecondaryVariant
 RGB(20,20,20), // Background
 RGB(30,30,30), // Surface
