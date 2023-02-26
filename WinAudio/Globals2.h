@@ -81,6 +81,10 @@ struct
 
 	WA_Playlist* pPlaylist; // Store Playlist Informations
 	WA_Visualizations* pVisualizations; // Store Visualizations Handle
+
+	bool bListviewDragging;
+	POINT ptListviewDraggingCursor;
+	int32_t nListviewItem;
 } Globals2;
 
 

@@ -28,6 +28,10 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd);
 
 WA_Listview_Column Columns[WA_LISTVIEW_COLUMNS_COUNT];
 
+static inline bool WA_UI_Listview_IsRowSelected(HWND hWnd, int nRow)
+{
+    return ListView_GetItemState(hWnd, nRow, LVIS_SELECTED) != 0;
+}
 
 static void WA_UI_Listview_AddColumn(HWND hListview, wchar_t* pwColumnText, int32_t nColumnWidth, int32_t nColumnIndex, int32_t nFlags)
 {
@@ -544,6 +548,60 @@ static LRESULT WA_Listview_FindItem(LPNMLVFINDITEM pFindItem)
     return (LRESULT)dwFoundIndex;
 }
 
+/// <summary>
+/// Reorder Listiew Selected Items
+/// </summary>
+static void WA_Listview_ReorderSelectedItems(HWND hListview, INT uTargetIndex)
+{
+    DWORD dwCount;
+    INT uIndex, uSelectedCount, uOffset;
+    DWORD* ItemsArray;
+
+    if (uTargetIndex == -1)
+        return;
+    
+    if (!Globals2.pPlaylist)
+        return;
+
+    dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+
+    if (dwCount < (DWORD)uTargetIndex)
+        return;
+
+    uSelectedCount = ListView_GetSelectedCount(hListview);
+
+    if (uSelectedCount <= 0)
+        return;
+
+    uIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
+ 
+    if (uIndex == uTargetIndex)
+        return;
+
+    ItemsArray = (DWORD*)calloc(sizeof(DWORD), uSelectedCount);
+
+    if (!ItemsArray)
+        return;
+
+    uOffset = 0;
+    while (uIndex != -1)
+    {
+        ItemsArray[uOffset] = (DWORD) uIndex;
+        uOffset++;
+        ListView_SetItemState(hListview, uIndex, 0, LVNI_SELECTED);
+
+        uIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
+        
+    }
+
+    WA_Playlist_ReorderIndexes(Globals2.pPlaylist, ItemsArray, uSelectedCount, (DWORD)uTargetIndex);
+
+    free(ItemsArray);
+
+    ListView_SetItemState(hListview, uTargetIndex, LVIS_SELECTED, LVNI_SELECTED);
+
+}
+
 static void WA_Listview_DBLCKL(HWND hListview, LPNMITEMACTIVATE pItemActivate)
 {
 
@@ -598,6 +656,10 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
         DarkMode_AllowDarkModeForWindow(hWnd, DarkMode_IsEnabled());
         DarkMode_AllowDarkModeForWindow(hHeader, DarkMode_IsEnabled());
 
+        // Update Colors
+        ListView_SetBkColor(hWnd, ColorPolicy_Get_Background_Color());
+        ListView_SetTextColor(hWnd, ColorPolicy_Get_TextOnBackground_Color());
+
         SendMessage(hHeader, WM_THEMECHANGED, wParam, lParam);
 
         RedrawWindow(hWnd, NULL, NULL, RDW_FRAME | RDW_INVALIDATE);
@@ -622,33 +684,118 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
   
         }
     }
+    case WM_MOUSEMOVE:
+    {
+        LVHITTESTINFO lvHitTest;
+        int32_t nItem;
+        RECT rcItem;
+
+        if (!Globals2.bListviewDragging)
+            break;
+
+        Globals2.ptListviewDraggingCursor.x = GET_X_LPARAM(lParam);
+        Globals2.ptListviewDraggingCursor.y = GET_Y_LPARAM(lParam);             
+
+        lvHitTest.pt.x = Globals2.ptListviewDraggingCursor.x;
+        lvHitTest.pt.y = Globals2.ptListviewDraggingCursor.y;
+
+        /* Returns the index of the item at the specified position, if any, or -1 otherwise. */
+        nItem = ListView_HitTest(hWnd, &lvHitTest);
+
+        if (nItem == -1)
+            break;
+
+        if(!(lvHitTest.flags & LVHT_ONITEMLABEL))
+            break;
+
+        
+        if (!ListView_GetItemRect(hWnd, nItem, &rcItem, LVIR_BOUNDS))
+            break;
+        
+
+        Globals2.nListviewItem = nItem;
+                                
+        RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE);    
+
+        break;
+    }
+    case WM_LBUTTONUP:
+
+        if (!Globals2.bListviewDragging)
+            break;
+
+        WA_Listview_ReorderSelectedItems(hWnd, Globals2.nListviewItem);
+        Globals2.bListviewDragging = false;
+        Globals2.nListviewItem = -1;
+        RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE); 
+
+        break;
+    case WM_MOUSELEAVE:
+
+        if (!Globals2.bListviewDragging)
+            break;
+        
+        Globals2.bListviewDragging = false;
+        Globals2.nListviewItem = -1;
+        RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE);        
+
+        break;
     }
 
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
-// TODO: Manage Custom Draw Better
+
+
 LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
 {
     switch (lplvcd->nmcd.dwDrawStage)
     {
     case CDDS_PREPAINT:
         return CDRF_NOTIFYITEMDRAW;
-    case CDDS_ITEMPREPAINT:
-    {
-        if ((lplvcd->nmcd.dwItemSpec % 2) == 0)
-            lplvcd->clrTextBk = ColorPolicy_Get_Background_Color();
+    case CDDS_ITEMPREPAINT :
+    {     
+      
+
+        if (WA_UI_Listview_IsRowSelected(hWnd, lplvcd->nmcd.dwItemSpec))
+        {
+            lplvcd->clrTextBk = ColorPolicy_Get_Secondary_Color();
+
+            /*
+                TODO: Not sure if this is the correct method to change the color of a selected item.
+                On windows 11 it seems to work fine.To be tested further...
+            */
+            lplvcd->nmcd.uItemState = CDIS_DEFAULT;         
+        }
         else
-            lplvcd->clrTextBk = ColorPolicy_Get_Primary_Color();
+        {
+            if ((lplvcd->nmcd.dwItemSpec % 2) == 0)
+                lplvcd->clrTextBk = ColorPolicy_Get_Background_Color();
+            else
+                lplvcd->clrTextBk = ColorPolicy_Get_Primary_Color();
+        }  
+
 
         lplvcd->clrText = ColorPolicy_Get_TextOnSurface_Color();
 
-        return CDRF_NEWFONT;
+        return CDRF_NEWFONT | CDRF_NOTIFYPOSTPAINT;
+    }
+    case CDDS_ITEMPOSTPAINT:
+    {
+        if(!Globals2.bListviewDragging)
+            return CDRF_DODEFAULT;
+
+        if (lplvcd->nmcd.dwItemSpec == Globals2.nListviewItem)          
+            FrameRect(lplvcd->nmcd.hdc, &lplvcd->nmcd.rc, ColorPolicy_Get_TextOnBackground_Brush()); 
+       
+        return CDRF_SKIPDEFAULT;
     }
     default:
         return CDRF_DODEFAULT;
     }
 }
+
+
 
 // LRESULT WA_UI_Listview_OnNotify(HWND hWnd, LPNMHDR lpHdr)
 // TODO: See https://www.codeproject.com/Articles/1298/Rearrange-rows-in-a-ListView-control-by-drag-and-d
@@ -673,32 +820,16 @@ LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         return TRUE;
     case LVN_BEGINDRAG:
     {
-        // TODO: Continua qui 01/01/23
-        /*
-        int32_t iPos;
-        LPNMLISTVIEW lpListItem;
-        POINT pMouse, pAction;
-        HIMAGELIST hDragImage;
+        // See: https://www.codeproject.com/Articles/1298/Rearrange-rows-in-a-ListView-control-by-drag-and-d
+        LPNMLISTVIEW lpListItem = (LPNMLISTVIEW)lParam;
 
-        lpListItem = (LPNMLISTVIEW)lParam;
-        GetCursorPos(&pMouse); 
+        Globals2.bListviewDragging = true;
+        Globals2.ptListviewDraggingCursor = lpListItem->ptAction;    
 
-            
-        hDragImage = ListView_CreateDragImage(hWnd, lpListItem->iItem, &pMouse);
-
-        ImageList_BeginDrag(hDragImage, 0, 0, 0);
-
-        pAction = lpListItem->ptAction;
-
-        ClientToScreen(hWnd, &pAction);
-
-        ImageList_DragEnter(GetDesktopWindow(), pAction.x, pAction.y);
-        */
-       
-
-        _RPTW0(_CRT_WARN, L"Begin Drag\n");
+        break;
     }
-        
+    case LVN_HOTTRACK:
+        return TRUE;        
     default:
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
@@ -795,7 +926,7 @@ HWND WA_UI_Listview_Create(HWND hOwner, PRECT pRect)
     dwStyle = WS_CHILD | WS_VISIBLE |
         WS_VSCROLL | WS_HSCROLL |
         LVS_REPORT | LVS_SHOWSELALWAYS |
-        LVS_SINGLESEL | LVS_OWNERDATA;
+        LVS_OWNERDATA;
 
     hListview = CreateWindowEx(
         0,										//	dwExStyle
@@ -815,14 +946,14 @@ HWND WA_UI_Listview_Create(HWND hOwner, PRECT pRect)
 
     // Set ListView style
     ListView_SetExtendedListViewStyle(hListview, LVS_EX_FULLROWSELECT |
-        LVS_EX_INFOTIP | 
+        LVS_EX_LABELTIP |
         LVS_EX_DOUBLEBUFFER | 
         LVS_EX_HEADERDRAGDROP);
 
     // Hide Focus Dots
     SendMessage(hListview, WM_CHANGEUISTATE, (WPARAM)MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
 
-    // Set ListView Background color(TODO: Manage Light Colors)
+    // Set ListView Background color
     ListView_SetBkColor(hListview, ColorPolicy_Get_Background_Color());
     ListView_SetTextColor(hListview, ColorPolicy_Get_TextOnBackground_Color());
 

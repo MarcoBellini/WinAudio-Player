@@ -33,7 +33,7 @@ bool WA_Playlist_Add(WA_Playlist* This, wchar_t* pFilePath);
 bool WA_Playlist_Remove(WA_Playlist* This, DWORD dwIndex);
 bool WA_Playlist_RemoveAll(WA_Playlist* This);
 
-bool WA_Playlist_MoveToIndex(WA_Playlist* This, DWORD dwIndex, DWORD dwNewIndex);
+bool WA_Playlist_ReorderIndexes(WA_Playlist* This, DWORD* pIndexesArray, DWORD dwArrayCount, DWORD dwTargetIndex);
 WA_Playlist_Metadata* WA_Playlist_Get_Item(WA_Playlist* This, DWORD dwIndex);
 DWORD WA_Playlist_Get_Count(WA_Playlist* This);
 

@@ -182,25 +182,109 @@ bool WA_Playlist_RemoveAll(WA_Playlist* This)
 }
 
 /// <summary>
-/// Move an index to a new Index value
+/// Reorder playlist items based on an array of indexes
 /// </summary>
-/// <param name="dwIndex">Current index value</param>
-/// <param name="dwNewIndex">New Index value</param>
+/// <param name="pIndexesArray">Array of Indexes</param>
+/// <param name="dwArrayCount">Count of Indexes</param>
+/// <param name="dwTargetIndex">Index Index where to move the elements</param>
 /// <returns>True on Success</returns>
-bool WA_Playlist_MoveToIndex(WA_Playlist* This, DWORD dwIndex, DWORD dwNewIndex)
+bool WA_Playlist_ReorderIndexes(WA_Playlist* This, DWORD *pIndexesArray, DWORD dwArrayCount, DWORD dwTargetIndex)
 {
-	WA_Playlist_Metadata pTemp;
+	WA_Playlist_Metadata* pTempArray;
+	DWORD nMinIndex, nMaxIndex, nRange, nIndex, nMinIndex2;
+	DWORD i, j;
 
-	if ((This->dwCount < dwIndex) || (This->dwCount < dwNewIndex))
+	if ((dwArrayCount == 0U) || (!pIndexesArray))
 		return false;
 
-	// Swap Items
-	pTemp = This->pMetadataArray[dwIndex];
-	This->pMetadataArray[dwIndex] = This->pMetadataArray[dwNewIndex];
-	This->pMetadataArray[dwNewIndex] = pTemp;
+	if (This->dwCount < dwTargetIndex)
+		return false;
+
+
+	nMinIndex = dwTargetIndex;
+	nMaxIndex = dwTargetIndex;
+	nMinIndex2 = pIndexesArray[0];
+
+	// Find the range between the minor index and the major index. 
+	// Also consider the tatget index
+	for (i = 0; i < dwArrayCount; i++)
+	{
+		if (pIndexesArray[i] < nMinIndex)
+			nMinIndex = pIndexesArray[i];
+
+		if (pIndexesArray[i] > nMaxIndex)
+			nMaxIndex = pIndexesArray[i];
+
+		if (pIndexesArray[i] < nMinIndex2)
+			nMinIndex2 = pIndexesArray[i];
+	}
+
+	// Allocate space for the temporary array to store the sorted elements (between min and max index)
+	nRange = nMaxIndex - nMinIndex + 1U;
+
+	pTempArray = calloc(nRange, sizeof(WA_Playlist_Metadata));
+
+	if (!pTempArray)
+		return false;
+
+	// If MinIndex is lower than Target Put selected items on top of TempArray
+	nIndex = 0U;
+
+	if (nMinIndex2 > dwTargetIndex)
+	{
+		for (i = 0; i < dwArrayCount; i++)
+		{
+			pTempArray[nIndex] = This->pMetadataArray[pIndexesArray[i]];
+			nIndex++;
+		}
+	}
+
+	// Copy unselected items
+	for (i = nMinIndex; i <= nMaxIndex; i++)
+	{
+		bool bFound = false;
+
+
+		for (j = 0; j < dwArrayCount; j++)
+		{
+			bFound = (pIndexesArray[j] == i);
+
+			if (bFound)
+				break;
+		}
+
+		if (!bFound)
+		{
+			pTempArray[nIndex] = This->pMetadataArray[i];
+			nIndex++;
+		}
+	}
+
+	// If MinIndex is greater than Target Put selected items on bottom of TempArray
+	if (nMinIndex2 < dwTargetIndex)
+	{
+		for (i = 0; i < dwArrayCount; i++)
+		{
+			pTempArray[nIndex] = This->pMetadataArray[pIndexesArray[i]];
+			nIndex++;
+		}
+	}
+
+	// Copy the sorted elements to the destination array
+	nIndex = 0U;
+	for (i = nMinIndex; i <= nMaxIndex; i++)
+	{
+		This->pMetadataArray[i] = pTempArray[nIndex];
+		nIndex++;
+	}
+
+
+	free(pTempArray);
 
 	return true;
 }
+
+
 
 /// <summary>
 /// Get a pointer to an Item
@@ -307,6 +391,14 @@ void WA_Playlist_DeselectIndex(WA_Playlist* This, DWORD dwIndex)
 
 }
 
+/// <summary>
+/// Returns the index of the item that contains the letter indicated by lpwSearchStr at the beginning of the filename
+/// </summary>
+/// <param name="dwStartIndex">Starting index from which to start the search</param>
+/// <param name="lpwSearchStr">String containing the characters to search for</param>
+/// <param name="dwFoundIndex">Pointer to a DWORD variable on which to insert the found index.
+/// If several files are present, the function returns the various indexes in sequence</param>
+/// <returns></returns>
 bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wchar_t* lpwSearchStr, DWORD *dwFoundIndex)
 {
 	DWORD dwIndex, dwSearchStrLen;

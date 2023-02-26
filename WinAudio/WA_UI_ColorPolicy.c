@@ -58,7 +58,7 @@ RGB(255,202,212), // Primary
 RGB(244,172,183), // PrimaryVariant
 RGB(216,226,220), // Secondary
 RGB(255,229,217), // SecondaryVariant
-RGB(177,167,166), // Background
+RGB(190,190,190), // Background
 RGB(211,211,211), // Surface
 RGB(10,10,10), // TextOnPrimary
 RGB(10,10,10), // TextOnSecondary
