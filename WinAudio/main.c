@@ -31,6 +31,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 HWND MainWindow_CreateMainWindow(HINSTANCE hInstance);
 void MainWindow_StartMainLoop();
 void MainWindow_ProcessInParams(int32_t nParams, wchar_t **pArgs);
+void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs);
 HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
 void MainWindow_DestroyMenu();
@@ -76,8 +77,10 @@ void MainWindow_UpdateVolumeFromTrackbarValue();
 
 void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClear);
 
+void MainWindow_LoadSettings();
+void MainWindow_SaveSettings();
 
-void MainWindow_InitDarkMode(HWND hMainWindow);
+void MainWindow_InitDarkMode();
 void MainWindow_DestroyDarkMode();
 
 LRESULT CALLBACK PositionSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
@@ -96,50 +99,29 @@ LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam);
 /// </summary>
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nShowCmd)
 {    
-    HWND hFoundInstanceHandle = NULL;
+    HWND hExistingWindow = NULL;
     HANDLE hMutex = NULL;
 
     // Perform Memroy Dumo on Exit
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-    // Before Create new application, find previous opened instance
+    // Before Create new application, find if exist a previous opened instance
     hMutex = CreateMutex(NULL, TRUE, WA_MUTEX_NAME);
 
     if ((hMutex == NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
-        hFoundInstanceHandle = FindWindow(WA_CLASS_NAME, NULL);
+        hExistingWindow = FindWindow(WA_CLASS_NAME, NULL);
         
 
     // If we Found and opened instance, send
     // to them data and close current instance
-    if (hFoundInstanceHandle != NULL)
+    if (hExistingWindow != NULL)
     {
-        //TODO: Send Data to Already open instance
-
-        /*
-        COPYDATASTRUCT data;
-        DWORD dwSize = 0;       
-
-        // Copy data only if we have params
-        if (__argc > 1)
-        {
-            for (int32_t i = 0; i < __argc; i++)
-            {
-                dwSize += wcslen(__wargv[i]) + 1;
-            }
-
-            data.cbData = dwSize * sizeof(wchar_t);
-            data.dwData = __argc;
-            data.lpData = __wargv[0];
-
-            SendMessage(hFoundInstanceHandle, WM_COPYDATA, 0, (LPARAM)&data);
-
-           
-        }        
-         */
+        // Send Data to Already open instance
+        MainWindow_CopyData(hExistingWindow, __argc, __wargv);
 
         // Show Already Opened Window
-        SetForegroundWindow(hFoundInstanceHandle);
-        ShowWindow(hFoundInstanceHandle, SW_RESTORE);
+        SetForegroundWindow(hExistingWindow);
+        ShowWindow(hExistingWindow, SW_RESTORE);
 
         _RPTFW0(_CRT_WARN, L"Found and already opened instance\n");
 
@@ -153,8 +135,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     if FAILED(hr)
     {
-        MessageBox(NULL, L"Cannot Initialize COM", L"Fatal Error", MB_OK);
-        return -1;
+        MessageBox(NULL, L"Cannot Initialize COM", L"Fatal Error", MB_OK | MB_ICONSTOP);
+        return EXIT_FAILURE;
     }
         
 
@@ -167,19 +149,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
                         ICC_LISTVIEW_CLASSES;
 
     InitCommonControlsEx(&commonCtrl);
-
-    // TODO: Load Settings
-
-
-    // Initialize Dark Mode
-    DarkMode_Init(true);
-
-    // Initialize ColorPolicy
-    if (DarkMode_IsSupported() && DarkMode_IsEnabled())
-        ColorPolicy_Init(Dark, Red);
-    else
-        ColorPolicy_Init(Light, Red);    
-
+    
+    MainWindow_LoadSettings();
+    MainWindow_InitDarkMode(); 
         
     // Store Main Window Handle and Instance
     Globals2.hMainWindow = MainWindow_CreateMainWindow(hInstance);
@@ -187,50 +159,44 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     // Check if Window has a valid handle
     if (Globals2.hMainWindow == NULL)
-        return ERROR_INVALID_HANDLE; // TODO: Clean Resource Before Exit for Fail
+    {
+        CoUninitialize();
+
+        if (hMutex)
+            ReleaseMutex(hMutex);
+
+        return ERROR_INVALID_HANDLE; 
+    }     
 
 
     // Load Plugins
     if (!WA_Playback_Engine_New())
     {
-        // TODO: Clean Resource on Fail and Exit
-        CoUninitialize();
+        CoUninitialize();  
+
+        if (hMutex)
+         ReleaseMutex(hMutex);
+
         return EXIT_FAILURE;
     }
-
     
     
-    if (__argc > 1)
-    {
-        // TODO: Process Pending in Arguments(Open and Play First file)
-
-        /*
+    if (__argc > 1)    
+        // Process Pending in Arguments(Open and Play First file)
         MainWindow_ProcessInParams(__argc, __wargv);
-
-        if (MainWindow_Open(__wargv[1]))
-        {
-            int32_t uIndex = ListView_GetItemCount(Globals2.hListView) - __argc + 1;
-
-            MainWindow_Play();
-
-            // Select Last Item
-            MainWindow_ListView_SetPlayIndex(Globals2.hListView, uIndex);            
        
-        }  
-
-         */
-    }    
     
     // Show Main Window
     ShowWindow(Globals2.hMainWindow, nShowCmd);
     UpdateWindow(Globals2.hMainWindow);
 
     // Run the message loop.
-    MainWindow_StartMainLoop();      
+    MainWindow_StartMainLoop();   
+ 
 
     // Clean Memory
-    DarkMode_Close();
-    ColorPolicy_Close();   
+    MainWindow_SaveSettings();
+    MainWindow_DestroyDarkMode();
     WA_Playback_Engine_Delete();
     CoUninitialize();
 
@@ -250,8 +216,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 void MainWindow_ProcessInParams(int32_t nParams, wchar_t** pArgs)
 {
     int32_t i;
-    wchar_t FileName[MAX_PATH];
-    wchar_t Folder[MAX_PATH];
+    //wchar_t FileName[MAX_PATH];
+    //wchar_t Folder[MAX_PATH];
 
 #if _DEBUG
     for (i = 0; i < nParams; i++)
@@ -267,13 +233,38 @@ void MainWindow_ProcessInParams(int32_t nParams, wchar_t** pArgs)
         // Check if file exist
         if (PathFileExists(pArgs[i]) == TRUE)
         {
-            MainWindow_SplitFilePath(pArgs[i], Folder, FileName);           
+            //MainWindow_SplitFilePath(pArgs[i], Folder, FileName);           
 
             // Add files to the Playlist
-            MainWindow_ListView_InsertRow(Globals2.hListView, FileName, Folder);
+            //MainWindow_ListView_InsertRow(Globals2.hListView, FileName, Folder);
           
         }       
     }
+}
+
+void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs)
+{
+    /*
+COPYDATASTRUCT data;
+DWORD dwSize = 0;
+
+// Copy data only if we have params
+if (__argc > 1)
+{
+    for (int32_t i = 0; i < __argc; i++)
+    {
+        dwSize += wcslen(__wargv[i]) + 1;
+    }
+
+    data.cbData = dwSize * sizeof(wchar_t);
+    data.dwData = __argc;
+    data.lpData = __wargv[0];
+
+    SendMessage(hFoundInstanceHandle, WM_COPYDATA, 0, (LPARAM)&data);
+
+
+}
+ */
 }
 
 
@@ -339,7 +330,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LRESULT lr = 0;
 
-    if(DarkMode_IsEnabled())
+    if(DarkMode_IsEnabled()) // TODO: Decidere se toglierlo, il menù risulta molto chiaro
         if (UAHWndProc(hwnd, uMsg, wParam, lParam, &lr))
         {
             return lr;
@@ -536,17 +527,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if (DarkMode_IsEnabled())
             {
-                ColorPolicy_Init(Dark, Red); // TODO: Use Color saved in settings
+                ColorPolicy_Init(Dark, Globals2.CurrentTheme); 
+                Globals2.CurrentMode = Dark;
             }
             else
             {
-                ColorPolicy_Init(Light, Red); // TODO: Use Color saved in settings
+                ColorPolicy_Init(Light, Globals2.CurrentTheme); 
+                Globals2.CurrentMode = Light;
             }
             
             SendMessage(Globals2.hListView, WM_THEMECHANGED, 0, 0);
 
             ListView_SetBkColor(Globals2.hListView, ColorPolicy_Get_Background_Color());
             ListView_SetTextColor(Globals2.hListView, ColorPolicy_Get_TextOnBackground_Color());
+
+            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE);
         }
         
     }
@@ -1027,6 +1022,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
     {
         DarkMode_AllowDarkModeForWindow(hMainWindow, true);
         DarkMode_RefreshTitleBarThemeColor(hMainWindow);
+        DarkMode_ApplyMica(hMainWindow);
+
     }
 
     // Create main controls
@@ -1885,17 +1882,7 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     }
 }
 
-void MainWindow_InitDarkMode(HWND hMainWindow)
-{
 
-
-}
-
-
-void MainWindow_DestroyDarkMode()
-{
-
-}
 
 
 LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
@@ -1965,10 +1952,47 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
     }
 }
 
-
 LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
     return TRUE;
 }
 
+void MainWindow_InitDarkMode()
+{
+    // Initialize Dark Mode
+    DarkMode_Init(true);
+
+    // Initialize ColorPolicy
+    if (DarkMode_IsSupported() && DarkMode_IsEnabled())
+    {
+        ColorPolicy_Init(Dark, Globals2.CurrentTheme);
+        Globals2.CurrentMode = Dark;
+    }
+    else
+    {
+        ColorPolicy_Init(Light, Globals2.CurrentTheme);
+        Globals2.CurrentMode = Light;
+    }
+        
+}
+
+
+void MainWindow_DestroyDarkMode()
+{
+    DarkMode_Close();
+    ColorPolicy_Close();
+}
+
+void MainWindow_LoadSettings()
+{
+
+    Globals2.CurrentTheme = Violet; // TODO: Use Settings Value
+   
+
+}
+
+void MainWindow_SaveSettings()
+{
+
+}
 

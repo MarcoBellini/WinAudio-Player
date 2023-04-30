@@ -68,6 +68,7 @@ void WA_Playlist_Delete(WA_Playlist* This)
 
 	free(pPlaylist);
 	pPlaylist = NULL;
+	
 }
 
 /// <summary>
@@ -102,6 +103,12 @@ bool WA_Playlist_Add(WA_Playlist* This, wchar_t* pFilePath)
 		if (!pTemp)
 			return false;
 
+		for (DWORD i = This->dwPlaylistSize; i < dwNewSize; i++)
+		{
+			pTemp[i].bFileReaded = false;
+			pTemp[i].bFileSelected = false;
+		}
+		
 		// if pTemp != NULL assign new memory location
 		This->pMetadataArray = pTemp;
 		This->dwPlaylistSize = dwNewSize;
@@ -165,17 +172,21 @@ bool WA_Playlist_RemoveAll(WA_Playlist* This)
 	if (This->dwCount == 0)
 		return false;
 
+	if (This->dwCount > WA_PLAYLIST_INITIAL_MAX_SIZE)
+	{
+
+		// If it fails keep the currently allocated memory
+		pTemp = realloc(This->pMetadataArray, sizeof(WA_Playlist_Metadata) * WA_PLAYLIST_INITIAL_MAX_SIZE);
+
+		if (!pTemp)
+			return false;
+
+		// Update Size
+		This->pMetadataArray = pTemp;
+		This->dwPlaylistSize = WA_PLAYLIST_INITIAL_MAX_SIZE;
+	}	
+
 	This->dwCount = 0;
-
-	// If it fails keep the currently allocated memory
-	pTemp = realloc(This->pMetadataArray, sizeof(WA_Playlist_Metadata) * WA_PLAYLIST_INITIAL_MAX_SIZE);
-
-	if (!pTemp)
-		return false;
-
-	// Update Size
-	This->pMetadataArray = pTemp;
-	This->dwPlaylistSize = WA_PLAYLIST_INITIAL_MAX_SIZE;
 
 	return true;
 
@@ -304,9 +315,8 @@ WA_Playlist_Metadata* WA_Playlist_Get_Item(WA_Playlist* This, DWORD dwIndex)
 		DWORD dwFrom, dwTo;
 
 		dwFrom = dwIndex;
-		dwTo = dwIndex + This->dwPlaylistSize; // Try to update current block
-		dwTo = min(dwTo, This->dwCount);
-
+		dwTo = dwIndex + This->dwCount; // Try to update current block
+		
 		WA_Playlist_UpdateCache(This, dwFrom, dwTo);		
 	}
 
@@ -351,13 +361,11 @@ void WA_Playlist_UpdateCache(WA_Playlist* This, DWORD dwFrom, DWORD dwTo)
 	// Only add items to the cache if they don't already exist
 	for (DWORD i = dwFrom; i <= dwTo; i++)
 	{
+		if (This->pMetadataArray[i].bFileReaded)
+			continue;
 		
-		if (!This->pMetadataArray[i].bFileReaded)
-		{
-		
-			if (This->pRead(&This->pMetadataArray[i]))
-				This->pMetadataArray[i].bFileReaded = true;
-		}
+		if (This->pRead(&This->pMetadataArray[i]))
+			This->pMetadataArray[i].bFileReaded = true;
 
 	}
 

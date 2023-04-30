@@ -11,8 +11,8 @@
 #endif
 #endif
 
-#ifndef DWMWA_USE_HOSTBACKDROPBRUSH
-#define DWMWA_USE_HOSTBACKDROPBRUSH 17
+#ifndef DWMWA_SYSTEMBACKDROP_TYPE
+#define DWMWA_SYSTEMBACKDROP_TYPE 38
 #endif
 
 typedef enum TagIMMERSIVE_HC_CACHE_MODE
@@ -73,6 +73,32 @@ typedef enum _ACCENT_STATE
 	ACCENT_ENABLE_HOSTBACKDROP = 5, // RS5 1809
 	ACCENT_INVALID_STATE = 6
 } ACCENT_STATE;
+
+typedef enum _DWM_SYSTEMBACKDROP_TYPE
+{
+	DWMSBT_AUTO = 0,
+
+	/// <summary>
+	/// no backdrop
+	/// </summary>
+	DWMSBT_NONE = 1,
+
+	/// <summary>
+	/// Use tinted blurred wallpaper backdrop (Mica)
+	/// </summary>
+	DWMSBT_MAINWINDOW = 2,
+
+	/// <summary>
+	/// Use Acrylic backdrop
+	/// </summary>
+	DWMSBT_TRANSIENTWINDOW = 3,
+
+	/// <summary>
+	/// Use blurred wallpaper backdrop
+	/// </summary>
+	DWMSBT_TABBEDWINDOW = 4
+
+} DWM_SYSTEMBACKDROP_TYPE;
 
 typedef struct _ACCENT_POLICY
 {
@@ -219,7 +245,7 @@ static inline bool CheckBuildNumber(DWORD buildNumber)
 
 static inline bool IsMicaSupported(DWORD buildNumber)
 {
-	return (buildNumber >= 22000);
+	return (buildNumber >= 22621);
 }
 
 
@@ -284,7 +310,7 @@ void DarkMode_Init(bool bFixScrollbars)
 
 					g_darkModeEnabled = _ShouldAppsUseDarkMode() && !DarkMode_IsHighContrast();
 
-					g_MicaSupported = IsMicaSupported(g_buildNumber);
+					g_MicaSupported = IsMicaSupported(g_buildNumber) && !DarkMode_IsHighContrast();
 
 					if(bFixScrollbars)
 						FixDarkScrollBar();
@@ -381,42 +407,29 @@ void DarkMode_RefreshTitleBarThemeColor(HWND hWnd)
 bool DarkMode_AllowDarkModeForWindow(HWND hWnd, bool bAllow)
 {
 	if (g_darkModeSupported)
-	{
-		
-		if ((g_MicaSupported) && IsWindow(hWnd))
-		{
-
-#if USE_DWMAPI
-			/*
-			BOOL Mica = TRUE;
-			DwmSetWindowAttribute(hWnd, DWMWA_USE_HOSTBACKDROPBRUSH, &Mica, sizeof(Mica));
-
-			
-			DWM_BLURBEHIND Blur;
-			Blur.dwFlags = DWM_BB_ENABLE;
-			Blur.fEnable = TRUE;
-			Blur.fTransitionOnMaximized = FALSE;
-			Blur.hRgnBlur = NULL;
-			DwmEnableBlurBehindWindow(hWnd, &Blur);
-			*/
-			
-#else
-			ACCENT_POLICY accent = { ACCENT_ENABLE_HOSTBACKDROP, 0, 0, 0 };
-			WINDOWCOMPOSITIONATTRIBDATA data;
-			data.Attrib = WCA_ACCENT_POLICY;
-			data.pvData = &accent;
-			data.cbData = sizeof(accent);
-			_SetWindowCompositionAttribute(hWnd, &data); //replace with your window hwnd
-#endif
-		
-
-		}
-
 		return _AllowDarkModeForWindow(hWnd, bAllow);
+
+
+	return false;
+}
+
+bool DarkMode_ApplyMica(HWND hWnd)
+{
+	HRESULT hr;
+
+	if ((g_MicaSupported) && IsWindow(hWnd))
+	{
+		int value = DWMSBT_MAINWINDOW;
+		hr = DwmSetWindowAttribute(hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &value, sizeof(value));
+
+		// Set margins, extending the bottom margin
+		// see https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmextendframeintoclientarea
+		// MARGINS margins = { 0,0,0,25 };
+		// hr = DwmExtendFrameIntoClientArea(hWnd, &margins);
+
+		return SUCCEEDED(hr);
+
 	}
-		
-
-
 
 	return false;
 }

@@ -9,6 +9,7 @@ void DarkMode_AllowDarkModeForApp(bool bAllow);
 bool DarkMode_IsColorSchemeChangeMessage(UINT message, LPARAM lParam);
 void DarkMode_RefreshTitleBarThemeColor(HWND hWnd);
 bool DarkMode_AllowDarkModeForWindow(HWND hWnd, bool bAllow);
+bool DarkMode_ApplyMica(HWND hWnd);
 bool DarkMode_IsHighContrast();
 void DarkMode_HandleThemeChange();
 

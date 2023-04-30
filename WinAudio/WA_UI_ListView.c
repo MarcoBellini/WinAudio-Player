@@ -318,7 +318,7 @@ static void WA_UI_Listview_ShowHeaderContextMenu(HWND hHeader, int32_t x, int32_
     DestroyMenu(hMenu);
 }
 
-
+// TODO: Spostare la funzione in un Thread per migliorare le prestazioni dell'UI
 static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
 {    
     TagLib_File* pTaglib;
@@ -340,13 +340,13 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
         LARGE_INTEGER liSize;
 
         if (GetFileSizeEx(hFile, &liSize))
-            pMetadata->dwFileSizeKB = (DWORD)(liSize.QuadPart / 1000U); // Skip file > 2GB
+            pMetadata->dwFileSizeBytes = liSize.QuadPart;
 
         CloseHandle(hFile);       
     }
     else
     {
-        pMetadata->dwFileSizeKB = 0U;
+        pMetadata->dwFileSizeBytes = 0LL;
     }
 
     pTaglib = taglib_file_new(pMetadata->lpwFilePath);
@@ -354,8 +354,8 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
 
     if (!pTaglib)
     {
-        pMetadata->dwFileSizeKB = 0;
-        pMetadata->uFileDurationMs = 0;
+        pMetadata->dwFileSizeBytes = 0LL;
+        pMetadata->uFileDurationMs = 0U;
         wcscpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, L"\0");
         wcscpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, L"\0");
         wcscpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, L"\0");
@@ -397,7 +397,7 @@ static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
 
     if (bRedrawItems)
     {
-        UpdateWindow(Globals2.hListView);
+        RedrawWindow(Globals2.hListView, NULL, NULL, RDW_INVALIDATE);
     }
     else
     {
@@ -405,7 +405,8 @@ static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
 
         dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
 
-        ListView_SetItemCount(Globals2.hListView, dwCount);
+        // See https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-listview_setitemcountex
+        ListView_SetItemCountEx(Globals2.hListView, dwCount, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
     }
 }
 
@@ -488,12 +489,9 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
         case WA_LISTVIEW_COLUMN_SIZE:
         {  
             wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
-            DWORD dwSizeMB, dwSizeKB;
 
-            dwSizeKB = (pMetadata->dwFileSizeKB) % 1000U;
-            dwSizeMB = (pMetadata->dwFileSizeKB / 1000U) % 1000U;      
-
-            swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%u,%u MB\0", dwSizeMB, dwSizeKB);
+            // see https://learn.microsoft.com/en-us/windows/win32/api/shlwapi/nf-shlwapi-strformatbytesizew
+            StrFormatByteSize(pMetadata->dwFileSizeBytes, Buffer, WA_LISTVIEW_PRINTF_MAX);
 
             wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
             break;
@@ -760,6 +758,7 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
         if (WA_UI_Listview_IsRowSelected(hWnd, lplvcd->nmcd.dwItemSpec))
         {
             lplvcd->clrTextBk = ColorPolicy_Get_Secondary_Color();
+            lplvcd->clrText = ColorPolicy_Get_TextOnSecondary_Color();
 
             /*
                 TODO: Not sure if this is the correct method to change the color of a selected item.
@@ -770,13 +769,21 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
         else
         {
             if ((lplvcd->nmcd.dwItemSpec % 2) == 0)
+            {
                 lplvcd->clrTextBk = ColorPolicy_Get_Background_Color();
+                lplvcd->clrText = ColorPolicy_Get_TextOnBackground_Color();
+            }
+                
             else
+            {
                 lplvcd->clrTextBk = ColorPolicy_Get_Primary_Color();
+                lplvcd->clrText = ColorPolicy_Get_TextOnPrimary_Color();
+            }
+               
         }  
 
 
-        lplvcd->clrText = ColorPolicy_Get_TextOnSurface_Color();
+      
 
         return CDRF_NEWFONT | CDRF_NOTIFYPOSTPAINT;
     }

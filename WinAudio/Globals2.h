@@ -71,6 +71,9 @@ struct
 	bool bStreamIsSeekable;
 	uint32_t uOutputLatency;		// Store Current Latency of Opened Output Plugin
 
+	ColorThemes CurrentTheme;
+	ColorMode CurrentMode;
+
 	// TODO: Is This Userfull??
 	bool bMouseDownOnPosition;
 	bool bMouseDownOnVolume;

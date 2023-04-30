@@ -71,8 +71,12 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
         HBRUSH g_brItemBackground = ColorPolicy_Get_Surface_Brush();
         HBRUSH g_brItemBackgroundHot = ColorPolicy_Get_Primary_Brush();
         HBRUSH g_brItemBackgroundSelected = ColorPolicy_Get_Secondary_Brush();
+        COLORREF TextColorBackround = ColorPolicy_Get_TextOnSurface_Color();
+        COLORREF TextColorBackroundHot = ColorPolicy_Get_TextOnPrimary_Color();
+        COLORREF TextColorBackroundSelected = ColorPolicy_Get_TextOnSecondary_Color();
 
         HBRUSH* pbrBackground = &g_brItemBackground;
+        COLORREF* pTextColor = &TextColorBackround;
 
         // get the menu item string
         wchar_t menuString[256] = { 0 };
@@ -102,6 +106,7 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
                 iBackgroundStateID = MPI_HOT;
 
                 pbrBackground = &g_brItemBackgroundHot;
+                pTextColor = &TextColorBackroundHot;
             }
             if (pUDMI->dis.itemState & ODS_SELECTED) {
                 // clicked -- MENU_POPUPITEM has no state for this, though MENU_BARITEM does
@@ -109,6 +114,7 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
                 iBackgroundStateID = MPI_HOT;
 
                 pbrBackground = &g_brItemBackgroundSelected;
+                pTextColor = &TextColorBackroundSelected;
             }
             if ((pUDMI->dis.itemState & ODS_GRAYED) || (pUDMI->dis.itemState & ODS_DISABLED)) {
                 // disabled / grey text
@@ -124,7 +130,7 @@ bool UAHWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, LRESULT* 
             g_menuTheme = OpenThemeData(hWnd, L"Menu");
         }
 
-        DTTOPTS opts = { sizeof(opts), DTT_TEXTCOLOR, iTextStateID != MPI_DISABLED ? ColorPolicy_Get_TextOnSurface_Color() : RGB(0x40, 0x40, 0x40) };
+        DTTOPTS opts = { sizeof(opts), DTT_TEXTCOLOR, iTextStateID != MPI_DISABLED ? *pTextColor : RGB(0x40, 0x40, 0x40) };
 
         FillRect(pUDMI->um.hdc, &pUDMI->dis.rcItem, *pbrBackground);
         DrawThemeTextEx(g_menuTheme, pUDMI->um.hdc, MENU_BARITEM, MBI_NORMAL, menuString, mii.cch, dwFlags, &pUDMI->dis.rcItem, &opts);

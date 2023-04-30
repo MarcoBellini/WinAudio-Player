@@ -15,7 +15,7 @@ typedef struct TagWA_Playlist_Metadata
 	bool bFileSelected;
 	bool bFileReaded;
 	wchar_t lpwFilePath[MAX_PATH];
-	DWORD dwFileSizeKB;
+	LONGLONG dwFileSizeBytes;
 	uint64_t uFileDurationMs;
 	WA_AudioMetadata Metadata;
 } WA_Playlist_Metadata;
