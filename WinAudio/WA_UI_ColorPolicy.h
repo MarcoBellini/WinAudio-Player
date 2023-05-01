@@ -18,6 +18,8 @@ typedef enum TagColorThemes
 	Violet
 } ColorThemes;
 
+static const wchar_t ColorNames[6][10] = { L"Red", L"Orange" , L"Yellow" , L"Green" ,L"Blue" , L"Violet" };
+
 typedef struct TagUIColors
 {
 	COLORREF Primary;

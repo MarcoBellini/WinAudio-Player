@@ -71,8 +71,7 @@ struct
 	bool bStreamIsSeekable;
 	uint32_t uOutputLatency;		// Store Current Latency of Opened Output Plugin
 
-	ColorThemes CurrentTheme;
-	ColorMode CurrentMode;
+
 
 	// TODO: Is This Userfull??
 	bool bMouseDownOnPosition;
@@ -100,6 +99,9 @@ struct
 	wchar_t* lpwActiveEffectDescr;
 	bool bEffectIsActive;
 
+	ColorThemes CurrentTheme;
+	ColorMode CurrentMode;
+
 } Settings2;
 
 
@@ -111,6 +113,7 @@ bool MainWindow_Open(const wchar_t* wPath);
 bool MainWindow_Open_Playlist_Index(DWORD dwIndex);
 bool MainWindow_Close();
 
-
+// Settings Proc
+BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 #endif

@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // File di inclusione generato con Microsoft Visual C++.
-// Utilizzato da HobbyPlayer.rc
+// Utilizzato da WinAudio.rc
 //
 #define IDI_MAIN_ICON                   102
 #define IDI_OPEN_ICON                   103
@@ -11,16 +11,14 @@
 #define IDI_STOP_ICON                   109
 #define IDS_STATUS_WELCOME              127
 #define IDR_MAIN_MENU                   130
-#define IDD_ENHANCER                    133
-#define IDC_SLIDER_BOOST                1001
-#define IDC_SLIDER_BASS                 1002
-#define IDC_SLIDER_BASS_RANGE           1003
-#define IDC_TREBLE                      1004
-#define IDC_SLIDER_TREBLE               1004
-#define IDC_CHECK_ON                    1005
-#define IDC_SLIDER_TREBLE_RANGE         1006
-#define IDC_CHECK_BOOST                 1007
-#define IDC_CHECK_REVERB                1008
+#define IDD_SETTINGS                    133
+#define IDC_INPUT_COMBO                 1007
+#define IDC_OUTPUT_COMBO                1008
+#define IDC_EFFECT_COMBO                1009
+#define IDC_BUTTON_CONF_INPUT           1010
+#define IDC_BUTTON_CONF_OUTPUT          1011
+#define IDC_BUTTON_CONF_EFFECT          1012
+#define IDC_THEME_COMBO                 1013
 #define ID_FILE_OPENFILE                40020
 #define ID_FILE_OPENFOLDER              40021
 #define ID_FILE_OPENCD                  40022
@@ -38,7 +36,6 @@
 #define ID_ABOUT_INFO                   40034
 #define ID_TOOLS_EQUALIZER              40035
 #define ID_TOOLS_ENHANCER               40036
-#define IDC_STATIC                      -1
 
 // Next default values for new objects
 // 
@@ -46,7 +43,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        135
 #define _APS_NEXT_COMMAND_VALUE         40037
-#define _APS_NEXT_CONTROL_VALUE         1006
+#define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -54,7 +54,7 @@
     <ClCompile Include="biquad.c">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="Enhancer.c">
+    <ClCompile Include="Settings.c">
       <Filter>File di origine</Filter>
     </ClCompile>
     <ClCompile Include="WA_UI_DarkMode.c">

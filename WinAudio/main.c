@@ -527,13 +527,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             if (DarkMode_IsEnabled())
             {
-                ColorPolicy_Init(Dark, Globals2.CurrentTheme); 
-                Globals2.CurrentMode = Dark;
+                ColorPolicy_Init(Dark, Settings2.CurrentTheme);
+                Settings2.CurrentMode = Dark;
             }
             else
             {
-                ColorPolicy_Init(Light, Globals2.CurrentTheme); 
-                Globals2.CurrentMode = Light;
+                ColorPolicy_Init(Light, Settings2.CurrentTheme);
+                Settings2.CurrentMode = Light;
             }
             
             SendMessage(Globals2.hListView, WM_THEMECHANGED, 0, 0);
@@ -626,7 +626,7 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     case ID_TOOLS_ENHANCER:
         // TODO: Remove This Dialog
-        //DialogBox(Globals.hMainWindowInstance, MAKEINTRESOURCE(IDD_ENHANCER), Globals.hMainWindowHandle, EnhancerProc);
+        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);
         break;
 
     }
@@ -1965,13 +1965,13 @@ void MainWindow_InitDarkMode()
     // Initialize ColorPolicy
     if (DarkMode_IsSupported() && DarkMode_IsEnabled())
     {
-        ColorPolicy_Init(Dark, Globals2.CurrentTheme);
-        Globals2.CurrentMode = Dark;
+        ColorPolicy_Init(Dark, Settings2.CurrentTheme);
+        Settings2.CurrentMode = Dark;
     }
     else
     {
-        ColorPolicy_Init(Light, Globals2.CurrentTheme);
-        Globals2.CurrentMode = Light;
+        ColorPolicy_Init(Light, Settings2.CurrentTheme);
+        Settings2.CurrentMode = Light;
     }
         
 }
@@ -1986,7 +1986,7 @@ void MainWindow_DestroyDarkMode()
 void MainWindow_LoadSettings()
 {
 
-    Globals2.CurrentTheme = Violet; // TODO: Use Settings Value
+    Settings2.CurrentTheme = Violet; // TODO: Use Settings Value
    
 
 }

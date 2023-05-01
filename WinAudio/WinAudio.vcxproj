@@ -108,7 +108,7 @@
     <ClCompile Include="WA_UI_ColorPolicy.c" />
     <ClCompile Include="WA_UI_DarkMode.c" />
     <ClCompile Include="DecoderManager.c" />
-    <ClCompile Include="Enhancer.c" />
+    <ClCompile Include="Settings.c" />
     <ClCompile Include="WA_FFT.c" />
     <ClCompile Include="GUI_OpenFileDialog.c" />
     <ClCompile Include="IN_MediaFoundation.c" />
