@@ -30,4 +30,6 @@ bool WA_Playback_Engine_Get_Volume(uint8_t* puNewVolume);
 bool WA_Playback_Engine_Get_Buffer(int8_t* pBuffer, uint32_t uBufferLen);
 bool WA_Playback_Engine_Get_Current_Format(WA_AudioFormat* pFormat);
 
+bool WA_Playback_Engine_IsFileSupported(const wchar_t* lpwPath);
+
 #endif

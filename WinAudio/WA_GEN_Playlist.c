@@ -83,6 +83,7 @@ bool WA_Playlist_Add(WA_Playlist* This, wchar_t* pFilePath)
 	// Add a path to playlist. Detailed information will be calculated later when caching
 	nError = wcscpy_s(This->pMetadataArray[This->dwCount].lpwFilePath, MAX_PATH, pFilePath);
 	This->pMetadataArray[This->dwCount].bFileReaded = false;
+	This->pMetadataArray[This->dwCount].bFileSelected = false;
 
 	if (nError != 0)
 		return false;
@@ -436,4 +437,25 @@ bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wc
 
 	return false;
 
+}
+
+/// <summary>
+/// Return the Index of current selected index
+/// </summary>
+/// <param name="dwIndex">The selected index (If Found)</param>
+/// <returns>True on Success</returns>
+bool WA_Playlist_Get_SelectedIndex(WA_Playlist* This, DWORD *dwIndex)
+{
+
+	for (DWORD i = 0U; i < This->dwCount; i++)
+	{
+		if (This->pMetadataArray[i].bFileSelected)
+		{
+			(*dwIndex) = i;
+			return true;
+		}
+			
+	}
+
+	return false;
 }

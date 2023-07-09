@@ -19,6 +19,10 @@
 #define IDC_BUTTON_CONF_OUTPUT          1011
 #define IDC_BUTTON_CONF_EFFECT          1012
 #define IDC_THEME_COMBO                 1013
+#define IDC_COLOR_MODE                  1014
+#define IDC_PLAYNEXTFILE                1015
+#define IDC_PLAYNEXTFILE2               1016
+#define IDC_SAVEPLAYLIST                1016
 #define ID_FILE_OPENFILE                40020
 #define ID_FILE_OPENFOLDER              40021
 #define ID_FILE_OPENCD                  40022
@@ -43,7 +47,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        135
 #define _APS_NEXT_COMMAND_VALUE         40037
-#define _APS_NEXT_CONTROL_VALUE         1011
+#define _APS_NEXT_CONTROL_VALUE         1016
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

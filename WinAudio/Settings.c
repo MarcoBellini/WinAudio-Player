@@ -21,6 +21,65 @@
 #include "globals2.h"
 
 
+static void Settings_UpdateColors(HWND hCombobox)
+{
+    ColorPolicy_Close();
+
+    Settings2.CurrentTheme = ComboBox_GetCurSel(hCombobox);
+
+    // Initialize ColorPolicy
+    if (DarkMode_IsSupported() && DarkMode_IsEnabled())
+    {
+        ColorPolicy_Init(Dark, Settings2.CurrentTheme);
+        Settings2.CurrentMode = Dark;        
+    }
+    else
+    {
+        ColorPolicy_Init(Light, Settings2.CurrentTheme);
+        Settings2.CurrentMode = Light;
+    }
+
+    RedrawWindow(Globals2.hMainWindow, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+
+     
+}
+
+static BOOL Settings_Handle_WM_Command(HWND hDialog, WORD ControlID, WORD Message, HWND hControl)
+{
+    switch (Message)
+    {
+    case BN_CLICKED:
+
+        switch (ControlID)
+        {
+        case IDOK:
+            EndDialog(GetParent(hControl), 0);
+            break;
+        case IDC_PLAYNEXTFILE:
+            Settings2.bPlayNextItem = (bool)IsDlgButtonChecked(hDialog, IDC_PLAYNEXTFILE);
+            break;
+        }
+
+        break;
+    case CBN_SELCHANGE:
+
+        switch (ControlID)
+        {
+        case IDC_THEME_COMBO:
+            Settings_UpdateColors(hControl);
+            break;
+        case IDC_INPUT_COMBO:
+        case IDC_OUTPUT_COMBO:
+        case IDC_EFFECT_COMBO:
+            break;
+        }
+
+        break;
+
+    }
+
+    return FALSE;
+}
 
 
 BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -28,17 +87,8 @@ BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPa
     switch (message)
     {
     case WM_INITDIALOG:
-    {   
-        /*
-        if (DarkMode_IsSupported() &&
-            DarkMode_IsEnabled())
-        {
-            DarkMode_AllowDarkModeForWindow(hwndDlg, true);
-            DarkMode_RefreshTitleBarThemeColor(hwndDlg);
-            DarkMode_ApplyMica(hwndDlg);
-        }
-        */
-        // TODO: Continua qui 01/05/23
+    {      
+        // TODO: Continua qui 03/05/23, eseguire refactoring
         // https://learn.microsoft.com/en-us/windows/win32/controls/create-a-simple-combo-box
         wchar_t ColorName[10];
         HWND hColorCombo;
@@ -82,26 +132,35 @@ BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lPa
                 ComboBox_AddString(hPluginCombo, PluginName);
                 break;
             }
-
-
         }
 
+        hPluginCombo = GetDlgItem(hwndDlg, IDC_INPUT_COMBO);
+        ComboBox_SetCueBannerText(hPluginCombo, L"Select and Configure...");
+
+
+
+        hPluginCombo = GetDlgItem(hwndDlg, IDC_EFFECT_COMBO);
+        ComboBox_SetCueBannerText(hPluginCombo, L"None");
+
+
+        if (Settings2.CurrentMode == Light)       
+            SetWindowText(GetDlgItem(hwndDlg, IDC_COLOR_MODE), L"Light");
+        else
+            SetWindowText(GetDlgItem(hwndDlg, IDC_COLOR_MODE), L"Dark");        
+
+
+        CheckDlgButton(hwndDlg, IDC_PLAYNEXTFILE, Settings2.bPlayNextItem ? BST_CHECKED : BST_UNCHECKED);
+     
 
         return TRUE;
     }
-
+    case WM_COMMAND:
+        return Settings_Handle_WM_Command(hwndDlg, LOWORD(wParam), HIWORD(wParam), (HWND) lParam);
     case WM_CLOSE:
         EndDialog(hwndDlg, 0);
         return TRUE;
-    case WM_DESTROY:
- ;
-        return TRUE;
-    case WM_COMMAND:
-    {
-
-    }
-    
-        
+    case WM_DESTROY:        
+        return TRUE;      
 
     default:
         return FALSE;

@@ -65,15 +65,12 @@ struct
 	DWORD dwCurrentStatus;			// MW_PLAYING, MW_PAUSING, MW_STOPPED
 	uint16_t dwCurrentVolume;
 	bool bFileIsOpen;
-	//int32_t nLastPlayedIndex;
-	//int32_t nCurrentPlayingIndex;
-	DWORD dwCurrentIndex;
+	//DWORD dwCurrentIndex;
+	//bool bIndexIsValid;
 	bool bStreamIsSeekable;
 	uint32_t uOutputLatency;		// Store Current Latency of Opened Output Plugin
 
 
-
-	// TODO: Is This Userfull??
 	bool bMouseDownOnPosition;
 	bool bMouseDownOnVolume;
 
@@ -102,6 +99,10 @@ struct
 	ColorThemes CurrentTheme;
 	ColorMode CurrentMode;
 
+	bool bPlayNextItem;
+	bool bSavePlaylistOnExit;
+
+
 } Settings2;
 
 
@@ -112,6 +113,8 @@ bool MainWindow_Stop();
 bool MainWindow_Open(const wchar_t* wPath);
 bool MainWindow_Open_Playlist_Index(DWORD dwIndex);
 bool MainWindow_Close();
+bool MainWindow_PreviousItem();
+bool MainWindow_NextItem();
 
 // Settings Proc
 BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);

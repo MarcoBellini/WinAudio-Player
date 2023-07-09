@@ -30,7 +30,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 HWND MainWindow_CreateMainWindow(HINSTANCE hInstance);
 void MainWindow_StartMainLoop();
-void MainWindow_ProcessInParams(int32_t nParams, wchar_t **pArgs);
+void MainWindow_ProcessStartupFiles(int32_t nParams, wchar_t **pArgs);
 void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs);
 HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
@@ -94,6 +94,7 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam);
 LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam);
 
 
+
 /// <summary>
 /// Application Entry Point
 /// </summary>
@@ -102,7 +103,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     HWND hExistingWindow = NULL;
     HANDLE hMutex = NULL;
 
-    // Perform Memroy Dumo on Exit
+    // Perform Memory Dump on Exit
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
     // Before Create new application, find if exist a previous opened instance
@@ -123,7 +124,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         SetForegroundWindow(hExistingWindow);
         ShowWindow(hExistingWindow, SW_RESTORE);
 
-        _RPTFW0(_CRT_WARN, L"Found and already opened instance\n");
+        _RPTFW0(_CRT_WARN, L"Found an already opened instance\n");
 
         return EXIT_SUCCESS;
     }
@@ -160,6 +161,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     // Check if Window has a valid handle
     if (Globals2.hMainWindow == NULL)
     {
+        MainWindow_DestroyDarkMode();
         CoUninitialize();
 
         if (hMutex)
@@ -172,6 +174,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     // Load Plugins
     if (!WA_Playback_Engine_New())
     {
+        MainWindow_DestroyDarkMode();
         CoUninitialize();  
 
         if (hMutex)
@@ -180,15 +183,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         return EXIT_FAILURE;
     }
     
-    
-    if (__argc > 1)    
-        // Process Pending in Arguments(Open and Play First file)
-        MainWindow_ProcessInParams(__argc, __wargv);
+    // Process Pending in Arguments(Open and Play First file)
+    if (__argc > 1)        
+        MainWindow_ProcessStartupFiles(__argc, __wargv);
        
     
     // Show Main Window
     ShowWindow(Globals2.hMainWindow, nShowCmd);
     UpdateWindow(Globals2.hMainWindow);
+
+    _RPTW1(_CRT_WARN, L"DPI: %u\n", GetDpiForWindow(Globals2.hMainWindow));
 
     // Run the message loop.
     MainWindow_StartMainLoop();   
@@ -213,11 +217,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 /// Process Params from WinMain or WM_COPYDATA message
 /// https://docs.microsoft.com/en-us/cpp/cpp/main-function-command-line-args?view=msvc-160
 /// </summary>
-void MainWindow_ProcessInParams(int32_t nParams, wchar_t** pArgs)
+void MainWindow_ProcessStartupFiles(int32_t nParams, wchar_t** pArgs)
 {
     int32_t i;
-    //wchar_t FileName[MAX_PATH];
-    //wchar_t Folder[MAX_PATH];
+
+    if (!Globals2.pPlaylist)
+        return;
 
 #if _DEBUG
     for (i = 0; i < nParams; i++)
@@ -231,40 +236,49 @@ void MainWindow_ProcessInParams(int32_t nParams, wchar_t** pArgs)
     for (i = 1; i < nParams; i++)
     {
         // Check if file exist
-        if (PathFileExists(pArgs[i]) == TRUE)
-        {
-            //MainWindow_SplitFilePath(pArgs[i], Folder, FileName);           
-
-            // Add files to the Playlist
-            //MainWindow_ListView_InsertRow(Globals2.hListView, FileName, Folder);
-          
-        }       
+        if (PathFileExists(pArgs[i]))        
+            WA_Playlist_Add(Globals2.pPlaylist, pArgs[i]);         
+               
     }
+
+    // Update Listview Count
+    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+
+    // Open and Play file at Index [0]
+    if (MainWindow_Open_Playlist_Index(0)) 
+        MainWindow_Play();
+  
+  
+        
+
+
 }
 
+/// <summary>
+/// Prepare a WM_COPYDATA message to send Files to an Existing Instance
+/// </summary>
+/// <param name="hExistingWindow">Handle to a Found Window</param>
+/// <param name="nParams">__argc Param</param>
+/// <param name="pArgs">__wargv Param</param>
 void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs)
 {
-    /*
-COPYDATASTRUCT data;
-DWORD dwSize = 0;
+    
+    COPYDATASTRUCT data;
+  
+    // Copy data only if we have params
+    if (nParams < 2)
+        return;
+    
 
-// Copy data only if we have params
-if (__argc > 1)
-{
-    for (int32_t i = 0; i < __argc; i++)
-    {
-        dwSize += wcslen(__wargv[i]) + 1;
-    }
+    for (int32_t i = 1; i < nParams; i++)
+    {   
 
-    data.cbData = dwSize * sizeof(wchar_t);
-    data.dwData = __argc;
-    data.lpData = __wargv[0];
+        data.cbData = (wcslen(pArgs[i]) + 1) * sizeof(wchar_t);
+        data.dwData = (i == 1) ? MSG_OPENFILE : MSG_ENQUEUEFILE;
+        data.lpData = pArgs[i];
 
-    SendMessage(hFoundInstanceHandle, WM_COPYDATA, 0, (LPARAM)&data);
-
-
-}
- */
+        SendMessage(hExistingWindow, WM_COPYDATA, 0, (LPARAM)&data);
+    } 
 }
 
 
@@ -472,48 +486,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     case WM_COPYDATA:
     {
-        PCOPYDATASTRUCT lpCopy = (PCOPYDATASTRUCT) lParam;
-
-        if (lpCopy->dwData > 1)
-        {           
-            wchar_t *lpString = lpCopy->lpData;
-            wchar_t* Path[MAX_PATH] = { 0 };
-            uint32_t uOffset = 0;
-
-            for (uint32_t i = 0; i < lpCopy->dwData; i++)
-            {
-                Path[i] = lpString + uOffset;
-
-                // Find Null Terminating strings
-                while (lpString[uOffset] != L'\0')
-                {
-                    uOffset++;
-                }
-
-                // Skip Null Terminating Character
-                uOffset++;
-            } 
-
-
-            // Delete all rows
-            MainWindow_ListView_DeleteAllRows(Globals2.hListView);
-
-            // Add new files to listview
-            MainWindow_ProcessInParams(lpCopy->dwData, Path);
-
-            // Open and play the first file 
-            if (MainWindow_Open(Path[1]))
-            {
-                // Highlight Played Item (in this case the first item)
-                MainWindow_ListView_SetPlayIndex(Globals2.hListView, 0);
-
-                // Play file
-                MainWindow_Play();
-            }
-        }
-
-
-        return true;
+        return MainWindow_HandleCopyData(hwnd, wParam, lParam);
     } 
     case WM_SETTINGCHANGE:
     {
@@ -578,7 +551,7 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         // TODO: Verifica se va bene
         if (!MainWindow_OpenFileDialog(Globals2.hMainWindow))
-            MessageBox(Globals2.hMainWindow, L"Unable to Show Open FIle Dialog", L"Open File Error", MB_ICONERROR | MB_OK);
+            MessageBox(Globals2.hMainWindow, L"Unable to Show Open File Dialog", L"Open File Error", MB_ICONERROR | MB_OK);
 
         break;
     }
@@ -624,9 +597,29 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case ID_FILE_CLOSE:
         DestroyWindow(Globals2.hMainWindow);
         break;
-    case ID_TOOLS_ENHANCER:
-        // TODO: Remove This Dialog
+    case ID_FILE_SETTINGS:        
         DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);
+        break;    
+    case ID_PLAYBACK_PLAY:
+        MainWindow_Play();
+        break;
+    case ID_PLAYBACK_PAUSE:
+        MainWindow_Pause();
+        break;
+    case ID_PLAYBACK_STOP:
+        MainWindow_Stop();
+        break;
+    case ID_PLAYBACK_PREVIOUS:
+        MainWindow_PreviousItem();
+        break;
+    case ID_PLAYBACK_NEXT:
+        MainWindow_NextItem();
+        break;
+    case WM_TOOLBAR_PREV:
+        MainWindow_PreviousItem();
+        break;
+    case WM_TOOLBAR_NEXT:
+        MainWindow_NextItem();
         break;
 
     }
@@ -1044,8 +1037,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.bFileIsOpen = false;
     Globals2.bMouseDownOnPosition = false;
     Globals2.bMouseDownOnVolume = false;
-    //Globals2.nLastPlayedIndex = MW_LW_INVALID_INDEX;
-    //Globals2.nCurrentPlayingIndex = MW_LW_INVALID_INDEX;   
+    Globals2.bListviewDragging = false;
+
 
 
     // Show Welcome Message in status bar
@@ -1472,6 +1465,7 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 /// </summary>
 bool MainWindow_Play()
 {
+
     if (!Globals2.bFileIsOpen)
         return false;
 
@@ -1482,6 +1476,7 @@ bool MainWindow_Play()
     {
         if (!WA_Playback_Engine_Play())
             return false;
+       
     }
     else
     {
@@ -1496,6 +1491,11 @@ bool MainWindow_Play()
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(FALSE, 0));
 
+    // Update Menu
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_PLAY, MF_CHECKED);
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_PAUSE, MF_UNCHECKED);
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_STOP, MF_UNCHECKED);
+
     // Create Timer for position updates
     SetTimer(Globals2.hMainWindow, MW_ID_POS_TIMER, 1000, NULL);
 
@@ -1505,12 +1505,6 @@ bool MainWindow_Play()
     // Enable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, true);
 
-    // Update Listview
-    if (Globals2.pPlaylist)
-    {
-        WA_Playlist_SelectIndex(Globals2.pPlaylist, Globals2.dwCurrentIndex);
-        WA_Playlist_UpdateView(Globals2.pPlaylist, true);
-    }
         
     return true;
 }
@@ -1537,6 +1531,11 @@ bool MainWindow_Pause()
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(FALSE, 0));
 
+    // Update Menu
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_PLAY, MF_UNCHECKED);
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_PAUSE, MF_CHECKED);
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_STOP, MF_UNCHECKED);
+
     KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
     KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
 
@@ -1562,10 +1561,15 @@ bool MainWindow_Stop()
 
     Globals2.dwCurrentStatus = MW_STOPPED;
 
-
+    // Check Stop Button
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PLAY, MAKEWORD(FALSE, 0));
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_PAUSE, MAKEWORD(FALSE, 0));
     SendMessage(Globals2.hToolbar, TB_CHECKBUTTON, WM_TOOLBAR_STOP, MAKEWORD(TRUE, 0));
+
+    // Update Menu
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_PLAY, MF_UNCHECKED);
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_PAUSE, MF_UNCHECKED);
+    CheckMenuItem(Globals2.hMainMenu, ID_PLAYBACK_STOP, MF_CHECKED);
 
     KillTimer(Globals2.hMainWindow, MW_ID_POS_TIMER);
     KillTimer(Globals2.hMainWindow, MW_ID_SPECTRUM_TIMER);
@@ -1581,17 +1585,70 @@ bool MainWindow_Stop()
     // Disable Position Trackbar
     EnableWindow(Globals2.hPositionTrackbar, false);
 
-    // Update Listview
-    if (Globals2.pPlaylist)
-    {
-        WA_Playlist_DeselectIndex(Globals2.pPlaylist, Globals2.dwCurrentIndex);
-        WA_Playlist_UpdateView(Globals2.pPlaylist, true);
-    }
 
     // Reset status
     MainWindow_Status_SetText(Globals2.hStatus, NULL, true);
   
     return true;
+}
+
+/// <summary>
+/// Go to next file into playlist
+/// </summary>
+/// <returns>True on Success</returns>
+bool MainWindow_NextItem()
+{
+    DWORD dwIndex = 0;
+    DWORD dwCount;
+
+    if (!Globals2.pPlaylist)
+        return false;
+
+    dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+
+    if (dwCount < 1)
+        return false;
+
+    if (!WA_Playlist_Get_SelectedIndex(Globals2.pPlaylist, &dwIndex))
+        return false;
+
+    MainWindow_Close();
+
+    dwIndex++;
+    dwIndex = dwIndex % dwCount;
+    
+    return MainWindow_Open_Playlist_Index(dwIndex);
+}
+
+/// <summary>
+/// Go to previous file into playlist
+/// </summary>
+/// <returns>True on Success</returns>
+bool MainWindow_PreviousItem()
+{
+    DWORD dwIndex = 0;
+    DWORD dwCount;
+
+    if (!Globals2.pPlaylist)
+        return false;
+
+    dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+
+    if (dwCount < 1)
+        return false;
+
+    if (!WA_Playlist_Get_SelectedIndex(Globals2.pPlaylist, &dwIndex))
+        return false;
+
+    MainWindow_Close();
+
+    if (dwIndex == 0)
+        dwIndex = dwCount - 1;
+    else
+        dwIndex--;
+
+  
+    return MainWindow_Open_Playlist_Index(dwIndex);
 }
 
 /// <summary>
@@ -1614,7 +1671,15 @@ bool MainWindow_Open_Playlist_Index(DWORD dwIndex)
     if (!MainWindow_Open(pMetadata->lpwFilePath))
         return false;
 
-    Globals2.dwCurrentIndex = dwIndex;
+
+    // Update Listview
+    if (Globals2.pPlaylist)
+    {
+        WA_Playlist_SelectIndex(Globals2.pPlaylist, dwIndex);
+        WA_Playlist_UpdateView(Globals2.pPlaylist, true);
+    }
+
+    MainWindow_Play();
 
     return true;
 }
@@ -1666,8 +1731,25 @@ bool MainWindow_Open(const wchar_t* lpwPath)
 
 bool MainWindow_Close()
 {
+    if (!Globals2.bFileIsOpen)
+        return false;
+
     if (Globals2.dwCurrentStatus != MW_STOPPED)
         MainWindow_Stop();
+
+    // Update Listview
+    if (Globals2.pPlaylist)
+    {
+        DWORD dwIndex = 0;
+
+        if (WA_Playlist_Get_SelectedIndex(Globals2.pPlaylist, &dwIndex))
+        {
+            WA_Playlist_DeselectIndex(Globals2.pPlaylist, dwIndex);
+            WA_Playlist_UpdateView(Globals2.pPlaylist, true);
+        }
+
+
+    }
 
     // Clear Window Title
     MainWindow_UpdateWindowTitle(NULL, true);
@@ -1722,6 +1804,8 @@ DWORD MainWindow_HandleEndOfStreamMsg()
     _RPTW0(_CRT_WARN, L"Main Window End Of Stream\n");
     MainWindow_Stop();
     MainWindow_Close();
+
+   
     // TODO: Play next file(if allowed in UI)
 
     return WA_OK;
@@ -1954,6 +2038,56 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
 
 LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
+    
+    PCOPYDATASTRUCT lpCopy = (PCOPYDATASTRUCT)lParam;
+
+
+    if (!Globals2.pPlaylist)
+        return FALSE;
+
+  
+    switch (lpCopy->dwData)
+    {
+    case MSG_OPENFILE:
+    {
+        if (!PathFileExists((wchar_t*)lpCopy->lpData))
+            return FALSE;
+
+        if (!WA_Playback_Engine_IsFileSupported((wchar_t*)lpCopy->lpData))
+            return FALSE;
+
+        WA_Playlist_RemoveAll(Globals2.pPlaylist);
+
+        WA_Playlist_Add(Globals2.pPlaylist, (wchar_t*) lpCopy->lpData);
+
+        // Update Listview Count
+        WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+
+        // Open and Play file at Index [0]
+        if (MainWindow_Open_Playlist_Index(0)) 
+            MainWindow_Play();
+       
+          
+
+        break;
+    }
+    case MSG_ENQUEUEFILE:
+    {
+        if (!PathFileExists((wchar_t*)lpCopy->lpData))
+            return FALSE;
+
+        if (!WA_Playback_Engine_IsFileSupported((wchar_t*)lpCopy->lpData))
+            return FALSE;
+       
+        WA_Playlist_Add(Globals2.pPlaylist, (wchar_t*)lpCopy->lpData);
+
+        // Update Listview Count
+        WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+
+        break;
+    }
+    }
+   
     return TRUE;
 }
 
@@ -1985,14 +2119,32 @@ void MainWindow_DestroyDarkMode()
 
 void MainWindow_LoadSettings()
 {
+    WA_Ini* pIni;
 
-    Settings2.CurrentTheme = Violet; // TODO: Use Settings Value
-   
+    pIni = WA_Ini_New();
 
+    if (!pIni)
+        return;
+
+    Settings2.CurrentTheme = WA_Ini_Read_UInt8(pIni, (uint8_t) Red, L"Globals", L"ColorMode");
+    Settings2.bPlayNextItem = WA_Ini_Read_Bool(pIni, false, L"Globals", L"PlayNextItem");
+
+    WA_Ini_Delete(pIni);  
 }
 
 void MainWindow_SaveSettings()
 {
+    WA_Ini* pIni;
+
+    pIni = WA_Ini_New();
+
+    if (!pIni)
+        return;
+
+    WA_Ini_Write_UInt8(pIni, (uint8_t)Settings2.CurrentTheme, L"Globals", L"ColorMode");
+    WA_Ini_Write_Bool(pIni, Settings2.bPlayNextItem, L"Globals", L"PlayNextItem");
+
+    WA_Ini_Delete(pIni);
 
 }
 

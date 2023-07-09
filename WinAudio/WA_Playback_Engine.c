@@ -13,7 +13,7 @@
 #include "WA_UI_Visualizations.h"
 #include "Globals2.h"
 
-static wchar_t WA_Playback_Engine_SupportedFileString[] = L"All Supported Files\0";
+const static wchar_t WA_Playback_Engine_SupportedFileString[] = L"All Supported Files\0";
 
 /// <summary>
 /// Return a Pointer to a WA_Input Plugin that supports input file or return NULL on fail
@@ -28,7 +28,7 @@ static WA_Input* WA_Playback_Engine_Find_Decoder(const wchar_t* lpwPath)
 
     lpwExtension = PathFindExtension(lpwPath);
 
-    for (uint32_t i = 0; i < Plugins.uPluginsCount; i++)
+    for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
     {
         if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
         {
@@ -119,6 +119,7 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
 
     return true;
 }
+
 
 /// <summary>
 /// Close a file opened with WA_Playback_Engine_OpenFile function
@@ -469,6 +470,20 @@ bool WA_Playback_Engine_Get_Current_Format(WA_AudioFormat* pFormat)
         return false;
 
     return (pIn->WA_Input_GetFormat(pIn, pFormat) == WA_OK) ? true : false;
+}
+
+/// <summary>
+/// Return if a File is Supported
+/// </summary>
+/// <param name="lpwPath">Path of a File</param>
+/// <returns>True if file is supported</returns>
+bool WA_Playback_Engine_IsFileSupported(const wchar_t* lpwPath)
+{
+    WA_Input* pIn = NULL;
+
+    pIn = WA_Playback_Engine_Find_Decoder(lpwPath);
+
+    return (pIn) ? true : false;
 }
 
 /// <summary>

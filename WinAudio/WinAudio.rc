@@ -89,14 +89,10 @@ BEGIN
     BEGIN
         MENUITEM "Play",                        ID_PLAYBACK_PLAY
         MENUITEM "Pause",                       ID_PLAYBACK_PAUSE
-        MENUITEM "Stop",                        ID_PLAYBACK_STOP
+        MENUITEM "Stop",                        ID_PLAYBACK_STOP, CHECKED
         MENUITEM SEPARATOR
         MENUITEM "Previous",                    ID_PLAYBACK_PREVIOUS
         MENUITEM "Next",                        ID_PLAYBACK_NEXT
-    END
-    POPUP "Tools"
-    BEGIN
-        MENUITEM "Settings",                    ID_TOOLS_ENHANCER
     END
     POPUP "About"
     BEGIN
@@ -118,7 +114,7 @@ BEGIN
         LEFTMARGIN, 6
         RIGHTMARGIN, 322
         TOPMARGIN, 7
-        BOTTOMMARGIN, 243
+        BOTTOMMARGIN, 233
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -129,26 +125,31 @@ END
 // Dialog
 //
 
-IDD_SETTINGS DIALOGEX 0, 0, 329, 250
+IDD_SETTINGS DIALOGEX 0, 0, 329, 240
 STYLE DS_SYSMODAL | DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Settings"
 FONT 8, "Segoe UI", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,218,229,50,14
-    PUSHBUTTON      "Annulla",IDCANCEL,272,229,50,14
+    DEFPUSHBUTTON   "OK",IDOK,260,219,62,14
     GROUPBOX        "Plugins",IDC_STATIC,17,18,292,66
     COMBOBOX        IDC_INPUT_COMBO,81,31,146,12,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     COMBOBOX        IDC_OUTPUT_COMBO,81,46,146,12,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     COMBOBOX        IDC_EFFECT_COMBO,81,61,145,12,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Input:",IDC_STATIC,45,33,23,8
-    LTEXT           "Active Output:",IDC_STATIC,23,48,53,8
-    LTEXT           "Active Effect:",IDC_STATIC,26,63,46,8
+    LTEXT           "Inputs:",IDC_STATIC,45,33,23,8
+    LTEXT           "Outputs:",IDC_STATIC,39,48,31,8
+    LTEXT           "DSP:",IDC_STATIC,54,63,19,8
     PUSHBUTTON      "Configure...",IDC_BUTTON_CONF_INPUT,243,30,47,13
     PUSHBUTTON      "Configure...",IDC_BUTTON_CONF_OUTPUT,243,60,47,13
     PUSHBUTTON      "Configure...",IDC_BUTTON_CONF_EFFECT,243,45,47,13
-    GROUPBOX        "Plugins",IDC_STATIC,19,86,292,66
+    GROUPBOX        "Colors",IDC_STATIC,18,86,292,38
     LTEXT           "Color Theme:",IDC_STATIC,29,100,51,8
     COMBOBOX        IDC_THEME_COMBO,83,98,88,12,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Mode:",IDC_STATIC,183,100,29,8
+    LTEXT           "Light",IDC_COLOR_MODE,210,100,61,8
+    GROUPBOX        "Globals",IDC_STATIC,17,126,292,83
+    CONTROL         "Play the next file in the playlist after the current playback ends",IDC_PLAYNEXTFILE,
+                    "Button",BS_AUTOCHECKBOX | BS_MULTILINE | WS_TABSTOP,28,140,162,23
+    CONTROL         "Save Playlist on Exit",IDC_SAVEPLAYLIST,"Button",BS_AUTOCHECKBOX | BS_MULTILINE | WS_TABSTOP,28,161,162,18
 END
 
 
