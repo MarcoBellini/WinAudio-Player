@@ -1050,6 +1050,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
 /// </summary>
 void MainWindow_DestroyUI()
 {
+    MainWindow_Close();
+
     // Destroy Visualizations
     if(Globals2.pVisualizations)
         WA_Visualizations_Delete(Globals2.pVisualizations);
@@ -1258,8 +1260,8 @@ HWND MainWindow_CreateVolumeTrackbar(HWND hOwnerHandle)
     // Set Min and Max Range
     SendMessage(hTrackbarHandle, TBM_SETRANGE, TRUE, MAKELPARAM(MW_VOLUME_MIN, MW_VOLUME_MAX));
 
-    // Set Value to Default MAX VOLUME
-    SendMessage(hTrackbarHandle, TBM_SETPOS, TRUE, MW_VOLUME_MAX);
+    // Set Value to Current Settings value (MW_MAX_VOLUME on Defaults)
+    SendMessage(hTrackbarHandle, TBM_SETPOS, TRUE, Settings2.uCurrentVolume);
 
     // Hide Focus Dots
     SendMessage(hTrackbarHandle, WM_CHANGEUISTATE, (WPARAM)MAKELONG(UIS_SET, UISF_HIDEFOCUS),0);
@@ -1905,6 +1907,7 @@ void MainWindow_UpdateVolumeFromTrackbarValue()
 
     WA_Playback_Engine_Set_Volume((uint8_t)dwVolumeValue);
 
+    Settings2.uCurrentVolume = dwVolumeValue;
 }
 
 /// <summary>
@@ -2015,11 +2018,8 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
         dwVolumeValue = (uint8_t) lParam;     
 
         SendMessage(Globals2.hVolumeTrackbar, TBM_SETPOS, TRUE, dwVolumeValue);
-        Globals2.dwCurrentVolume = dwVolumeValue;
 
-        // Try to Update Output
-        if (Globals2.pOutput)
-            Globals2.pOutput->WA_Output_Set_Volume(Globals2.pOutput, dwVolumeValue);
+        MainWindow_UpdateVolumeFromTrackbarValue();
 
         return WA_OK;
     }
@@ -2128,6 +2128,7 @@ void MainWindow_LoadSettings()
 
     Settings2.CurrentTheme = WA_Ini_Read_UInt8(pIni, (uint8_t) Red, L"Globals", L"ColorMode");
     Settings2.bPlayNextItem = WA_Ini_Read_Bool(pIni, false, L"Globals", L"PlayNextItem");
+    Settings2.uCurrentVolume = WA_Ini_Read_UInt32(pIni, 255, L"Globals", L"CurrentVolume");
 
     WA_Ini_Delete(pIni);  
 }
@@ -2143,6 +2144,7 @@ void MainWindow_SaveSettings()
 
     WA_Ini_Write_UInt8(pIni, (uint8_t)Settings2.CurrentTheme, L"Globals", L"ColorMode");
     WA_Ini_Write_Bool(pIni, Settings2.bPlayNextItem, L"Globals", L"PlayNextItem");
+    WA_Ini_Write_UInt32(pIni, Settings2.uCurrentVolume, L"Globals", L"CurrentVolume");
 
     WA_Ini_Delete(pIni);
 

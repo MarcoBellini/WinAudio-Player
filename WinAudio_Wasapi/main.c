@@ -171,8 +171,17 @@ static STDMETHODIMP WA_Wasapi_OnDefaultDeviceChanged(IMMNotificationClient* This
 	// Perform Stream Switch on Output Device
 	if ((Flow == eRender) && (Role == eMultimedia))
 	{
-		WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This;		
-		pInstance->bPendingEndOfStream = true;
+		WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This;	
+
+		/*
+		if (pInstance->bDeviceIsOpen)
+		{
+			WA_Wasapi_Close(This);
+			WA_Wasapi_Open(This, NULL);
+			WA_Wasapi_Play(This);
+		}
+		*/
+		
 	}
 
 	return S_OK;
@@ -665,8 +674,7 @@ void WA_Wasapi_Close(WA_Output* This)
 		return;
 
 	// Stop Before Exit (On End of Stream is Already Stopped)
-	if (pInstance->bWasapiIsPlaying)
-		This->WA_Output_Stop(This);
+	WA_Wasapi_Stop(This);
 
 	// Unregister Callbacks
 	hr = IMMDeviceEnumerator_UnregisterEndpointNotificationCallback(pInstance->pDeviceEnumerator,

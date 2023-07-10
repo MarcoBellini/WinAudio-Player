@@ -63,13 +63,9 @@ struct
 	HWND hPositionTrackbar;
 	HWND hVolumeTrackbar;
 	DWORD dwCurrentStatus;			// MW_PLAYING, MW_PAUSING, MW_STOPPED
-	uint16_t dwCurrentVolume;
 	bool bFileIsOpen;
-	//DWORD dwCurrentIndex;
-	//bool bIndexIsValid;
 	bool bStreamIsSeekable;
 	uint32_t uOutputLatency;		// Store Current Latency of Opened Output Plugin
-
 
 	bool bMouseDownOnPosition;
 	bool bMouseDownOnVolume;
@@ -102,6 +98,7 @@ struct
 	bool bPlayNextItem;
 	bool bSavePlaylistOnExit;
 
+	uint32_t uCurrentVolume;
 
 } Settings2;
 

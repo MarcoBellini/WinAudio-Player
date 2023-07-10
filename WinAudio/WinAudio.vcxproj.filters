@@ -113,9 +113,6 @@
     <ClInclude Include="resource.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
-    <ClInclude Include="globals.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
     <ClInclude Include="IStreamInput.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>

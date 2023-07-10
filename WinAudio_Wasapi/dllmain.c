@@ -1,4 +1,3 @@
-// dllmain.cpp : Definisce il punto di ingresso per l'applicazione DLL.
 #include "pch.h"
 
 BOOL APIENTRY DllMain( HMODULE hModule,

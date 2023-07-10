@@ -143,7 +143,6 @@
     <ClInclude Include="WA_UI_DarkMode.h" />
     <ClInclude Include="DecoderManager.h" />
     <ClInclude Include="WA_FFT.h" />
-    <ClInclude Include="globals.h" />
     <ClInclude Include="GUI_OpenFileDialog.h" />
     <ClInclude Include="IStreamInput.h" />
     <ClInclude Include="IStreamOutput.h" />
