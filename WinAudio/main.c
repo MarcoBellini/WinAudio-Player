@@ -1039,6 +1039,14 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.bMouseDownOnVolume = false;
     Globals2.bListviewDragging = false;
 
+    // Load Playlist
+    if ((Settings2.bSavePlaylistOnExit) && (Globals2.pPlaylist))
+    {
+        WA_Playlist_LoadM3U(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.m3u8");
+        WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+    }
+
+
 
 
     // Show Welcome Message in status bar
@@ -1051,6 +1059,13 @@ void MainWindow_CreateUI(HWND hMainWindow)
 void MainWindow_DestroyUI()
 {
     MainWindow_Close();
+
+    // Save Playlist
+    if ((Settings2.bSavePlaylistOnExit) && (Globals2.pPlaylist))
+    {
+        WA_Playlist_SaveAsM3U(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.m3u8");
+        
+    }
 
     // Destroy Visualizations
     if(Globals2.pVisualizations)
@@ -1444,6 +1459,9 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
                     // Update Listview Count
                     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
 
+                    // Open First Index in the playlist
+                    MainWindow_Open_Playlist_Index(0);
+
                 }
 
 
@@ -1802,13 +1820,15 @@ void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 /// Update Window on End of Stream Event
 /// </summary>
 DWORD MainWindow_HandleEndOfStreamMsg()
-{
-    _RPTW0(_CRT_WARN, L"Main Window End Of Stream\n");
-    MainWindow_Stop();
-    MainWindow_Close();
+{    
+    MainWindow_Stop();    
 
    
-    // TODO: Play next file(if allowed in UI)
+    // Play next file(if allowed in UI)
+    if (Settings2.bPlayNextItem)
+        MainWindow_NextItem(); 
+    else
+        MainWindow_Close();
 
     return WA_OK;
 }
@@ -2129,6 +2149,7 @@ void MainWindow_LoadSettings()
     Settings2.CurrentTheme = WA_Ini_Read_UInt8(pIni, (uint8_t) Red, L"Globals", L"ColorMode");
     Settings2.bPlayNextItem = WA_Ini_Read_Bool(pIni, false, L"Globals", L"PlayNextItem");
     Settings2.uCurrentVolume = WA_Ini_Read_UInt32(pIni, 255, L"Globals", L"CurrentVolume");
+    Settings2.bSavePlaylistOnExit = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SavePlaylistOnExit");
 
     WA_Ini_Delete(pIni);  
 }
@@ -2145,6 +2166,7 @@ void MainWindow_SaveSettings()
     WA_Ini_Write_UInt8(pIni, (uint8_t)Settings2.CurrentTheme, L"Globals", L"ColorMode");
     WA_Ini_Write_Bool(pIni, Settings2.bPlayNextItem, L"Globals", L"PlayNextItem");
     WA_Ini_Write_UInt32(pIni, Settings2.uCurrentVolume, L"Globals", L"CurrentVolume");
+    WA_Ini_Write_Bool(pIni, Settings2.bSavePlaylistOnExit, L"Globals", L"SavePlaylistOnExit");
 
     WA_Ini_Delete(pIni);
 

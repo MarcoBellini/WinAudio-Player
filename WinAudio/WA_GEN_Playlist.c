@@ -76,7 +76,7 @@ void WA_Playlist_Delete(WA_Playlist* This)
 /// </summary>
 /// <param name="pFilePath">File Path</param>
 /// <returns>True on Success</returns>
-bool WA_Playlist_Add(WA_Playlist* This, wchar_t* pFilePath)
+bool WA_Playlist_Add(WA_Playlist* This, const wchar_t* pFilePath)
 {	
 	errno_t nError;
 
@@ -458,4 +458,154 @@ bool WA_Playlist_Get_SelectedIndex(WA_Playlist* This, DWORD *dwIndex)
 	}
 
 	return false;
+}
+
+
+bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
+{
+	uint32_t uBytesReaded = 0;
+	uint32_t uUnicodeRequiedSize, uConvertedChars;
+	LARGE_INTEGER FileSize;
+
+	wchar_t* Context = NULL;
+	wchar_t* Token = NULL;
+	wchar_t* UnicodeText = NULL;
+	char* UFT8Text = NULL;
+
+	HANDLE hFile;		
+	BOOL bResult;
+	
+
+	hFile = CreateFile(pFilePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	if (hFile == INVALID_HANDLE_VALUE)		
+		return false;
+
+
+	bResult = GetFileSizeEx(hFile, &FileSize);
+
+	// Skip file > 4MB
+	if ((!bResult) || (FileSize.QuadPart > 0x3D0900))
+	{
+		CloseHandle(hFile);
+		return false;
+	}		
+
+	UFT8Text = (char* )malloc(FileSize.LowPart);
+
+	if (!UFT8Text)
+	{
+		CloseHandle(hFile);
+		return false;
+	}
+		
+
+	bResult = ReadFile(hFile, UFT8Text, FileSize.LowPart, &uBytesReaded, NULL);
+
+	// Test is we read successful
+	if ((uBytesReaded == 0) && (bResult))
+	{
+		free(UFT8Text);
+		CloseHandle(hFile);
+		return false;	
+	}
+
+	// Calc the requied size of unicode buffer, in characters
+	uUnicodeRequiedSize = MultiByteToWideChar(CP_UTF8, 0, UFT8Text, uBytesReaded, NULL, 0);
+	uUnicodeRequiedSize = uUnicodeRequiedSize * sizeof(wchar_t);
+
+
+	UnicodeText = (wchar_t*)malloc(uUnicodeRequiedSize);
+
+
+	if (!UnicodeText)
+	{
+		free(UFT8Text);
+		CloseHandle(hFile);
+		return false;
+	}
+
+	// Convert Chuck from UFT8 to wchar_t
+	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, UFT8Text, uBytesReaded, UnicodeText, uUnicodeRequiedSize);
+
+
+	if (uConvertedChars == 0)
+	{
+		free(UFT8Text);
+		free(UnicodeText);
+
+		CloseHandle(hFile);
+		return false;
+	}
+
+
+	free(UFT8Text);
+	UFT8Text = NULL;
+
+
+	Token = wcstok_s(UnicodeText, L"\r\n", &Context);
+
+	while (Token != NULL)
+	{
+		if (wcschr(Token, L'#') == NULL)
+		{
+			if (PathFileExists(Token))
+				WA_Playlist_Add(This, Token);
+		}
+	
+		Token = wcstok_s(NULL, L"\r\n", &Context);
+	}
+
+	free(UnicodeText);
+	CloseHandle(hFile);
+
+	return true;
+}
+
+
+bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath)
+{
+	HANDLE hFile;
+	char* UTF8Text;
+	uint32_t uUTF8RequiedSize, uConvertedBytes, uWrittenBytes;
+
+	hFile = CreateFile(pFilePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	if (hFile == INVALID_HANDLE_VALUE)
+		return false;
+
+	for (uint32_t i = 0U; i < This->dwCount; i++)
+	{
+		wchar_t FilePath[MAX_PATH + 2];
+		uint32_t PathLen;
+
+		wcscpy_s(FilePath, (MAX_PATH + 2), This->pMetadataArray[i].lpwFilePath);
+		wcscat_s(FilePath, (MAX_PATH + 2), L"\r\n");
+		PathLen = wcslen(FilePath);
+	
+		uUTF8RequiedSize = WideCharToMultiByte(CP_UTF8, 0, FilePath, PathLen, NULL, 0, NULL, NULL);
+
+		UTF8Text = (char*) malloc(uUTF8RequiedSize);
+
+		if (!UTF8Text)
+			continue;
+
+
+		uConvertedBytes = WideCharToMultiByte(CP_UTF8, 0, FilePath, PathLen, UTF8Text, uUTF8RequiedSize, NULL, NULL);
+
+		if (uConvertedBytes > 0)
+		{
+
+			WriteFile(hFile, (LPCVOID) UTF8Text, uConvertedBytes, &uWrittenBytes, NULL);
+		}
+
+		free(UTF8Text);
+
+	}
+
+
+	CloseHandle(hFile);
+
+	return true;
+
 }

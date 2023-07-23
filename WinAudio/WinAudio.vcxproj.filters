@@ -30,9 +30,6 @@
     <ClCompile Include="OUT_Wasapi.c">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="GUI_OpenFileDialog.c">
-      <Filter>File di origine</Filter>
-    </ClCompile>
     <ClCompile Include="CircleBuffer.c">
       <Filter>File di origine</Filter>
     </ClCompile>
@@ -120,9 +117,6 @@
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="DecoderManager.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
-    <ClInclude Include="GUI_OpenFileDialog.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="CircleBuffer.h">

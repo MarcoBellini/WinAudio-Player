@@ -2,8 +2,8 @@
 #define WA_GEN_PLAYLIST_H
 
 
-#define WA_PLAYLIST_INITIAL_MAX_SIZE (MEMORY_ALLOCATION_ALIGNMENT * 4)
-#define WA_PLAYLIST_REALLOC_BLOCK (MEMORY_ALLOCATION_ALIGNMENT * 2)
+#define WA_PLAYLIST_INITIAL_MAX_SIZE 50
+#define WA_PLAYLIST_REALLOC_BLOCK 100
 
 // Opaque Type
 struct TagWA_Playlist;
@@ -29,7 +29,7 @@ typedef void (WA_Playlist_UpdateCallback)(bool bRedrawItems);
 WA_Playlist* WA_Playlist_New(uint32_t uCacheSize, WA_Playlist_ReadCallback *pRead, WA_Playlist_UpdateCallback *pUpdate);
 void WA_Playlist_Delete(WA_Playlist* This);
 
-bool WA_Playlist_Add(WA_Playlist* This, wchar_t* pFilePath);
+bool WA_Playlist_Add(WA_Playlist* This, const wchar_t* pFilePath);
 bool WA_Playlist_Remove(WA_Playlist* This, DWORD dwIndex);
 bool WA_Playlist_RemoveAll(WA_Playlist* This);
 
@@ -46,5 +46,9 @@ void WA_Playlist_DeselectIndex(WA_Playlist* This, DWORD dwIndex);
 bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wchar_t* lpwSearchStr, DWORD* dwFoundIndex);
 
 bool WA_Playlist_Get_SelectedIndex(WA_Playlist* This, DWORD *dwIndex);
+
+
+bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath);
+bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath);
 
 #endif

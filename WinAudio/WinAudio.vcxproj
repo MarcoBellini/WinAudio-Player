@@ -110,7 +110,6 @@
     <ClCompile Include="DecoderManager.c" />
     <ClCompile Include="Settings.c" />
     <ClCompile Include="WA_FFT.c" />
-    <ClCompile Include="GUI_OpenFileDialog.c" />
     <ClCompile Include="IN_MediaFoundation.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="OUT_Wasapi.c" />
@@ -143,7 +142,6 @@
     <ClInclude Include="WA_UI_DarkMode.h" />
     <ClInclude Include="DecoderManager.h" />
     <ClInclude Include="WA_FFT.h" />
-    <ClInclude Include="GUI_OpenFileDialog.h" />
     <ClInclude Include="IStreamInput.h" />
     <ClInclude Include="IStreamOutput.h" />
     <ClInclude Include="resource.h" />
