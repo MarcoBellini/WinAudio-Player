@@ -80,6 +80,8 @@ struct
 	bool bListviewDragging;
 	POINT ptListviewDraggingCursor;
 	int32_t nListviewItem;
+
+	bool bPendingInParams; // Used to determine if load a playlist or process in Params
 } Globals2;
 
 

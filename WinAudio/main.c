@@ -120,7 +120,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         // Send Data to Already open instance
         MainWindow_CopyData(hExistingWindow, __argc, __wargv);
 
-        // Show Already Opened Window
+        // Show Existing Window
         SetForegroundWindow(hExistingWindow);
         ShowWindow(hExistingWindow, SW_RESTORE);
 
@@ -128,6 +128,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
         return EXIT_SUCCESS;
     }
+
+    // How it works:
+    // true  = Skip loading playlist and process in params in MainWindow_ProcessStartupFiles(..)
+    // false = load playlist only if Settings.bSavePlaylistOnExit == true
+    Globals2.bPendingInParams = (__argc > 1) ? true : false;
 
 
     // Init COM and start application only if we don't found and 
@@ -184,7 +189,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     }
     
     // Process Pending in Arguments(Open and Play First file)
-    if (__argc > 1)        
+    if (Globals2.bPendingInParams)
         MainWindow_ProcessStartupFiles(__argc, __wargv);
        
     
@@ -1042,11 +1047,14 @@ void MainWindow_CreateUI(HWND hMainWindow)
     // Load Playlist
     if ((Settings2.bSavePlaylistOnExit) && (Globals2.pPlaylist))
     {
-        WA_Playlist_LoadM3U(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.m3u8");
-        WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        // Skip loading playlist if there are some In Params 
+        if (!Globals2.bPendingInParams)
+        {
+            WA_Playlist_LoadM3U(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.m3u8");
+            WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        }
+
     }
-
-
 
 
     // Show Welcome Message in status bar
