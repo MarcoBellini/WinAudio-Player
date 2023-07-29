@@ -94,6 +94,17 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam);
 LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam);
 
 
+HRESULT STDMETHODCALLTYPE QueryInterface(IDropTarget* This, REFIID riid, void** ppvObject);
+ULONG STDMETHODCALLTYPE AddRef(IDropTarget* This);
+ULONG STDMETHODCALLTYPE Release(IDropTarget* This);
+HRESULT STDMETHODCALLTYPE DragEnter(IDropTarget* This, IDataObject* pDataObj, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
+HRESULT STDMETHODCALLTYPE DragOver(IDropTarget* This, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
+HRESULT STDMETHODCALLTYPE DragLeave(IDropTarget* This);
+HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
+
+static const IDropTargetVtbl DropTargetVtbl = {QueryInterface, AddRef, Release, DragEnter, DragOver, DragLeave, Drop};
+
+
 
 /// <summary>
 /// Application Entry Point
@@ -137,7 +148,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     // Init COM and start application only if we don't found and 
     // opened instance
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    //HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+    HRESULT hr = OleInitialize(NULL);
 
     if FAILED(hr)
     {
@@ -207,7 +220,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     MainWindow_SaveSettings();
     MainWindow_DestroyDarkMode();
     WA_Playback_Engine_Delete();
-    CoUninitialize();
+    // CoUninitialize();
+    OleUninitialize();
 
     if(hMutex)
         ReleaseMutex(hMutex);
@@ -1043,6 +1057,7 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.bMouseDownOnPosition = false;
     Globals2.bMouseDownOnVolume = false;
     Globals2.bListviewDragging = false;
+    Globals2.DropTargetReferenceCounter = 0L;
 
     // Load Playlist
     if ((Settings2.bSavePlaylistOnExit) && (Globals2.pPlaylist))
@@ -1056,6 +1071,9 @@ void MainWindow_CreateUI(HWND hMainWindow)
 
     }
 
+    // Add Drag and Drop Capabilities
+    Globals2.DropTarget.lpVtbl = &DropTargetVtbl;
+    RegisterDragDrop(hMainWindow, &Globals2.DropTarget);
 
     // Show Welcome Message in status bar
     MainWindow_Status_SetText(Globals2.hStatus, NULL, true);  
@@ -1067,6 +1085,8 @@ void MainWindow_CreateUI(HWND hMainWindow)
 void MainWindow_DestroyUI()
 {
     MainWindow_Close();
+
+    RevokeDragDrop(Globals2.hMainWindow);
 
     // Save Playlist
     if ((Settings2.bSavePlaylistOnExit) && (Globals2.pPlaylist))
@@ -2178,5 +2198,142 @@ void MainWindow_SaveSettings()
 
     WA_Ini_Delete(pIni);
 
+}
+
+
+
+HRESULT STDMETHODCALLTYPE QueryInterface(IDropTarget* This, REFIID riid, void** ppvObject)
+{
+    return S_OK;
+}
+
+ULONG STDMETHODCALLTYPE AddRef(IDropTarget* This)
+{
+    return InterlockedIncrement(&Globals2.DropTargetReferenceCounter);
+}
+
+ULONG STDMETHODCALLTYPE Release(IDropTarget* This)
+{
+    return InterlockedDecrement(&Globals2.DropTargetReferenceCounter);
+}
+
+HRESULT STDMETHODCALLTYPE DragEnter(IDropTarget* This, IDataObject* pDataObj, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
+{
+    IEnumFORMATETC* pEnumFormat;
+    HRESULT hr; 
+    FORMATETC Format;
+
+    (*pdwEffect) = DROPEFFECT_NONE;
+
+    hr = IDataObject_EnumFormatEtc(pDataObj, DATADIR_GET, &pEnumFormat);
+
+    if FAILED(hr)
+        return E_UNEXPECTED;
+
+    Globals2.bAllowFileDrop = false;
+    ZeroMemory(&Globals2.DropFormat, sizeof(FORMATETC));
+
+    while (IEnumFORMATETC_Next(pEnumFormat, 1, &Format, NULL) == S_OK)
+    {
+        if (Format.cfFormat == CF_HDROP)
+        {
+            Globals2.bAllowFileDrop = true;
+            memcpy_s(&Globals2.DropFormat, sizeof(FORMATETC), &Format, sizeof(FORMATETC));
+            break; // Exit LOOP
+        }
+    }
+
+    IEnumFORMATETC_Release(pEnumFormat);
+ 
+    if(!Globals2.bAllowFileDrop)
+        return S_OK;
+
+    (*pdwEffect) = DROPEFFECT_LINK;
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE DragOver(IDropTarget* This, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
+{
+    (*pdwEffect) = DROPEFFECT_NONE;
+
+    if (!Globals2.bAllowFileDrop)
+        return S_OK;
+
+    (*pdwEffect) = DROPEFFECT_LINK;
+    return S_OK;   
+}
+
+HRESULT STDMETHODCALLTYPE DragLeave(IDropTarget* This)
+{
+    Globals2.bAllowFileDrop = false;
+    ZeroMemory(&Globals2.DropFormat, sizeof(FORMATETC));
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
+{
+    HRESULT hr;
+    STGMEDIUM Stg;
+    HDROP pDropFiles;
+    UINT uDroppedFiles;
+    DWORD dwLastIndex;
+    DWORD dwAddedFiles;
+
+    (*pdwEffect) = DROPEFFECT_NONE;
+
+    if (!Globals2.bAllowFileDrop)
+        return S_OK; 
+
+    if(!Globals2.pPlaylist)
+        return E_UNEXPECTED;
+
+    hr = IDataObject_GetData(pDataObj, &Globals2.DropFormat, &Stg);
+
+    if FAILED(hr)
+        return E_UNEXPECTED;
+
+    dwAddedFiles = 0U;
+
+    if (Stg.tymed == TYMED_HGLOBAL)
+    {
+        (*pdwEffect) = DROPEFFECT_LINK;
+
+        pDropFiles = (HDROP)Stg.hGlobal;
+
+        // Get the number of dropped files
+        // see https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-dragqueryfilea
+        uDroppedFiles = DragQueryFile(pDropFiles, 0xFFFFFFFF, NULL, 0);
+        
+
+        for (UINT i = 0; i < uDroppedFiles; i++)
+        {
+            wchar_t FilePath[MAX_PATH];
+
+            if (DragQueryFile(pDropFiles, i, FilePath, MAX_PATH))
+            {         
+                if (WA_Playback_Engine_IsFileSupported(FilePath))
+                {
+                    WA_Playlist_Add(Globals2.pPlaylist, FilePath);
+                    dwAddedFiles++;
+                }                      
+            }
+        }
+
+    }
+
+    if (dwAddedFiles > 0)
+    {
+        WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        dwLastIndex = WA_Playlist_Get_Count(Globals2.pPlaylist) - 1U;
+
+        ListView_EnsureVisible(Globals2.hListView, dwLastIndex, FALSE);
+    }
+ 
+
+    ReleaseStgMedium(&Stg);
+
+
+    return S_OK;
 }
 

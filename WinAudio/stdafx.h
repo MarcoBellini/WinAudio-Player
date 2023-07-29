@@ -29,6 +29,7 @@
 #include <math.h>
 #include <dwmapi.h>
 #include <Shlobj.h>
+#include <shellapi.h>
 #include "d2d1_586.h"
 
 

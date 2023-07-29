@@ -82,6 +82,11 @@ struct
 	int32_t nListviewItem;
 
 	bool bPendingInParams; // Used to determine if load a playlist or process in Params
+
+	LONG DropTargetReferenceCounter;
+	IDropTarget DropTarget;
+	bool bAllowFileDrop;
+	FORMATETC DropFormat;
 } Globals2;
 
 
