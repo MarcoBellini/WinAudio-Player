@@ -1075,6 +1075,9 @@ void MainWindow_CreateUI(HWND hMainWindow)
     Globals2.DropTarget.lpVtbl = &DropTargetVtbl;
     RegisterDragDrop(hMainWindow, &Globals2.DropTarget);
 
+    if SUCCEEDED(CoCreateInstance(&CLSID_DragDropHelper, NULL, CLSCTX_INPROC_SERVER, &IID_IDropTargetHelper, (LPVOID*)&Globals2.pDropTargetHelper))
+        Globals2.bUseTargetHelper = true;
+
     // Show Welcome Message in status bar
     MainWindow_Status_SetText(Globals2.hStatus, NULL, true);  
 }
