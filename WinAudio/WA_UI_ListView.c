@@ -10,6 +10,7 @@
 #include "WA_GEN_INI.h"
 #include "WA_UI_Visualizations.h"
 #include "Globals2.h"
+#include "resource.h"
 #define TAGLIB_STATIC
 #include "..\Taglibx86\bindings\tag_c.h"
 
@@ -318,6 +319,118 @@ static void WA_UI_Listview_ShowHeaderContextMenu(HWND hHeader, int32_t x, int32_
     DestroyMenu(hMenu);
 }
 
+static void WA_UI_Listview_DeleteSelected(HWND hListview)
+{
+    INT nIndex, nSelectedCount, nCounter;
+    INT* IntArray;
+
+    if (!Globals2.pPlaylist)
+        return;
+
+    nSelectedCount = ListView_GetSelectedCount(hListview);
+
+    if (nSelectedCount <= 0)
+        return;
+
+    IntArray = (INT*) calloc(nSelectedCount, sizeof(INT));
+
+    if (!IntArray)
+        return;  
+
+    nIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
+    nCounter = 0;
+
+    while (nIndex != -1)
+    {
+        ListView_SetItemState(hListview, nIndex, 0, LVNI_SELECTED);
+
+        IntArray[nCounter] = nIndex;
+
+        nCounter++;
+
+        _RPT1(_CRT_WARN, "Index: %i \n", nIndex);
+
+        nIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
+    }
+
+    // 0-Based Index
+    nCounter--;
+
+    while (nCounter > -1)
+    {
+        WA_Playlist_Remove(Globals2.pPlaylist, IntArray[nCounter]);
+        nCounter--;
+    }
+
+    free(IntArray);
+
+    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+    
+}
+
+static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_t y)
+{
+    HMENU hMenu, hSubMenu;
+    DWORD dwMenuID;
+
+    hMenu = LoadMenu(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDR_PLAYLIST_MENU));
+
+
+    if (!hMenu)
+        return;
+
+    hSubMenu = GetSubMenu(hMenu, 0);
+
+    // Handle SHIFT+F10 command to show context menu
+    if ((x < 0) || (y < 0))
+    {
+        RECT HeaderRect;
+
+        GetWindowRect(hListview, &HeaderRect);
+
+        x = HeaderRect.left;
+        y = HeaderRect.top;
+    }
+
+    dwMenuID = TrackPopupMenu(hSubMenu,
+        TPM_NONOTIFY | TPM_RETURNCMD,
+        x, y, 0,
+        hListview, NULL);
+
+    switch (dwMenuID)
+    {
+    case ID_FILE_PLAY:
+    {
+        INT nIndex;
+        nIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
+
+        if (nIndex != -1)      
+            MainWindow_Open_Playlist_Index((DWORD) nIndex);
+
+        break;
+    }
+    case ID_FILE_DELETE:
+        WA_UI_Listview_DeleteSelected(hListview);
+        break;
+    case ID_FILE_SELECTALL:
+        ListView_SetItemState(hListview, -1, LVIS_SELECTED, LVIS_SELECTED);
+        break;
+    case ID_FILE_SELECTNONE:
+        ListView_SetItemState(hListview, -1, 0, LVIS_SELECTED);
+        break;
+    case ID_FILE_CLEARPLAYLIST:
+
+        if (Globals2.pPlaylist)
+        {
+            WA_Playlist_RemoveAll(Globals2.pPlaylist);
+            WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        }
+    }
+
+
+    DestroyMenu(hMenu);
+}
+
 // TODO: Spostare la funzione in un Thread per migliorare le prestazioni dell'UI
 static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
 {    
@@ -353,8 +466,7 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
    
 
     if (!pTaglib)
-    {
-        pMetadata->dwFileSizeBytes = 0LL;
+    {        
         pMetadata->uFileDurationMs = 0U;
         wcscpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, L"\0");
         wcscpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, L"\0");
@@ -406,7 +518,7 @@ static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
         dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
 
         // See https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-listview_setitemcountex
-        ListView_SetItemCountEx(Globals2.hListView, dwCount, LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+        ListView_SetItemCountEx(Globals2.hListView, dwCount, LVSICF_NOSCROLL);
     }
 }
 
@@ -418,6 +530,9 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
     pMetadata = WA_Playlist_Get_Item(Globals2.pPlaylist, pInfo->item.iItem);
 
     _ASSERT(pMetadata);
+
+    if (!pMetadata)
+        return;
 
     dwColumnID = WA_UI_Listview_GetIDFromIndex(pInfo->item.iSubItem);    
 
@@ -675,11 +790,10 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
             return TRUE;
         }
         else
-        {        
-            
-            // TODO: Show Item Context menu
-
-  
+        {     
+        
+            WA_UI_Listview_ShowItemContextMenu((HWND)wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+            return TRUE;
         }
     }
     case WM_MOUSEMOVE:

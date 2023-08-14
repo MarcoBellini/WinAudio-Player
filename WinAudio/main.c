@@ -1072,7 +1072,9 @@ void MainWindow_CreateUI(HWND hMainWindow)
     }
 
     // Add Drag and Drop Capabilities
+    Globals2.bUseTargetHelper = false;
     Globals2.DropTarget.lpVtbl = &DropTargetVtbl;
+
     RegisterDragDrop(hMainWindow, &Globals2.DropTarget);
 
     if SUCCEEDED(CoCreateInstance(&CLSID_DragDropHelper, NULL, CLSCTX_INPROC_SERVER, &IID_IDropTargetHelper, (LPVOID*)&Globals2.pDropTargetHelper))
@@ -1088,6 +1090,11 @@ void MainWindow_CreateUI(HWND hMainWindow)
 void MainWindow_DestroyUI()
 {
     MainWindow_Close();
+
+    if (Globals2.pDropTargetHelper)
+        IDropTargetHelper_Release(Globals2.pDropTargetHelper);
+
+    Globals2.pDropTargetHelper = NULL;
 
     RevokeDragDrop(Globals2.hMainWindow);
 
@@ -2231,7 +2238,11 @@ HRESULT STDMETHODCALLTYPE DragEnter(IDropTarget* This, IDataObject* pDataObj, DW
     hr = IDataObject_EnumFormatEtc(pDataObj, DATADIR_GET, &pEnumFormat);
 
     if FAILED(hr)
+    {
+        IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, &pt, (*pdwEffect));
         return E_UNEXPECTED;
+    }
+   
 
     Globals2.bAllowFileDrop = false;
     ZeroMemory(&Globals2.DropFormat, sizeof(FORMATETC));
@@ -2246,12 +2257,20 @@ HRESULT STDMETHODCALLTYPE DragEnter(IDropTarget* This, IDataObject* pDataObj, DW
         }
     }
 
+    
+
     IEnumFORMATETC_Release(pEnumFormat);
  
-    if(!Globals2.bAllowFileDrop)
+    if (!Globals2.bAllowFileDrop)
+    {
+        IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, &pt, (*pdwEffect));
         return S_OK;
+    }
+        
 
     (*pdwEffect) = DROPEFFECT_LINK;
+    IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, &pt, (*pdwEffect));
+
     return S_OK;
 }
 
@@ -2260,9 +2279,15 @@ HRESULT STDMETHODCALLTYPE DragOver(IDropTarget* This, DWORD grfKeyState, POINTL 
     (*pdwEffect) = DROPEFFECT_NONE;
 
     if (!Globals2.bAllowFileDrop)
+    {
+        IDropTargetHelper_DragOver(Globals2.pDropTargetHelper, &pt, (*pdwEffect));
         return S_OK;
+    }
+        
 
     (*pdwEffect) = DROPEFFECT_LINK;
+    IDropTargetHelper_DragOver(Globals2.pDropTargetHelper, &pt, (*pdwEffect));
+
     return S_OK;   
 }
 
@@ -2270,6 +2295,8 @@ HRESULT STDMETHODCALLTYPE DragLeave(IDropTarget* This)
 {
     Globals2.bAllowFileDrop = false;
     ZeroMemory(&Globals2.DropFormat, sizeof(FORMATETC));
+
+    IDropTargetHelper_DragLeave(Globals2.pDropTargetHelper);
 
     return S_OK;
 }
@@ -2283,18 +2310,29 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
     DWORD dwLastIndex;
     DWORD dwAddedFiles;
 
-    (*pdwEffect) = DROPEFFECT_NONE;
+    (*pdwEffect) = DROPEFFECT_NONE;    
 
     if (!Globals2.bAllowFileDrop)
-        return S_OK; 
+    {
+        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
+        return S_OK;
+    }
+       
 
-    if(!Globals2.pPlaylist)
+    if (!Globals2.pPlaylist)
+    {
+        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
         return E_UNEXPECTED;
+    }
+        
 
     hr = IDataObject_GetData(pDataObj, &Globals2.DropFormat, &Stg);
 
     if FAILED(hr)
+    {
+        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
         return E_UNEXPECTED;
+    }
 
     dwAddedFiles = 0U;
 
@@ -2336,6 +2374,7 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 
     ReleaseStgMedium(&Stg);
 
+    IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
 
     return S_OK;
 }

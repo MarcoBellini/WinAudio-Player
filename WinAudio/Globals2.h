@@ -87,6 +87,8 @@ struct
 	IDropTarget DropTarget;
 	bool bAllowFileDrop;
 	FORMATETC DropFormat;
+	IDropTargetHelper* pDropTargetHelper;
+	bool bUseTargetHelper;
 } Globals2;
 
 
