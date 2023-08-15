@@ -640,6 +640,12 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_TOOLBAR_NEXT:
         MainWindow_NextItem();
         break;
+    case ID_PLAYLIST_DELETEALL:
+        if (Globals2.pPlaylist)
+        {
+            WA_Playlist_RemoveAll(Globals2.pPlaylist);
+            WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        }
 
     }
 }

@@ -99,7 +99,7 @@ BEGIN
         MENUITEM "Open..",                      ID_PLAYLIST_OPEN
         MENUITEM "Save As..",                   ID_PLAYLIST_SAVEAS
         MENUITEM SEPARATOR
-        MENUITEM "Delete All",                  ID_PLAYLIST_DELETEALL
+        MENUITEM "Clear Playlist",              ID_PLAYLIST_DELETEALL
     END
     POPUP "?"
     BEGIN

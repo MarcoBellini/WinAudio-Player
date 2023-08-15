@@ -725,6 +725,19 @@ static void WA_Listview_DBLCKL(HWND hListview, LPNMITEMACTIVATE pItemActivate)
     MainWindow_Open_Playlist_Index((DWORD)pItemActivate->iItem);  
 }
 
+static void WA_Listview_OpenSelectedItem(HWND hListview)
+{
+    INT nIndex;
+
+    nIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
+
+    if (nIndex != -1)
+    {
+        MainWindow_Open_Playlist_Index(nIndex);
+    }
+}
+
+
 LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
@@ -843,7 +856,7 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
         break;
     case WM_MOUSELEAVE:
-
+    
         if (!Globals2.bListviewDragging)
             break;
         
@@ -852,6 +865,26 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
         RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE);        
 
         break;
+    
+    case WM_KEYDOWN:
+    {
+        switch (wParam)
+        {
+        case VK_RETURN:
+            WA_Listview_OpenSelectedItem(hWnd);
+            return 0;
+        case VK_DELETE:
+        case VK_ESCAPE:
+            WA_UI_Listview_DeleteSelected(hWnd);
+            return 0;
+        }
+
+
+ 
+            
+
+        break;
+    }
     }
 
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
