@@ -480,12 +480,16 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
     pTag = taglib_file_tag(pTaglib);
     pAudioProp = taglib_file_audioproperties(pTaglib);
 
-    pMetadata->uFileDurationMs = (uint64_t) taglib_audioproperties_length(pAudioProp) * 1000U;
+    if (pAudioProp)
+    {
+        pMetadata->uFileDurationMs = (uint64_t)taglib_audioproperties_length(pAudioProp) * 1000U;
 
-    wcsncpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, taglib_tag_title(pTag), WA_METADATA_MAX_LEN - 1);
-    wcsncpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, taglib_tag_artist(pTag), WA_METADATA_MAX_LEN - 1);
-    wcsncpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, taglib_tag_album(pTag), WA_METADATA_MAX_LEN - 1);
-    wcsncpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, taglib_tag_genre(pTag), WA_METADATA_MAX_LEN - 1);
+        wcsncpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, taglib_tag_title(pTag), WA_METADATA_MAX_LEN - 1);
+        wcsncpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, taglib_tag_artist(pTag), WA_METADATA_MAX_LEN - 1);
+        wcsncpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, taglib_tag_album(pTag), WA_METADATA_MAX_LEN - 1);
+        wcsncpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, taglib_tag_genre(pTag), WA_METADATA_MAX_LEN - 1);
+    }
+
 
     // Use File Name if Tags are empty
     if ((wcslen(pMetadata->Metadata.Title) == 0) && (wcslen(pMetadata->Metadata.Artist) == 0))
@@ -874,12 +878,10 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
             WA_Listview_OpenSelectedItem(hWnd);
             return 0;
         case VK_DELETE:
-        case VK_ESCAPE:
+        case VK_BACK:
             WA_UI_Listview_DeleteSelected(hWnd);
             return 0;
         }
-
-
  
             
 

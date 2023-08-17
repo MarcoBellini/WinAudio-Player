@@ -481,6 +481,9 @@ bool WA_Playback_Engine_IsFileSupported(const wchar_t* lpwPath)
 {
     WA_Input* pIn = NULL;
 
+    if (!PathFileExists(lpwPath))
+        return false;
+
     pIn = WA_Playback_Engine_Find_Decoder(lpwPath);
 
     return (pIn) ? true : false;

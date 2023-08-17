@@ -67,6 +67,8 @@ void MainWindow_DestroyRebar();
 void MainWindow_Resize(LPARAM lParam, BOOL blParamValid);
 void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam);
 bool MainWindow_OpenFileDialog(HWND hOwnerHandle);
+bool MainWindow_AddFilesDialog(HWND hOwnerHandle);
+bool MainWindow_AddFolderDialog(HWND hOwnerHandle);
 
 
 void MainWindow_SplitFilePath(const wchar_t* pInPath, wchar_t* pFolder, wchar_t* pFileName);
@@ -104,6 +106,43 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 
 static const IDropTargetVtbl DropTargetVtbl = {QueryInterface, AddRef, Release, DragEnter, DragOver, DragLeave, Drop};
 
+
+static bool MainWindow_GetPlaylistSaveFolder(wchar_t* pFolderPath)
+{
+    if (!pFolderPath)
+        return false;
+
+    HRESULT hr;
+    WA_Ini* pInstance;
+    PWSTR lpwUserPath;
+
+    // Get User Roadming Folder
+    hr = SHGetKnownFolderPath(&FOLDERID_RoamingAppData,
+        KF_FLAG_DEFAULT,
+        NULL,
+        &lpwUserPath);
+
+    if FAILED(hr)
+        return false;    
+
+    // Create Path to our settings folder
+    PathAppend(pFolderPath, lpwUserPath);
+    PathAppend(pFolderPath, L"\\WinAudio");
+
+
+    // Check if Directory Exist
+    if (!PathFileExists(pFolderPath))
+        CreateDirectory(pFolderPath, NULL);
+
+
+    PathAppend(pFolderPath, L"\\Playlist.m3u8");
+
+    // See doc: https://learn.microsoft.com/it-it/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath?redirectedfrom=MSDN
+    if (lpwUserPath)
+        CoTaskMemFree(lpwUserPath);
+
+    return true;
+}
 
 
 /// <summary>
@@ -568,40 +607,24 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case ID_FILE_OPENFILE:
     {
-        // TODO: Verifica se va bene
+    
         if (!MainWindow_OpenFileDialog(Globals2.hMainWindow))
-            MessageBox(Globals2.hMainWindow, L"Unable to Show Open File Dialog", L"Open File Error", MB_ICONERROR | MB_OK);
+            MessageBox(Globals2.hMainWindow, L"Unable to Show File Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
 
         break;
     }
     case ID_FILE_ADDFILES:
     {
-        // TODO: Add Files Command
-        /*
-        ShellFilesArray* pArray = NULL;
-        DWORD dwFilesCount, i;   
-        wchar_t Folder[MAX_PATH];
-        wchar_t FileName[MAX_PATH];
+        if (!MainWindow_AddFilesDialog(Globals2.hMainWindow))
+            MessageBox(Globals2.hMainWindow, L"Unable to Show File Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
 
-        if (Shell_MultipleFilesOpenDialog(Globals.hMainWindowHandle, &pArray, &dwFilesCount))
-        {
+        break;
+    }
+    case ID_FILE_ADDFOLDER:
+    {
+        if (!MainWindow_AddFolderDialog(Globals2.hMainWindow))
+            MessageBox(Globals2.hMainWindow, L"Unable to Show Folder Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
 
-            if (pArray)
-            {
-                _ASSERT(dwFilesCount > 0);
-
-                // Add Files to Playlist
-                for (i = 0; i < dwFilesCount; i++)
-                {
-                    MainWindow_SplitFilePath(pArray[i].lpwsPath, Folder, FileName);
-                    MainWindow_ListView_InsertRow(Globals.hListViewHandle, FileName, Folder);                       
-                }
-       
-
-                free(pArray);
-            }
-        }
-        */
         break;
     }
     case WM_TOOLBAR_PLAY:
@@ -1071,8 +1094,15 @@ void MainWindow_CreateUI(HWND hMainWindow)
         // Skip loading playlist if there are some In Params 
         if (!Globals2.bPendingInParams)
         {
-            WA_Playlist_LoadM3U(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.m3u8");
-            WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+            wchar_t PlaylistPath[MAX_PATH];
+
+            if (MainWindow_GetPlaylistSaveFolder(&PlaylistPath))
+            {
+                WA_Playlist_LoadM3U(Globals2.pPlaylist, PlaylistPath);
+                WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+            }           
+
+
         }
 
     }
@@ -1107,7 +1137,10 @@ void MainWindow_DestroyUI()
     // Save Playlist
     if ((Settings2.bSavePlaylistOnExit) && (Globals2.pPlaylist))
     {
-        WA_Playlist_SaveAsM3U(Globals2.pPlaylist, L"C:\\Users\\Marco\\Desktop\\test.m3u8");
+        wchar_t PlaylistPath[MAX_PATH];
+
+        if (MainWindow_GetPlaylistSaveFolder(&PlaylistPath))
+            WA_Playlist_SaveAsM3U(Globals2.pPlaylist, PlaylistPath);
         
     }
 
@@ -1489,7 +1522,8 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
                             {
 
                                 // Add item to Playlist
-                                WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+                                if (WA_Playback_Engine_IsFileSupported(pszFilePath))
+                                    WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
 
                                 CoTaskMemFree(pszFilePath);
                             }
@@ -1520,6 +1554,217 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
     // Free resources from WA_Playback_Engine_GetExtFilter function
     free(pFilter[0].pszSpec);
     free(pFilter);
+
+    return true;
+}
+
+/// <summary>
+/// Show a File Dialog
+/// </summary>
+/// <param name="hOwnerHandle">Main Window Handle</param>
+bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
+{
+    IFileOpenDialog* pFileOpen;
+    uint32_t uArrayCount;
+    COMDLG_FILTERSPEC* pFilter = NULL;
+    HRESULT hr;
+
+    // Check if we have a working Playlist Object
+    // Should be always valid
+    if (!Globals2.pPlaylist)
+        return false;
+
+    // Get Open File Dialog Filter
+    uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter);
+
+    // The function return 0 on fail
+    if (uArrayCount == 0)
+        return false;
+
+    // Create the FileOpenDialog object.
+    hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+        &IID_IFileOpenDialog, (LPVOID*)(&pFileOpen));
+
+
+    if SUCCEEDED(hr)
+    {
+        IFileOpenDialog_SetFileTypes(pFileOpen, uArrayCount, pFilter);
+        IFileOpenDialog_SetFileTypeIndex(pFileOpen, 1U);
+
+        IFileOpenDialog_SetTitle(pFileOpen, L"Add audio file(s)...");
+
+        // Allow Multiple Selections
+        IFileOpenDialog_SetOptions(pFileOpen, FOS_ALLOWMULTISELECT);
+
+        // Show the Open dialog box.
+        hr = IFileOpenDialog_Show(pFileOpen, hOwnerHandle);
+
+
+        if SUCCEEDED(hr)
+        {
+            IShellItemArray* pItemsArray;
+            DWORD dwFilesCount;
+
+            hr = IFileOpenDialog_GetResults(pFileOpen, &pItemsArray);
+
+            if SUCCEEDED(hr)
+            {
+
+                // Get The number of Selected Files
+                hr = IShellItemArray_GetCount(pItemsArray, &dwFilesCount);
+
+
+                if (SUCCEEDED(hr) && (dwFilesCount > 0))
+                {
+                    IShellItem* pItem;
+
+                    // Get The Path of Each Selected File
+                    for (DWORD i = 0U; i < dwFilesCount; i++)
+                    {
+
+                        hr = IShellItemArray_GetItemAt(pItemsArray, i, &pItem);
+
+                        if SUCCEEDED(hr)
+                        {
+                            LPWSTR pszFilePath;
+                            hr = IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &pszFilePath);
+
+                            if SUCCEEDED(hr)
+                            {
+                                
+                                if(WA_Playback_Engine_IsFileSupported(pszFilePath))                          
+                                    WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+
+                                CoTaskMemFree(pszFilePath);
+                            }
+
+                            IShellItem_Release(pItem);
+
+                        }
+
+                    }
+
+                    // Update Listview Count
+                    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+
+                }
+
+
+                IShellItemArray_Release(pItemsArray);
+            }
+        }
+
+        IFileOpenDialog_Release(pFileOpen);
+        pFileOpen = NULL;
+    }
+
+    // Free resources from WA_Playback_Engine_GetExtFilter function
+    free(pFilter[0].pszSpec);
+    free(pFilter);
+
+    return true;
+}
+
+/// <summary>
+/// Add supported files of a folder into the playlist
+/// </summary>
+/// <param name="pszFilePath">Folder Path</param>
+static void MainWindow_Folder2Playlist(const LPWSTR pszFilePath)
+{
+    WIN32_FIND_DATA data;
+    HANDLE hFind;
+    wchar_t lpwFindPath[MAX_PATH];
+    wchar_t lpwFilePath[MAX_PATH];
+
+    wcscpy_s(lpwFindPath, MAX_PATH, pszFilePath);
+    wcscat_s(lpwFindPath, MAX_PATH, L"\\*");
+
+    hFind = FindFirstFile(lpwFindPath, &data);
+
+    if (hFind == INVALID_HANDLE_VALUE)
+        return;
+
+    do
+    {
+        // Skip Folders
+        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            continue;
+
+        wcscpy_s(lpwFilePath, MAX_PATH, pszFilePath);
+        wcscat_s(lpwFilePath, MAX_PATH, L"\\");
+        wcscat_s(lpwFilePath, MAX_PATH, data.cFileName);
+
+        if (WA_Playback_Engine_IsFileSupported(lpwFilePath))
+            WA_Playlist_Add(Globals2.pPlaylist, lpwFilePath);
+
+    } while (FindNextFile(hFind, &data) != 0);
+
+
+    FindClose(hFind);
+
+    // Update Listview Count
+    WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+
+}
+
+/// <summary>
+/// Show a File Dialog
+/// </summary>
+/// <param name="hOwnerHandle">Main Window Handle</param>
+bool MainWindow_AddFolderDialog(HWND hOwnerHandle)
+{
+    IFileOpenDialog* pFileOpen;
+    HRESULT hr;
+
+    // Check if we have a working Playlist Object
+    // Should be always valid
+    if (!Globals2.pPlaylist)
+        return false;
+
+    // Create the FileOpenDialog object.
+    hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+        &IID_IFileOpenDialog, (LPVOID*)(&pFileOpen));
+
+
+    if SUCCEEDED(hr)
+    {
+
+        IFileOpenDialog_SetTitle(pFileOpen, L"Select a folder to open...");
+
+        // Allow Multiple Selections
+        IFileOpenDialog_SetOptions(pFileOpen, FOS_PICKFOLDERS);
+
+        // Show the Open dialog box.
+        hr = IFileOpenDialog_Show(pFileOpen, hOwnerHandle);
+
+
+        if SUCCEEDED(hr)
+        {
+            IShellItem* pFolder;
+            
+
+            hr = IFileOpenDialog_GetFolder(pFileOpen, &pFolder);
+
+            if SUCCEEDED(hr)
+            {
+
+                LPWSTR pszFilePath;
+
+                hr = IShellItem_GetDisplayName(pFolder, SIGDN_FILESYSPATH, &pszFilePath);
+
+                if SUCCEEDED(hr)
+                {
+                    MainWindow_Folder2Playlist(pszFilePath);
+                    CoTaskMemFree(pszFilePath);
+                }
+
+                IShellItem_Release(pFolder);
+            }
+        }
+
+        IFileOpenDialog_Release(pFileOpen);
+        pFileOpen = NULL;
+    }
 
     return true;
 }
