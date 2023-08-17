@@ -89,6 +89,7 @@ typedef struct TagWA_WasapiInstance
 	HANDLE hAbortEvent;
 	HANDLE hSeekEvent;
 	HANDLE hSyncEvent;
+	HANDLE hStreamSwitchEvent;
 
 	// Input Stream WaveFormat (Use AUTOCONVERT_PCM for now)
 	WAVEFORMATEXTENSIBLE StreamWfx;
@@ -281,9 +282,6 @@ static bool WA_Wasapi_InitAudioClient(WA_Output* This)
 		dwStreamFlags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
 			AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
 			AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
-
-		// TODO: In Future Create a DMO Audio Resampler Session
-		// Now use auto conversion to develop the player
 	}
 
 	// Free Device WFX
@@ -469,12 +467,14 @@ bool WA_Wasapi_New(WA_Output* This)
 	pInstance->hAbortEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	pInstance->hSeekEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	pInstance->hSyncEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	pInstance->hStreamSwitchEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 	// Fail on NULL value. Free resources and return False
 	if ((!pInstance->hWriteEvent) || 
 		(!pInstance->hAbortEvent) ||
 		(!pInstance->hSeekEvent) ||
-		(!pInstance->hSyncEvent))
+		(!pInstance->hSyncEvent) ||
+		(!pInstance->hStreamSwitchEvent))
 	{
 
 		if(pInstance->hWriteEvent)
@@ -489,10 +489,14 @@ bool WA_Wasapi_New(WA_Output* This)
 		if (pInstance->hSyncEvent)
 			CloseHandle(pInstance->hSyncEvent);
 
+		if (pInstance->hStreamSwitchEvent)
+			CloseHandle(pInstance->hStreamSwitchEvent);
+
 		pInstance->hWriteEvent = NULL;
 		pInstance->hAbortEvent = NULL;
 		pInstance->hSeekEvent = NULL;
 		pInstance->hSyncEvent = NULL;
+		pInstance->hStreamSwitchEvent = NULL;
 
 		free(pInstance);
 		return false;
@@ -528,11 +532,13 @@ void WA_Wasapi_Delete(WA_Output* This)
 		CloseHandle(pInstance->hSeekEvent);
 		CloseHandle(pInstance->hAbortEvent);
 		CloseHandle(pInstance->hSyncEvent);		
+		CloseHandle(pInstance->hStreamSwitchEvent);
 
 		pInstance->hWriteEvent = NULL;
 		pInstance->hAbortEvent = NULL;
 		pInstance->hSeekEvent = NULL;
 		pInstance->hSyncEvent = NULL;
+		pInstance->hStreamSwitchEvent = NULL;
 
 		free(pInstance);
 		pInstance = NULL;

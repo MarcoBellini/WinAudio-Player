@@ -126,9 +126,9 @@ bool WA_Mpeg_New(WA_Input* This)
 
 
 #else
-	pInstance->pMpg123Handle = mpg123_new(NULL, NULL);
+	pInstance->hMpg123 = mpg123_new(NULL, NULL);
 
-	if (!pInstance->pMpg123Handle)
+	if (!pInstance->hMpg123)
 	{
 		free(pInstance);
 		pInstance = NULL;
