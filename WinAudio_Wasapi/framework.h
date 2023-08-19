@@ -1,13 +1,13 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN             // Escludere gli elementi usati raramente dalle intestazioni di Windows
-// File di intestazione di Windows
+#define WIN32_LEAN_AND_MEAN        
 #include <windows.h>
 
-
+// Standard Libs
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <math.h>
 
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
@@ -20,6 +20,7 @@
 #include <Audiopolicy.h>
 #include <mmdeviceapi.h>
 
+// Header to needed to build outputs
 #include "..\WinAudio\WA_GEN_Messages.h"
 #include "..\WinAudio\WA_GEN_Types.h"
 #include "..\WinAudio\WA_IN_Input.h"

@@ -28,14 +28,13 @@ uint32_t WA_Wasapi_Get_Volume(WA_Output* This, uint8_t* puVolume);
 
 uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBufferLen);
 
-uint32_t WA_Wasapi_Process_DSP(WA_Output* This, bool bEnable);
+uint32_t WA_Wasapi_Enable_DSP(WA_Output* This, bool bEnable);
 void WA_Wasapi_ConfigDialog(WA_Input* This, HWND hParent);
 
 
 // Local Functions
 DWORD WINAPI WA_Wasapi_WriteThread(LPVOID lpParam);
 static uint32_t WA_Wasapi_FeedOutput(WA_Output* This);
-
 
 static WA_Output WA_Wasapi_Table =
 {
@@ -61,7 +60,7 @@ static WA_Output WA_Wasapi_Table =
 	WA_Wasapi_Set_Volume,
 	WA_Wasapi_Get_Volume,
 	WA_Wasapi_Get_BufferData,
-	WA_Wasapi_Process_DSP,
+	WA_Wasapi_Enable_DSP,
 	WA_Wasapi_ConfigDialog,
 	NULL
 };
@@ -72,7 +71,7 @@ typedef struct TagWA_WasapiInstance
 {
 	// Warning: This must be the first item of the struct
 	// because it's address is used to orbitain the address of
-	// OutWasapiInstance address
+	// WA_WasapiInstance address
 	IMMNotificationClient MMNotificationClient;
 	LONG ReferenceCounter;
 
@@ -91,27 +90,29 @@ typedef struct TagWA_WasapiInstance
 	HANDLE hSyncEvent;
 	HANDLE hStreamSwitchEvent;
 
+	HANDLE hWriteThread;
+
 	// Input Stream WaveFormat (Use AUTOCONVERT_PCM for now)
 	WAVEFORMATEXTENSIBLE StreamWfx;
 
 	// Store some output informations
 	bool bDeviceIsOpen;
 	bool bWasapiIsPlaying;
+	bool bEndOfStreamHasStoppedPlayback;
+	bool bEnableDSP;
+	bool bPendingEndOfStream;
 
 	// Store Opened Latency
 	uint32_t uCurrentLatencyMs;
-	bool bPendingEndOfStream;
-
-	// Store High Resolution Performance Counter
-	LARGE_INTEGER uPCFrequency;
-
-	HANDLE hWriteThread;
-	bool bProcessDSP;
 
 	CRITICAL_SECTION CriticalSection;
-	bool bEndOfStreamHasStoppedPlayback;
-
 	WA_CircleBuffer* pCircle;
+	
+
+#if WA_WASAPI_USE_HIGH_RES_TIMER
+	// Store High Resolution Performance Counter
+	LARGE_INTEGER uPCFrequency;
+#endif
 
 } WA_WasapiInstance;
 
@@ -173,16 +174,10 @@ static STDMETHODIMP WA_Wasapi_OnDefaultDeviceChanged(IMMNotificationClient* This
 	if ((Flow == eRender) && (Role == eMultimedia))
 	{
 		WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This;	
-
-		/*
-		if (pInstance->bDeviceIsOpen)
-		{
-			WA_Wasapi_Close(This);
-			WA_Wasapi_Open(This, NULL);
-			WA_Wasapi_Play(This);
-		}
-		*/
-		
+	
+		// Notify Stream switch only if device is open (See play function)
+		if(pInstance->bDeviceIsOpen)
+			SetEvent(pInstance->hStreamSwitchEvent);				
 	}
 
 	return S_OK;
@@ -207,7 +202,7 @@ static struct IMMNotificationClientVtbl OutWasapi_VTable =
 };
 
 
-WA_HMODULE* WA_Plugin_GetHeader(void)
+EXPORTS WA_HMODULE* WA_Plugin_GetHeader(void)
 {
 	 return (WA_HMODULE*)(&WA_Wasapi_Table);
 }
@@ -392,7 +387,7 @@ static bool WA_Wasapi_CleanResources(WA_Output* This)
 /// Try to close Write Thread and Call CloseHandle to free memory opened
 /// with CreateThread function
 /// </summary>
-/// <param name="This"></param>
+/// <param name="This">Current Instance</param>
 /// <param name="bNeedToSignalAbort">If True Signal hAbortEvent and wait before close</param>
 static inline void WA_Wasapi_ReleaseWriteThread(WA_Output* This, bool bNeedToSignalAbort)
 {
@@ -432,6 +427,140 @@ static inline void WA_Wasapi_ReleaseWriteThread(WA_Output* This, bool bNeedToSig
 		CloseHandle(pInstance->hWriteThread);
 		pInstance->hWriteThread = NULL;
 	}
+}
+
+/// <summary>
+/// Perform a stream switch when user change output Device
+/// </summary>
+/// <returns>True on Success or False on Fail</returns>
+static bool WA_Wasapi_PerformStreamSwitch(WA_Output* This)
+{
+	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
+	bool bIsPlaying, bResult;
+	HRESULT hr;
+	uint32_t uCircleBufferSize, uResult;
+	uint8_t uVolume;
+	REFERENCE_TIME nBufferLatency;
+
+	if (!pInstance->bDeviceIsOpen)
+		return false;
+		
+	EnterCriticalSection(&pInstance->CriticalSection);
+	bIsPlaying = pInstance->bWasapiIsPlaying;
+	LeaveCriticalSection(&pInstance->CriticalSection);
+
+	if (bIsPlaying)
+	{
+		hr = IAudioClient_Stop(pInstance->pAudioClient);
+
+		if FAILED(hr)
+			return false;
+	
+		EnterCriticalSection(&pInstance->CriticalSection);
+		pInstance->bWasapiIsPlaying = false;
+		LeaveCriticalSection(&pInstance->CriticalSection);	
+	}
+
+	// Clear Circle Buffer
+	if (pInstance->pCircle)
+		WA_CircleBuffer_Delete(pInstance->pCircle);
+
+	pInstance->pCircle = NULL;
+
+	
+	// Unregister Callbacks
+	hr = IMMDeviceEnumerator_UnregisterEndpointNotificationCallback(pInstance->pDeviceEnumerator,
+		&pInstance->MMNotificationClient);
+
+	IMMNotificationClient_Release(&pInstance->MMNotificationClient);
+
+
+	bResult = WA_Wasapi_CleanResources(This);
+
+	if (!bResult)
+		return false;
+
+	pInstance->uCurrentLatencyMs = WA_WASAPI_DEFAULT_LATENCY_MS;
+
+	if (!WA_Wasapi_InitDefaultEndPoint(This))
+	{
+		WA_Wasapi_CleanResources(This);
+		return false;
+	}
+
+	if (!WA_Wasapi_InitAudioClient(This))
+	{
+		WA_Wasapi_CleanResources(This);
+		return false;
+	}
+
+	if (!WA_Wasapi_InitAudioServices(This))
+	{
+		WA_Wasapi_CleanResources(This);
+		return false;
+	}
+
+	// Get Current System Latency
+	hr = IAudioClient_GetStreamLatency(pInstance->pAudioClient,
+		&nBufferLatency);
+
+	// Check if we have a valid value and Update With Real Device Latency
+	if (SUCCEEDED(hr) && (nBufferLatency != 0))
+		pInstance->uCurrentLatencyMs = (uint32_t)(nBufferLatency / 10000U);
+
+	
+	// Register Callbacks(For Stream Switch Event)
+	IMMNotificationClient_AddRef(&pInstance->MMNotificationClient);
+
+	hr = IMMDeviceEnumerator_RegisterEndpointNotificationCallback(pInstance->pDeviceEnumerator,
+		&pInstance->MMNotificationClient);
+
+	if FAILED(hr)
+	{
+		WA_Wasapi_CleanResources(This);
+		return false;
+	}	
+
+	// Create Cicle Buffer(PCM Aligned)
+	uCircleBufferSize = (pInstance->uCurrentLatencyMs * pInstance->StreamWfx.Format.nAvgBytesPerSec) / 1000U;
+	uCircleBufferSize = uCircleBufferSize - (uCircleBufferSize % pInstance->StreamWfx.Format.nBlockAlign);
+
+
+	pInstance->pCircle = WA_CircleBuffer_New(uCircleBufferSize);
+
+	if (bIsPlaying)
+	{
+		// Fill device buffer with PCM data
+		uResult = WA_Wasapi_FeedOutput(This);
+
+		if(uResult != WA_WASAPI_OK)
+		{
+			WA_Wasapi_CleanResources(This);
+
+			// Clear Circle Buffer
+			if (pInstance->pCircle)
+				WA_CircleBuffer_Delete(pInstance->pCircle);
+
+			pInstance->pCircle = NULL;
+
+			return false;
+		}
+
+		// Get Current Volume from WinAudio UI Player
+		uVolume = (uint8_t)SendMessage(This->Header.hMainWindow, WM_WA_MSG, MSG_GETVOLUME, 0);
+		WA_Wasapi_Set_Volume(This, uVolume);
+
+		hr = IAudioClient_Start(pInstance->pAudioClient);
+
+		if SUCCEEDED(hr)
+		{
+			EnterCriticalSection(&pInstance->CriticalSection);
+			pInstance->bWasapiIsPlaying = true;
+			LeaveCriticalSection(&pInstance->CriticalSection);
+		}
+	}
+
+	return true;
 }
 
 /// <summary>
@@ -502,10 +631,11 @@ bool WA_Wasapi_New(WA_Output* This)
 		return false;
 	}
 
-
+#if WA_WASAPI_USE_HIGH_RES_TIMER
 	// Cache QPC Frequency (0 = High Resoluction Not Supported)
 	if (!QueryPerformanceFrequency(&pInstance->uPCFrequency))
 		pInstance->uPCFrequency.QuadPart = 0;
+#endif
 
 
 	This->hPluginData = (HCOOKIE)pInstance;
@@ -549,7 +679,7 @@ void WA_Wasapi_Delete(WA_Output* This)
 /// Open a new Stream.Remember to assign a value to the pointer variables 
 /// pIn and pEffect(See the header for more information)
 /// </summary>
-/// <param name="puBufferLatency">Pointer to uint32_t var to store current buffer latency</param>
+/// <param name="puBufferLatency">Pointer to uint32_t var to store current buffer latency, may change on Steam Switch</param>
 /// <returns>WA_OK on success Otherwise an error code</returns>
 uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 {
@@ -601,7 +731,7 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 	pWfx->Format.nAvgBytesPerSec = (DWORD)WAFormat.uAvgBytesPerSec;
 	pWfx->Samples.wValidBitsPerSample = (WORD)WAFormat.uBitsPerSample;
 
-	// TODO: Use Custom Latency
+	// Set latency before initialize wasapi
 	pInstance->uCurrentLatencyMs = WA_WASAPI_DEFAULT_LATENCY_MS;
 
 	if (!WA_Wasapi_InitDefaultEndPoint(This))
@@ -636,7 +766,7 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 
 
 	// Register Callbacks(For Stream Switch Event)
-	pInstance->MMNotificationClient.lpVtbl->AddRef(&pInstance->MMNotificationClient);
+	IMMNotificationClient_AddRef(&pInstance->MMNotificationClient);
 
 	hr = IMMDeviceEnumerator_RegisterEndpointNotificationCallback(pInstance->pDeviceEnumerator,
 		&pInstance->MMNotificationClient);
@@ -647,7 +777,7 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 		return false;
 	}
 
-	// Create Cicle Buffer(Aligned)
+	// Create Cicle Buffer(PCM Aligned)
 	uCircleBufferSize = (pInstance->uCurrentLatencyMs * pWfx->Format.nAvgBytesPerSec) / 1000U;
 	uCircleBufferSize = uCircleBufferSize - (uCircleBufferSize % pWfx->Format.nBlockAlign);
 
@@ -686,8 +816,7 @@ void WA_Wasapi_Close(WA_Output* This)
 	hr = IMMDeviceEnumerator_UnregisterEndpointNotificationCallback(pInstance->pDeviceEnumerator,
 		&pInstance->MMNotificationClient);
 
-	pInstance->MMNotificationClient.lpVtbl->Release(&pInstance->MMNotificationClient);
-
+	IMMNotificationClient_Release(&pInstance->MMNotificationClient);
 
 	// Close All Wasapi Interfaces
 	WA_Wasapi_CleanResources(This);
@@ -728,11 +857,18 @@ uint32_t WA_Wasapi_Play(WA_Output* This)
 	if (pInstance->bWasapiIsPlaying)
 		return WA_ERROR_OUTPUTNOTREADY;
 
+
+	// Perform a stream switch if there is one pending on Device Open
+	if (WaitForSingleObject(pInstance->hStreamSwitchEvent, 0U) == WAIT_OBJECT_0)
+	{
+		if (!WA_Wasapi_PerformStreamSwitch(This))
+			return WA_ERROR_OUTPUTNOTREADY;
+	}
+
 	// Fill device buffer with PCM data
 	uResult = WA_Wasapi_FeedOutput(This);
 
-	// Skip Buffer Underrun Here
-	if ((uResult != WA_WASAPI_OK) && (uResult != WA_WASAPI_BUFFERUNDERRUN))
+	if (uResult != WA_WASAPI_OK)
 		return WA_ERROR_OUTPUTNOTREADY;
 
 	// Create Write Thread and write PCM audio data into buffer (Event - Driven mode)
@@ -852,8 +988,9 @@ uint32_t WA_Wasapi_Stop(WA_Output* This)
 	if (!pInstance->bDeviceIsOpen)
 		return WA_ERROR_OUTPUTNOTREADY;
 
-	// On End of Stream Event bWasapiIsPlaying is set to False
-	if ((!pInstance->bWasapiIsPlaying) &&
+	// On "End of Stream Event" bWasapiIsPlaying is set to False
+	// and "bEndOfStreamHasStoppedPlayback" is set to True
+	if ((pInstance->bWasapiIsPlaying == false) &&
 		(pInstance->bEndOfStreamHasStoppedPlayback == false))
 		return WA_ERROR_OUTPUTNOTREADY;
 
@@ -970,7 +1107,7 @@ uint32_t WA_Wasapi_Seek(WA_Output* This, uint64_t uNewPositionMs)
 	uResult = WA_Wasapi_FeedOutput(This);
 
 
-	if ((uResult != WA_WASAPI_OK) && (uResult != WA_WASAPI_BUFFERUNDERRUN))
+	if (uResult != WA_WASAPI_OK)
 	{
 		WA_Wasapi_ReleaseWriteThread(This, true);
 		return WA_ERROR_OUTPUTNOTREADY;
@@ -1039,6 +1176,7 @@ uint32_t WA_Wasapi_Set_Volume(WA_Output* This, uint8_t uNewVolume)
 	// Convert from uint8 to a Normalized float Value
 	fVolumeValue = ((float)uNewVolume / UINT8_MAX);
 
+
 	// Set the Master Volume: Range between 0.0 to 1.0
 	hr = ISimpleAudioVolume_SetMasterVolume(pInstance->pSimpleVolume, fVolumeValue, NULL);
 
@@ -1085,6 +1223,7 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 	UINT64 uPositionMs;
 	uint32_t uPositionInBytes;
 	HRESULT hr;	
+	bool bResult;
 	
 
 	if (!pInstance->bDeviceIsOpen)
@@ -1100,20 +1239,19 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 	if FAILED(hr)
 		return WA_ERROR_OUTPUTNOTREADY;
 
-	hr = IAudioClock_GetPosition(pInstance->pAudioClock,
-		&uDevicePosition,
-		NULL);
 
-	if FAILED(hr)
-		return WA_ERROR_OUTPUTNOTREADY;
 
-	/*
-	* Code snippet to get a more precise location on the order of 100 nanoseconds of units. 
-	  In this case it is not needed because in Milliseconds it is precise enough.
-	
+#if WA_WASAPI_USE_HIGH_RES_TIMER
 	LARGE_INTEGER llNowCounter;
 	UINT64 uCounterValue, uDelayValue100Ns;
 	UINT64 uDevicePositionQPC;
+
+	hr = IAudioClock_GetPosition(pInstance->pAudioClock,
+		&uDevicePosition,
+		&uDevicePositionQPC);
+
+	if FAILED(hr)
+		return WA_ERROR_OUTPUTNOTREADY;
 
 	if ((pInstance->uPCFrequency.QuadPart > 0LL) && QueryPerformanceCounter(&llNowCounter))
 	{
@@ -1121,18 +1259,30 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 		llNowCounter.QuadPart *= 10000000;
 		llNowCounter.QuadPart = llNowCounter.QuadPart / pInstance->uPCFrequency.QuadPart;
 		uDelayValue100Ns = (UINT64)(llNowCounter.QuadPart) - uDevicePositionQPC;	
-		_RPTW1(_CRT_WARN, L"Delay (100-ns): %u\n", uDelayValue100Ns);
+		
 
-		uPositionMs = (uDevicePosition * 1000ULL) / uDeviceFrequency;
-
-	
+		uPositionMs = (uDevicePosition * 1000ULL) / uDeviceFrequency;	
+		uPositionMs += uDelayValue100Ns / 10000;
 	}
-	*/
+	else
+	{
+		// Position in Seconds = Device Position / Device Frequency
+		uPositionMs = (uDevicePosition * 1000ULL) / uDeviceFrequency;
+	}
+#else
 
+	hr = IAudioClock_GetPosition(pInstance->pAudioClock,
+		&uDevicePosition,
+		NULL);
 
+	if FAILED(hr)
+		return WA_ERROR_OUTPUTNOTREADY;
 
 	// Position in Seconds = Device Position / Device Frequency
 	uPositionMs = (uDevicePosition * 1000ULL) / uDeviceFrequency;
+
+#endif
+
 
 	// Convert to Circle Buffer Index
 	uPositionMs = uPositionMs % (UINT64) pInstance->uCurrentLatencyMs;
@@ -1144,19 +1294,29 @@ uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBu
 	// Align to PCM blocks
 	uPositionInBytes = uPositionInBytes - (uPositionInBytes % pInstance->StreamWfx.Format.nBlockAlign);
 
-	return WA_CircleBuffer_ReadFrom(pInstance->pCircle, pBuffer, uBufferLen, uPositionInBytes) ? WA_OK : WA_ERROR_FAIL;
+	EnterCriticalSection(&pInstance->CriticalSection);
+	bResult = WA_CircleBuffer_ReadFrom(pInstance->pCircle, pBuffer, uBufferLen, uPositionInBytes);
+	LeaveCriticalSection(&pInstance->CriticalSection);
+
+	return  bResult ? WA_OK : WA_ERROR_FAIL;
 }
 
-uint32_t WA_Wasapi_Process_DSP(WA_Output* This, bool bEnable)
+uint32_t WA_Wasapi_Enable_DSP(WA_Output* This, bool bEnable)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
 
-	return WA_ERROR_OUTPUTNOTREADY;
+	EnterCriticalSection(&pInstance->CriticalSection);
+	pInstance->bEnableDSP = bEnable;
+	LeaveCriticalSection(&pInstance->CriticalSection);
+
+	return WA_OK;
 }
 
 void WA_Wasapi_ConfigDialog(WA_Input* This, HWND hParent)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
+
+	MessageBox(hParent, L"Wasapi Output Plugin", L"Hello World!", MB_OK);
 }
 
 
@@ -1267,45 +1427,23 @@ static uint32_t WA_Wasapi_FeedOutput(WA_Output* This)
 	WA_Input* pIn = This->pIn;
 	WA_Effect* pEffect = This->pEffect;
 	uint32_t uResult;
-	bool bResult;
-	DWORD dwStartMs, dwEndMs, dwElapsedMs, dwValidDataInDeviceMs;
+	bool bResult, bProcessDSP;
+
 
 	uBytesToWrite = WA_Wasapi_GetByteCanWrite(This);
 
 	if (uBytesToWrite == 0)
 		return WA_WASAPI_NOBYTESTOWRITE;
 
-	pBuffer = malloc(uBytesToWrite);
+	pBuffer = (int8_t*) malloc(uBytesToWrite);
 
 	if (!pBuffer)
 		return WA_WASAPI_MALLOCERROR;
 
-	dwStartMs = GetTickCount();
 
 	EnterCriticalSection(&pInstance->CriticalSection);
 	uResult = pIn->WA_Input_Read(pIn, pBuffer, uBytesToWrite, &uVaildBytes);
 	LeaveCriticalSection(&pInstance->CriticalSection);
-
-	// Process DSP only if Enabled
-	if ((pEffect) && (pInstance->bProcessDSP))
-	{
-		// TODO: Muovere le funzioni critiche del plugin DSP
-		//EnterCriticalSection(&pInstance->CriticalSection);
-		pEffect->WA_Effect_Process(pEffect, pBuffer, uVaildBytes, &uVaildBytes);
-		//LeaveCriticalSection(&pInstance->CriticalSection);
-	}
-
-	dwEndMs = GetTickCount();
-	
-	// See https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-gettickcount
-	// The elapsed time is stored as a DWORD value. Therefore, the time will wrap around to zero if 
-	// the system is run continuously for 49.7 days
-	if (dwEndMs < dwStartMs)
-		dwElapsedMs = dwStartMs - dwEndMs;
-	else
-		dwElapsedMs = dwEndMs - dwStartMs;
-
-	dwValidDataInDeviceMs = pInstance->uCurrentLatencyMs - ((uVaildBytes * 1000) / pInstance->StreamWfx.Format.nAvgBytesPerSec);
 
 	// Detect End of File
 	if ((uVaildBytes == 0) || (uResult == WA_ERROR_ENDOFFILE))
@@ -1313,6 +1451,26 @@ static uint32_t WA_Wasapi_FeedOutput(WA_Output* This)
 		free(pBuffer);
 		return WA_WASAPI_ENDOFFILE;
 	}
+
+	// Process DSP only if Enabled
+	EnterCriticalSection(&pInstance->CriticalSection);
+	bProcessDSP = pInstance->bEnableDSP;
+	LeaveCriticalSection(&pInstance->CriticalSection);
+
+	if ((pEffect) && (bProcessDSP))
+	{
+		
+		uResult = pEffect->WA_Effect_Process(pEffect, pBuffer, uVaildBytes, &uVaildBytes);
+		
+
+		// Detect End of File
+		if (uVaildBytes == 0)
+		{
+			free(pBuffer);
+			return WA_WASAPI_ENDOFFILE;
+		}
+	}
+	
 
 	// Write Data Into Circle Buffer		
 	if (pInstance->pCircle)
@@ -1324,15 +1482,7 @@ static uint32_t WA_Wasapi_FeedOutput(WA_Output* This)
 		
 	
 	bResult = WA_Wasapi_WriteToDevice(This, pBuffer, uVaildBytes);
-	free(pBuffer);
-
-	// Detect a Buffer Underrun
-	if (dwValidDataInDeviceMs < dwElapsedMs)
-	{
-		_RPTW0(_CRT_WARN, L"WASAPI: Buffer Underrun\n");
-		return WA_WASAPI_BUFFERUNDERRUN;
-	}
-	
+	free(pBuffer);	
 
 	return (bResult == true ? WA_WASAPI_OK : WA_WASAPI_DEVICEWRITEERROR);
 }
@@ -1380,8 +1530,7 @@ static void WA_Wasapi_Handle_EndOfStream(WA_Output* This, DWORD dwSleepTime)
 /// WA_WASAPI_INPUTERROR			0x0002
 /// WA_WASAPI_MALLOCERROR			0x0003
 /// WA_WASAPI_NOBYTESTOWRITE		0x0004
-/// WA_WASAPI_BUFFERUNDERRUN		0x0005
-/// WA_WASAPI_DEVICEWRITEERROR		0x0006
+/// WA_WASAPI_DEVICEWRITEERROR		0x0005
 /// 
 /// </summary>
 /// <returns>True on Success</returns>
@@ -1420,11 +1569,7 @@ static bool WA_Wasapi_Handle_WriteEvent(WA_Output* This)
 	case WA_WASAPI_DEVICEWRITEERROR:
 		WA_Wasapi_Handle_EndOfStream(This, 0U);
 		return false;
-	case WA_WASAPI_BUFFERUNDERRUN:
-		// TODO: Handle Buffer Underrun
-		return true;
-	case WA_WASAPI_NOBYTESTOWRITE:
-		Sleep(50U);
+	case WA_WASAPI_NOBYTESTOWRITE:		
 		return true;
 	}
 
@@ -1433,6 +1578,9 @@ static bool WA_Wasapi_Handle_WriteEvent(WA_Output* This)
 	return true;
 }
 
+/// <summary>
+/// Handle error on WaitForMultipleObjects
+/// </summary>
 static void WA_Wasapi_Handle_WaitError(WA_Output* This)
 {	
 	WA_Wasapi_Handle_EndOfStream(This, 0U);
@@ -1447,7 +1595,7 @@ static void WA_Wasapi_Handle_WaitError(WA_Output* This)
 /// <returns>0 on success</returns>
 DWORD WINAPI WA_Wasapi_WriteThread(LPVOID lpParam)
 {
-	HANDLE hEvents[3];
+	HANDLE hEvents[4];
 	WA_Output* This = (WA_Output*) lpParam;
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
 	DWORD dwEvent;
@@ -1464,15 +1612,16 @@ DWORD WINAPI WA_Wasapi_WriteThread(LPVOID lpParam)
 	hEvents[0] = pInstance->hAbortEvent;
 	hEvents[1] = pInstance->hSeekEvent;
 	hEvents[2] = pInstance->hWriteEvent;
+	hEvents[3] = pInstance->hStreamSwitchEvent;
 
 
-	// Notify we are ready to write
+	// Notify Main Thread we are ready to write
 	SetEvent(pInstance->hSyncEvent);
 
 
 	while (bContinue)
 	{
-		dwEvent = WaitForMultipleObjects(3, hEvents, FALSE, WA_WASAPI_MAX_WAIT_TIME_MS);
+		dwEvent = WaitForMultipleObjects(4, hEvents, FALSE, WA_WASAPI_MAX_WAIT_TIME_MS);
 
 
 		switch (dwEvent)
@@ -1487,8 +1636,17 @@ DWORD WINAPI WA_Wasapi_WriteThread(LPVOID lpParam)
 		case (WAIT_OBJECT_0 + 2): // Write Event (Write PCM Data)
 			bContinue = WA_Wasapi_Handle_WriteEvent(This);
 			break;
+		case (WAIT_OBJECT_0 + 3) : // Stream Switch Event
+
+			// Close Thread on fail
+			if (WA_Wasapi_PerformStreamSwitch(This) == false)
+				WA_Wasapi_Handle_EndOfStream(This, 0U);			
+
+			_RPTW0(_CRT_WARN, L"Stream Switch Event!\n");
+
+			break;		
 		case WAIT_TIMEOUT: 
-			Sleep(50);
+			Sleep(25);
 			break;
 		default: // On Error Notify Main Window and Close Current Thread
 			WA_Wasapi_Handle_WaitError(This);
