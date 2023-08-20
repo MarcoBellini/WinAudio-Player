@@ -526,6 +526,8 @@ static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
     }
 }
 
+// TODO: BUG Utilizzare il parametro cchTextMax per identificare la lunghezza
+//  della stringa di destinazione 
 static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
 {
     WA_Playlist_Metadata* pMetadata;

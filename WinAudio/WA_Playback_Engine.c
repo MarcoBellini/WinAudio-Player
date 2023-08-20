@@ -111,7 +111,8 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
         return false;
     }
 
-
+    WA_AudioMetadata Metadata;
+    pIn->WA_Input_GetMetadata(pIn, &Metadata);
 
     Globals2.bFileIsOpen = true;
     Globals2.dwCurrentStatus = MW_STOPPED;

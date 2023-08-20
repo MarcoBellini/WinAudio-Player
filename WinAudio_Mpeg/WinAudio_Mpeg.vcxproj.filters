@@ -24,6 +24,9 @@
     <ClInclude Include="mpg123.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+    <ClInclude Include="WA_ID3_Genres.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.c">

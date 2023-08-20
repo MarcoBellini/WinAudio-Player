@@ -152,6 +152,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="mpg123.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="WA_ID3_Genres.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.c" />

@@ -50,14 +50,6 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
 // Listview Helpers
 HWND MainWindow_CreateListView(HWND hOwnerHandle);
 void MainWindow_DestroyListView();
-void MainWindow_ListView_AddColumn(HWND hListboxHandle, wchar_t* pColumnText, int32_t ColumnWidth, int32_t ColumnIndex);
-void MainWindow_ListView_DeleteColumn(HWND hListboxHandle, int32_t ColumnIndex);
-void MainWindow_ListView_InitColumns(HWND hListboxHandle);
-void MainWindow_ListView_InsertRow(HWND hListboxHandle, wchar_t* col1, wchar_t* col2);
-void MainWindow_ListView_DeleteRow(HWND hListboxHandle, int32_t nIndex);
-void MainWindow_ListView_DeleteAllRows(HWND hListboxHandle);
-void MainWindow_ListView_SetPlayIndex(HWND hListboxHandle, int32_t nIndex);
-
 
 void MainWindow_CreateUI(HWND hwndOwner);
 void MainWindow_DestroyUI();
@@ -70,14 +62,12 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle);
 bool MainWindow_AddFilesDialog(HWND hOwnerHandle);
 bool MainWindow_AddFolderDialog(HWND hOwnerHandle);
 
-
-void MainWindow_SplitFilePath(const wchar_t* pInPath, wchar_t* pFolder, wchar_t* pFileName);
 DWORD MainWindow_HandleEndOfStreamMsg();
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue);
 void MainWindow_DrawSpectrum();
 void MainWindow_UpdateVolumeFromTrackbarValue();
 
-void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClear);
+void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClearTitle);
 
 void MainWindow_LoadSettings();
 void MainWindow_SaveSettings();
@@ -928,40 +918,6 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
 
 }
 
-/// <summary>
-/// Insert a Row in the ListView
-/// </summary>
-void MainWindow_ListView_InsertRow(HWND hWnd, wchar_t* col1, wchar_t* col2)
-{
-    /*
-    LV_ITEM		lvItem;
-    int32_t nLastItem;
-
-    // Insert Item after the last row
-    nLastItem = ListView_GetItemCount(hWnd);
-
-    lvItem.mask = 0;
-    lvItem.iItem = nLastItem;
-    lvItem.iSubItem = 0;
-    lvItem.iItem = ListView_InsertItem(hWnd, &lvItem);
-
-    lvItem.mask = LVIF_TEXT;
-    lvItem.pszText = L"";
-    lvItem.cchTextMax = wcslen(lvItem.pszText);
-    ListView_SetItem(hWnd, &lvItem);
-
-    lvItem.mask = LVIF_TEXT;
-    lvItem.iSubItem = 3;
-    lvItem.pszText = col1;
-    lvItem.cchTextMax = wcslen(lvItem.pszText);
-    ListView_SetItem(hWnd, &lvItem);
-
-    lvItem.iSubItem = 5;
-    lvItem.pszText = col2;
-    lvItem.cchTextMax = wcslen(lvItem.pszText);
-    ListView_SetItem(hWnd, &lvItem);
-    */
-}
 
 /// <summary>
 /// Destroy ListView Control
@@ -971,85 +927,6 @@ void MainWindow_DestroyListView()
     WA_UI_Listview_SaveSettings(Globals2.hListView);
     WA_UI_Listview_Destroy(Globals2.hListView);
     RemoveWindowSubclass(Globals2.hListView, WA_UI_Listview_Proc, MW_ID_LISTVIEW);
-}
-
-
-
-/// <summary>
-/// Add Column to ListView
-/// </summary>
-void MainWindow_ListView_AddColumn(HWND hListboxHandle, wchar_t *pColumnText, int32_t ColumnWidth, int32_t ColumnIndex)
-{
-    /*
-    LV_COLUMN columns;
-
-    columns.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-    columns.cx = ColumnWidth;
-    columns.pszText = pColumnText;
-    columns.cchTextMax = wcslen(columns.pszText);
-    columns.iSubItem = ColumnIndex;
-
-    
-
-    ListView_InsertColumn(hListboxHandle, ColumnIndex, &columns);
-    */
-
-    
-}
-
-/// <summary>
-/// Delete a Column from ListView
-/// </summary>
-void MainWindow_ListView_DeleteColumn(HWND hListboxHandle, int32_t ColumnIndex)
-{
-    // ListView_DeleteColumn(hListboxHandle, ColumnIndex);
-}
-
-/// <summary>
-/// Create Listview Column Layouts
-/// </summary>
-void MainWindow_ListView_InitColumns(HWND hListboxHandle)
-{
-    /*
-    MainWindow_ListView_AddColumn(Globals2.hListView, L"#", 20, 0);
-    MainWindow_ListView_AddColumn(Globals2.hListView, L"File Name", 350, 3);
-    MainWindow_ListView_AddColumn(Globals2.hListView, L"File Path", 250, 5);
-    */
-}
-
-// TODO: Implement Function
-void MainWindow_ListView_DeleteRow(HWND hListboxHandle, int32_t nIndex) 
-{
-
-}
-
-/// <summary>
-/// Delete All Items in Playlist
-/// </summary>
-void MainWindow_ListView_DeleteAllRows(HWND hListboxHandle)
-{
-    //ListView_DeleteAllItems(hListboxHandle);
-}
-
-/// <summary>
-/// Highlight Item in Playing
-/// </summary>
-void MainWindow_ListView_SetPlayIndex(HWND hListboxHandle, int32_t nIndex)
-{
-    // Remove Current Item Selection
-    /*
-    if (Globals2.nCurrentPlayingIndex != MW_LW_INVALID_INDEX)
-    {
-        ListView_SetItemText(Globals2.hListView, Globals2.nCurrentPlayingIndex, 0, L"");
-    }
-
-    if (nIndex != MW_LW_INVALID_INDEX)
-        ListView_SetItemText(Globals2.hListView, nIndex, 0, L">");    
-  
-   
-    Globals2.nLastPlayedIndex = Globals2.nCurrentPlayingIndex;
-    Globals2.nCurrentPlayingIndex = nIndex;
-    */
 }
 
 /// <summary>
@@ -2067,20 +1944,6 @@ bool MainWindow_Close()
     return WA_Playback_Engine_CloseFile();
 }
 
-/// <summary>
-/// Split Input full path into file name and folder
-/// </summary>
-/// <param name="pInPath">Full path of a file</param>
-/// <param name="pFolder">Folder of file</param>
-/// <param name="pFileName">File name + Extension</param>
-void MainWindow_SplitFilePath(const wchar_t* pInPath, wchar_t* pFolder, wchar_t* pFileName)
-{    
-    size_t nLastBackslash = wcsrchr(pInPath, L'\\') - pInPath;
-    size_t nLen = wcsnlen(pInPath, MAX_PATH);
-
-    wcsncpy_s(pFolder, MAX_PATH, pInPath, nLastBackslash);
-    wcsncpy_s(pFileName, MAX_PATH, pInPath + nLastBackslash + 1, nLen - nLastBackslash);
-}
 
 /// <summary>
 /// Update The Position Trackbar 
@@ -2225,11 +2088,11 @@ void MainWindow_UpdateVolumeFromTrackbarValue()
 /// </summary>
 /// <param name="pString">Input String</param>
 /// <param name="bClear">If true reset the title</param>
-void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClear)
+void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClearTitle)
 {
     wchar_t pResultString[MAX_PATH];
 
-    if (bClear)
+    if (bClearTitle)
     {
         SetWindowText(Globals2.hMainWindow, L"WinAudio\0");
     }

@@ -1,7 +1,10 @@
 
 #include "pch.h"
 #include "mpg123.h"
+#include "WA_ID3_Genres.h"
 
+// Length in Chars used in Temp string var to read id3 tags
+#define WA_MPEG_TEMP_TAG_LEN 255
 
 // Export Function Name
 #define EXPORTS _declspec(dllexport)
@@ -137,6 +140,16 @@ bool WA_Mpeg_New(WA_Input* This)
 	}
 #endif
 
+	/*
+	Disable support for Frankenstein streams (different MPEG streams stiched together). 
+	Do not accept serious change of MPEG header inside a single stream. With this flag, the audio output 
+	format cannot change during decoding unless you open a new stream. This also stops decoding after an 
+	announced end of stream (Info header contained a number of frames and this number has been reached). 
+	This makes your MP3 files behave more like ordinary media files with defined structure, rather than stream 
+	dumps with some sugar.
+	*/
+	mpg123_param2(pInstance->hMpg123, MPG123_FLAGS, MPG123_NO_FRANKENSTEIN, 0);
+
 	return true;
 
 }
@@ -245,13 +258,9 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 		return WA_ERROR_FILENOTSUPPORTED;
 	}
 
-	// TODO: Continua qui https://www.mpg123.de/api/group__mpg123__output.shtml#gadad5794afc300a997e517dbe397dc2c7
-	//// https://learn.microsoft.com/en-us/windows/win32/coreaudio/device-formats
-	// WASAPI supporta solo PCM Streams in modalità shared, per cui rimuovere supporto alla codifica FLOAT o
-	// ALAW o ULAW. Supportare solo codifiche SIGNED or UNSIGNED INTEGER
 	pInstance->Format.uSamplerate = mpg123_lRate;
 	pInstance->Format.uChannels = mpg123_nChannels;
-
+	pInstance->Format.dwChannelMask = 0;
 	
 	switch (mpg123_nEncoding)
 	{
@@ -285,8 +294,6 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	pInstance->Format.uBlockAlign = pInstance->Format.uBitsPerSample / 8 * pInstance->Format.uChannels;
 	pInstance->Format.uAvgBytesPerSec = pInstance->Format.uSamplerate * pInstance->Format.uBlockAlign;
 	pInstance->Format.uSampleType = (mpg123_nEncoding & MPG123_ENC_SIGNED) ? WA_SIGNED_SAMPLE : WA_UNSIGNED_SAMPLE;
-
-	// TODO: Find ID3v1 and ID3v2 Tags
 
 	// Find Duration
 	pInstance->uDuration = WA_Mpeg_Samples_To_Ms(&pInstance->Format, mpg123_length(pInstance->hMpg123));
@@ -387,19 +394,96 @@ void  WA_Mpeg_PluginDialog(WA_Input* This, HWND hParent)
 
 }
 
+
 uint32_t WA_Mpeg_GetMetadata(WA_Input* This, WA_AudioMetadata* pMetadata)
 {
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
+	mpg123_id3v1 *id3v1;
+	mpg123_id3v2 *id3v2;
+	int uConvertedChars;
+	wchar_t pTempStr[WA_MPEG_TEMP_TAG_LEN];
+	bool bID3v1Found;
+	int nResult;
 
-	//TODO: Implement ID3v1 and ID3v2 Tags
-	//TODO: https://taglib.org/
+	if (!pMetadata)
+		return WA_ERROR_BADPTR;
 
-	return WA_ERROR_FAIL;
+	nResult = mpg123_id3(pInstance->hMpg123, &id3v1, &id3v2);
+
+	if (nResult != MPG123_OK)
+		return WA_ERROR_FILENOTSUPPORTED;
+
+	ZeroMemory(pMetadata, sizeof(WA_AudioMetadata));
+	
+
+	// Check if "TAG" string is present in ID3v1 tags
+	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->tag, 3, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+	bID3v1Found = false;
+	if (uConvertedChars > 0)	
+		bID3v1Found = (wcscmp(pTempStr, L"TAG") == 0) ? true : false;
+	
+	if (bID3v1Found)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->artist, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr);
+
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->title, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr);
+
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->album, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr);
+
+		if (id3v1->genre < 80)
+			wcscpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, GenresArray[id3v1->genre]);
+
+		return WA_OK;
+	}
+	
+	// Find ID3v2
+	if (id3v2->artist)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr);
+	}
+
+	if (id3v2->title)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr);
+	}
+
+
+	if (id3v2->album)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr);
+	}
+
+
+	if (id3v2->genre)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcscpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, pTempStr);
+	}
+
+	
+
+	return WA_OK;
 }
 
 uint32_t WA_Mpeg_GetFormat(WA_Input* This, WA_AudioFormat* pFormat)
 {
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
+
+	if (!pFormat)
+		return WA_ERROR_BADPTR;
 
 	// Copy Internal Audio Format
 	memcpy(pFormat, &pInstance->Format, sizeof(WA_AudioFormat));
