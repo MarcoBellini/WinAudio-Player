@@ -231,6 +231,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     // Load Plugins
     if (!WA_Playback_Engine_New())
     {
+        DestroyWindow(Globals2.hMainWindow);
         MainWindow_DestroyDarkMode();
         CoUninitialize();  
 
@@ -259,7 +260,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     MainWindow_SaveSettings();
     MainWindow_DestroyDarkMode();
     WA_Playback_Engine_Delete();
-    // CoUninitialize();
+
     OleUninitialize();
 
     if(hMutex)

@@ -1598,12 +1598,18 @@ DWORD WINAPI WA_Wasapi_WriteThread(LPVOID lpParam)
 	HANDLE hEvents[4];
 	WA_Output* This = (WA_Output*) lpParam;
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
-	DWORD dwEvent;
+	DWORD dwEvent, dwTaskIndex;
 	bool bContinue = true;
 	HRESULT hr;
+	HANDLE hThreadPriority;
 
 	// Initialize MultiThread Apartament Model
 	hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+	// Only Windows 7 and Above
+	dwTaskIndex = 0U;
+	hThreadPriority = AvSetMmThreadCharacteristics(L"Audio", &dwTaskIndex);
+
 
 	if FAILED(hr)
 		return EXIT_FAILURE;
@@ -1653,6 +1659,9 @@ DWORD WINAPI WA_Wasapi_WriteThread(LPVOID lpParam)
 			bContinue = false;
 		}
 	}
+
+	if (hThreadPriority)
+		AvRevertMmThreadCharacteristics(hThreadPriority);
 
 	CoUninitialize();
 

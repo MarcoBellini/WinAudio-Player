@@ -9,16 +9,20 @@
 
 typedef WA_HMODULE* (*WA_Plugin_GetHeader)(void);
 
-static inline void WA_Input_Create_Search_Path(wchar_t *FullPath)
+static bool WA_Input_Create_Search_Path(wchar_t *pSearchPath, wchar_t* pPluginsPath)
 {
-	size_t nIndex = 0;
-	size_t i = 0;
+	DWORD nIndex = 0U;
+	DWORD i = 0U;
 	wchar_t SearchStr[] = TEXT("\\Plugins\0");
 	wchar_t ExtStr[] = TEXT("\\*.dll\0");
+	errno_t err;
 
-	while (FullPath[i] != '\0')
+	if (!GetModuleFileName(NULL, pSearchPath, MAX_PATH))
+		return false;	
+
+	while (pSearchPath[i] != L'\0')
 	{
-		if (FullPath[i] == '\\')
+		if (pSearchPath[i] == L'\\')
 		{
 			nIndex = i;
 		}
@@ -26,15 +30,21 @@ static inline void WA_Input_Create_Search_Path(wchar_t *FullPath)
 		i++;
 	}
 
-	FullPath[nIndex] = '\0';
+	pSearchPath[nIndex] = '\0';
 
-	wcscat_s(FullPath, MAX_PATH, SearchStr);
+	err = wcscpy_s(pPluginsPath, MAX_PATH, pSearchPath);
+	if (err) return false;
 
-	// Add "Plugins" Directory to LoadLibrary Search Path
-	// TODO: Refactor This Piece of Code
-	SetDllDirectory(FullPath);
+	err = wcscat_s(pPluginsPath, MAX_PATH, SearchStr);
+	if (err) return false;
 
-	wcscat_s(FullPath, MAX_PATH, ExtStr);
+	err = wcscpy_s(pSearchPath, MAX_PATH, pPluginsPath);
+	if (err) return false;
+
+	err = wcscat_s(pSearchPath, MAX_PATH, ExtStr);
+	if (err) return false;
+
+	return true;
 }
 
 
@@ -53,23 +63,29 @@ static inline void WA_Input_Create_Search_Path(wchar_t *FullPath)
 */
 uint32_t WA_GEN_PluginLoader_Load(HWND hMainWindow)
 {
-	wchar_t lpwPluginPath[MAX_PATH];
+	wchar_t lpwPluginsPath[MAX_PATH];
+	wchar_t lpwSearchPath[MAX_PATH];
 	DWORD dwDLLCount, dwInputCount, dwOutputCount;
 	HANDLE hFindHandle;
 	WIN32_FIND_DATA FindData;
+	errno_t err;
 
+	/*
+	Secure loading of libraries to prevent DLL preloading attacks
+	see: https://support.microsoft.com/en-gb/topic/secure-loading-of-libraries-to-prevent-dll-preloading-attacks-d41303ec-0748-9211-f317-2edc819682e1
+	*/
+	SetSearchPathMode(BASE_SEARCH_PATH_ENABLE_SAFE_SEARCHMODE | BASE_SEARCH_PATH_PERMANENT);
 
-	// Move to Plugin Folder and Add a Search Pattern
-	//dwPathLen = GetCurrentDirectory(MAX_PATH, lpwPluginPath);	
-	//wcscat_s(lpwPluginPath, MAX_PATH, L"\\Plugins\\*.dll");
+	ZeroMemory(lpwPluginsPath, sizeof(lpwPluginsPath));
+	ZeroMemory(lpwSearchPath, sizeof(lpwSearchPath));
 
-	GetModuleFileName(NULL, lpwPluginPath, MAX_PATH);
-	WA_Input_Create_Search_Path(lpwPluginPath);
+	if (!WA_Input_Create_Search_Path(lpwSearchPath, lpwPluginsPath))
+		return WA_ERROR_FAIL;
 
 
 	// Count DLL into plugin folder
-	hFindHandle = FindFirstFile(lpwPluginPath, &FindData);
-	dwDLLCount = 0;
+	hFindHandle = FindFirstFile(lpwSearchPath, &FindData);
+	dwDLLCount = 0U;
 
 	if (hFindHandle != INVALID_HANDLE_VALUE)
 	{
@@ -96,11 +112,11 @@ uint32_t WA_GEN_PluginLoader_Load(HWND hMainWindow)
 		return WA_ERROR_MALLOCERROR;
 
 
-	hFindHandle = FindFirstFile(lpwPluginPath, &FindData);
-	Plugins.uPluginsCount = 0;
+	hFindHandle = FindFirstFile(lpwSearchPath, &FindData);
+	Plugins.uPluginsCount = 0U;
 
-	dwInputCount = 0;
-	dwOutputCount = 0;
+	dwInputCount = 0U;
+	dwOutputCount = 0U;	
 
 
 	if (hFindHandle != INVALID_HANDLE_VALUE)
@@ -111,8 +127,21 @@ uint32_t WA_GEN_PluginLoader_Load(HWND hMainWindow)
 			WA_PluginHeader* pHeader;
 			WA_Plugin_GetHeader pGetHeaderProc;
 			WA_HMODULE hVTable;
+			wchar_t pLoadPath[MAX_PATH];
+
+			ZeroMemory(pLoadPath, sizeof(pLoadPath));
+
+			err = wcscat_s(pLoadPath, MAX_PATH, lpwPluginsPath);
+			if (err) return WA_ERROR_FAIL;
+
+			err = wcscat_s(pLoadPath, MAX_PATH, L"\\");
+			if (err) return WA_ERROR_FAIL;
+
+			err = wcscat_s(pLoadPath, MAX_PATH, FindData.cFileName);
+			if (err) return WA_ERROR_FAIL;
+
 		
-			hModule = LoadLibrary(FindData.cFileName);
+			hModule = LoadLibrary(pLoadPath);
 			
 			if (hModule)
 			{

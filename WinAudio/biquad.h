@@ -6,7 +6,7 @@
 
 
 #ifndef PI
-#define PI 3.1415926535897932384626433832795028f
+#define PI 3.141592653589793238462f
 #endif
 
 #ifndef LN2

@@ -19,6 +19,7 @@
 #include <Audioclient.h>
 #include <Audiopolicy.h>
 #include <mmdeviceapi.h>
+#include <avrt.h>
 
 // Header to needed to build outputs
 #include "..\WinAudio\WA_GEN_Messages.h"
