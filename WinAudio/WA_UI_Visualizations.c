@@ -2,7 +2,6 @@
 #include "stdafx.h"
 #include "WA_FFT.h"
 #include "WA_UI_Visualizations.h"
-#include "Utility.h"
 #include "WA_UI_ColorPolicy.h"
 
 // 06152247-6f50-465a-9245-118bfd3b6007

@@ -726,8 +726,7 @@ static void WA_Listview_DBLCKL(HWND hListview, LPNMITEMACTIVATE pItemActivate)
 
     if (pItemActivate->iItem == -1)
         return;
-
-    // TODO: Manage return value
+ 
     MainWindow_Open_Playlist_Index((DWORD)pItemActivate->iItem);  
 }
 
@@ -955,8 +954,6 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
 
 
 
-// LRESULT WA_UI_Listview_OnNotify(HWND hWnd, LPNMHDR lpHdr)
-// TODO: See https://www.codeproject.com/Articles/1298/Rearrange-rows-in-a-ListView-control-by-drag-and-d
 LRESULT WA_UI_Listview_OnNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR lpHdr = (LPNMHDR)lParam;

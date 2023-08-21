@@ -9,7 +9,7 @@ bool WA_Playback_Engine_Delete(void);
 /// Return a copy of a concatenation of all plugin extensions(NULL terminated).
 /// Eg. "*.mp3\nMpeg Layer 3\*.wav\Microsoft PCM wave\0"
 /// </summary>
-uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC** pFilter);
+uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC** pFilter, wchar_t* pszTemp, uint32_t pszTempLen);
 
 
 bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath);

@@ -14,7 +14,7 @@
 #include "WA_OUT_Output.h"
 #include "WA_GEN_Messages.h"
 #include "WA_GEN_PluginLoader.h"
-#include "WA_Playback_Engine.h"
+#include "WA_GEN_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
 #include "WA_GEN_INI.h"
 #include "WA_UI_Visualizations.h"
@@ -94,7 +94,7 @@ HRESULT STDMETHODCALLTYPE DragOver(IDropTarget* This, DWORD grfKeyState, POINTL 
 HRESULT STDMETHODCALLTYPE DragLeave(IDropTarget* This);
 HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
 
-static const IDropTargetVtbl DropTargetVtbl = {QueryInterface, AddRef, Release, DragEnter, DragOver, DragLeave, Drop};
+static IDropTargetVtbl DropTargetVtbl = {QueryInterface, AddRef, Release, DragEnter, DragOver, DragLeave, Drop};
 
 
 static bool MainWindow_GetPlaylistSaveFolder(wchar_t* pFolderPath)
@@ -103,7 +103,6 @@ static bool MainWindow_GetPlaylistSaveFolder(wchar_t* pFolderPath)
         return false;
 
     HRESULT hr;
-    WA_Ini* pInstance;
     PWSTR lpwUserPath;
 
     // Get User Roadming Folder
@@ -974,7 +973,7 @@ void MainWindow_CreateUI(HWND hMainWindow)
         {
             wchar_t PlaylistPath[MAX_PATH];
 
-            if (MainWindow_GetPlaylistSaveFolder(&PlaylistPath))
+            if (MainWindow_GetPlaylistSaveFolder(PlaylistPath))
             {
                 WA_Playlist_LoadM3U(Globals2.pPlaylist, PlaylistPath);
                 WA_Playlist_UpdateView(Globals2.pPlaylist, false);
@@ -1017,7 +1016,7 @@ void MainWindow_DestroyUI()
     {
         wchar_t PlaylistPath[MAX_PATH];
 
-        if (MainWindow_GetPlaylistSaveFolder(&PlaylistPath))
+        if (MainWindow_GetPlaylistSaveFolder(PlaylistPath))
             WA_Playlist_SaveAsM3U(Globals2.pPlaylist, PlaylistPath);
         
     }
@@ -1331,7 +1330,9 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
     IFileOpenDialog* pFileOpen;     
     uint32_t uArrayCount;
     COMDLG_FILTERSPEC* pFilter = NULL;
+    wchar_t pTempStr[MAX_PATH];
     HRESULT hr;
+
 
     // Check if we have a working Playlist Object
     // Should be always valid
@@ -1339,7 +1340,7 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
         return false;
 
     // Get Open File Dialog Filter
-    uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter);
+    uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter, pTempStr, MAX_PATH);
 
     // The function return 0 on fail
     if (uArrayCount == 0)
@@ -1430,7 +1431,6 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
     }
 
     // Free resources from WA_Playback_Engine_GetExtFilter function
-    free(pFilter[0].pszSpec);
     free(pFilter);
 
     return true;
@@ -1445,7 +1445,8 @@ bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
     IFileOpenDialog* pFileOpen;
     uint32_t uArrayCount;
     COMDLG_FILTERSPEC* pFilter = NULL;
-    HRESULT hr;
+    wchar_t pTempStr[MAX_PATH];
+    HRESULT hr;    
 
     // Check if we have a working Playlist Object
     // Should be always valid
@@ -1453,7 +1454,7 @@ bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
         return false;
 
     // Get Open File Dialog Filter
-    uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter);
+    uArrayCount = WA_Playback_Engine_GetExtFilter(&pFilter, pTempStr, MAX_PATH);
 
     // The function return 0 on fail
     if (uArrayCount == 0)
@@ -1537,7 +1538,6 @@ bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
     }
 
     // Free resources from WA_Playback_Engine_GetExtFilter function
-    free(pFilter[0].pszSpec);
     free(pFilter);
 
     return true;
@@ -2354,7 +2354,7 @@ HRESULT STDMETHODCALLTYPE DragEnter(IDropTarget* This, IDataObject* pDataObj, DW
 
     if FAILED(hr)
     {
-        IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, &pt, (*pdwEffect));
+        IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, (LPPOINT)&pt, (*pdwEffect));
         return E_UNEXPECTED;
     }
    
@@ -2378,13 +2378,13 @@ HRESULT STDMETHODCALLTYPE DragEnter(IDropTarget* This, IDataObject* pDataObj, DW
  
     if (!Globals2.bAllowFileDrop)
     {
-        IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, &pt, (*pdwEffect));
+        IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, (LPPOINT)&pt, (*pdwEffect));
         return S_OK;
     }
         
 
     (*pdwEffect) = DROPEFFECT_LINK;
-    IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, &pt, (*pdwEffect));
+    IDropTargetHelper_DragEnter(Globals2.pDropTargetHelper, Globals2.hMainWindow, pDataObj, (LPPOINT)&pt, (*pdwEffect));
 
     return S_OK;
 }
@@ -2395,13 +2395,13 @@ HRESULT STDMETHODCALLTYPE DragOver(IDropTarget* This, DWORD grfKeyState, POINTL 
 
     if (!Globals2.bAllowFileDrop)
     {
-        IDropTargetHelper_DragOver(Globals2.pDropTargetHelper, &pt, (*pdwEffect));
+        IDropTargetHelper_DragOver(Globals2.pDropTargetHelper, (LPPOINT)&pt, (*pdwEffect));
         return S_OK;
     }
         
 
     (*pdwEffect) = DROPEFFECT_LINK;
-    IDropTargetHelper_DragOver(Globals2.pDropTargetHelper, &pt, (*pdwEffect));
+    IDropTargetHelper_DragOver(Globals2.pDropTargetHelper, (LPPOINT)&pt, (*pdwEffect));
 
     return S_OK;   
 }
@@ -2429,14 +2429,14 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 
     if (!Globals2.bAllowFileDrop)
     {
-        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
+        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, (LPPOINT)&pt, (*pdwEffect));
         return S_OK;
     }
        
 
     if (!Globals2.pPlaylist)
     {
-        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
+        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, (LPPOINT)&pt, (*pdwEffect));
         return E_UNEXPECTED;
     }
         
@@ -2445,7 +2445,7 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 
     if FAILED(hr)
     {
-        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
+        IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, (LPPOINT)&pt, (*pdwEffect));
         return E_UNEXPECTED;
     }
 
@@ -2489,7 +2489,7 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 
     ReleaseStgMedium(&Stg);
 
-    IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, &pt, (*pdwEffect));
+    IDropTargetHelper_Drop(Globals2.pDropTargetHelper, pDataObj, (LPPOINT) & pt, (*pdwEffect));
 
     return S_OK;
 }

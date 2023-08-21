@@ -8,7 +8,7 @@
 #include "WA_OUT_Output.h"
 #include "WA_GEN_Messages.h"
 #include "WA_GEN_PluginLoader.h"
-#include "WA_Playback_Engine.h"
+#include "WA_GEN_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
 #include "WA_UI_Visualizations.h"
 #include "Globals2.h"
@@ -111,9 +111,6 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
         return false;
     }
 
-    WA_AudioMetadata Metadata;
-    pIn->WA_Input_GetMetadata(pIn, &Metadata);
-
     Globals2.bFileIsOpen = true;
     Globals2.dwCurrentStatus = MW_STOPPED;
    
@@ -153,10 +150,20 @@ bool WA_Playback_Engine_CloseFile()
     return true;
 }
 
-uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC **pFilter)
+/// <summary>
+/// Get Filters to use in Open/Save file dialogs
+/// </summary>
+/// <param name="pFilter">Pointer to a COMDLG_FILTERSPEC pointer. Use "free(param)" to free resource after use</param>
+/// <param name="pszTemp">Temp string to compose filter</param>
+/// <param name="pszTempLen">Length in characters of pszTemp param</param>
+/// <returns> >0 on success, 0 on Fail</returns>
+uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC **pFilter, wchar_t *pszTemp, uint32_t pszTempLen)
 {
     uint32_t uInputCount = 0U;
     uint32_t uIndex;
+
+    if ((pszTempLen == 0) || (!pszTemp))
+        return 0;
 
     // Count Input plugins
     for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
@@ -166,7 +173,7 @@ uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC **pFilter)
     }
 
     if (uInputCount == 0)
-        return false;
+        return 0;
 
     // Use index = 0 to aggregate all supported types
     uInputCount++;
@@ -174,10 +181,11 @@ uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC **pFilter)
     (*pFilter) = (COMDLG_FILTERSPEC*) calloc(uInputCount, sizeof(COMDLG_FILTERSPEC));
 
     if (!(*pFilter))
-        return false;
+        return 0;
 
     uIndex = 1U;
-
+    
+    // Create a filter row for every plugins
     for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
     {
         if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
@@ -188,30 +196,22 @@ uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC **pFilter)
             (*pFilter)[uIndex].pszSpec = pIn->lpwFilterExtensions;
 
             uIndex++;
-        }
-           
+        }           
     }
 
     (*pFilter)[0].pszName = WA_Playback_Engine_SupportedFileString;
-    (*pFilter)[0].pszSpec = calloc(MAX_PATH, sizeof(wchar_t));
-
-    // Free Resources on Fail
-    if (!(*pFilter)[0].pszSpec)
-    {
-        free((*pFilter));
-        (*pFilter) = NULL;
-        return 0U;
-    }
+    ZeroMemory(pszTemp, sizeof(wchar_t) * pszTempLen);
 
     for (uint32_t i = 1U; i < (uInputCount); i++)
     {
-        wcscat_s((*pFilter)[0].pszSpec, MAX_PATH, (*pFilter)[i].pszSpec);
+        wcscat_s(pszTemp, pszTempLen, (*pFilter)[i].pszSpec);
 
         // Add comma to every extensions
         if(i != (uInputCount - 1U))
-            wcscat_s((*pFilter)[0].pszSpec, MAX_PATH, L";");
+            wcscat_s(pszTemp, pszTempLen, L";");
     }       
     
+    (*pFilter)[0].pszSpec = pszTemp;
 
     return uInputCount;
 }

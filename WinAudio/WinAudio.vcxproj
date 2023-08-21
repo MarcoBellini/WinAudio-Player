@@ -105,24 +105,18 @@
     <ClCompile Include="WA_GEN_Types.c" />
     <ClCompile Include="WA_IN_Input.c" />
     <ClCompile Include="WA_OUT_Output.c" />
-    <ClCompile Include="WA_Playback_Engine.c" />
+    <ClCompile Include="WA_GEN_Playback_Engine.c" />
     <ClCompile Include="WA_UI_ColorPolicy.c" />
     <ClCompile Include="WA_UI_DarkMode.c" />
-    <ClCompile Include="DecoderManager.c" />
     <ClCompile Include="Settings.c" />
     <ClCompile Include="WA_FFT.c" />
-    <ClCompile Include="IN_MediaFoundation.c" />
     <ClCompile Include="main.c" />
-    <ClCompile Include="OUT_Wasapi.c" />
-    <ClCompile Include="SpectrumBuffer.c" />
     <ClCompile Include="stdafx.c" />
-    <ClCompile Include="IN_StreamWav.c" />
     <ClCompile Include="WA_UI_ListView.c" />
     <ClCompile Include="WA_UI_Rebar.c" />
     <ClCompile Include="WA_UI_StatusBar.c" />
     <ClCompile Include="WA_UI_Trackbar.c" />
     <ClCompile Include="WA_UI_UAHMenubar.c" />
-    <ClCompile Include="Utility.c" />
     <ClCompile Include="WA_UI_Visualizations.c" />
   </ItemGroup>
   <ItemGroup>
@@ -137,23 +131,18 @@
     <ClInclude Include="WA_GEN_Types.h" />
     <ClInclude Include="WA_IN_Input.h" />
     <ClInclude Include="WA_OUT_Output.h" />
-    <ClInclude Include="WA_Playback_Engine.h" />
+    <ClInclude Include="WA_GEN_Playback_Engine.h" />
     <ClInclude Include="WA_UI_ColorPolicy.h" />
     <ClInclude Include="d2d1_586.h" />
     <ClInclude Include="WA_UI_DarkMode.h" />
-    <ClInclude Include="DecoderManager.h" />
     <ClInclude Include="WA_FFT.h" />
-    <ClInclude Include="IStreamInput.h" />
-    <ClInclude Include="IStreamOutput.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="SpectrumBuffer.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="WA_UI_ListView.h" />
     <ClInclude Include="WA_UI_Rebar.h" />
     <ClInclude Include="WA_UI_StatusBar.h" />
     <ClInclude Include="WA_UI_Trackbar.h" />
     <ClInclude Include="WA_UI_UAHMenubar.h" />
-    <ClInclude Include="Utility.h" />
     <ClInclude Include="WA_UI_Visualizations.h" />
   </ItemGroup>
   <ItemGroup>

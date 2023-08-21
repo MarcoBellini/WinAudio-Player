@@ -14,7 +14,7 @@
 #include "WA_OUT_Output.h"
 #include "WA_GEN_Messages.h"
 #include "WA_GEN_PluginLoader.h"
-#include "WA_Playback_Engine.h"
+#include "WA_GEN_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
 #include "WA_GEN_INI.h"
 #include "WA_UI_Visualizations.h"
