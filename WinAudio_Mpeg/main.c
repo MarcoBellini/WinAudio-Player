@@ -25,6 +25,7 @@ void WA_Mpeg_ConfigDialog(WA_Input* This, HWND hParent);
 void WA_Mpeg_PluginDialog(WA_Input* This, HWND hParent);
 uint32_t WA_Mpeg_GetMetadata(WA_Input* This, WA_AudioMetadata* pMetadata);
 uint32_t WA_Mpeg_GetFormat(WA_Input* This, WA_AudioFormat* pFormat);
+uint32_t WA_Mpeg_GetFileInfo(WA_Input* This, const wchar_t* lpwFilePath, WA_AudioFormat* pFormat, WA_AudioMetadata* pMetadata, uint64_t *puDuration);
 
 // Custom I/O Functions
 mpg123_ssize_t WA_Mpeg_Custom_Read(void* pHandle, void* buf, size_t count);
@@ -57,6 +58,7 @@ static WA_Input MpegVTable = {
 	WA_Mpeg_PluginDialog, // WA_Input_PluginDialog
 	WA_Mpeg_GetMetadata, // WA_Input_GetMetadata
 	WA_Mpeg_GetFormat, // WA_Input_GetFormat
+	WA_Mpeg_GetFileInfo,
 	NULL  // hPluginData = Create After with a Malloc
 };
 
@@ -70,7 +72,7 @@ typedef struct TagWA_MpegInstance
 	uint64_t uDuration;
 	uint64_t uPosition;
 	WA_AudioFormat Format;
-	WA_AudioMetadata Metadata;
+	wchar_t* pCurrentPath;
 } WA_MpegInstance;
 
 
@@ -82,6 +84,139 @@ static inline uint64_t WA_Mpeg_Samples_To_Ms(WA_AudioFormat* Format, uint64_t In
 static inline uint64_t WA_Mpeg_Ms_To_Samples(WA_AudioFormat* Format, uint64_t InMs)
 {
 	return (InMs * Format->uSamplerate) / 1000;
+}
+
+static uint32_t WA_Mpeg_ReadID3(mpg123_handle* hMpg123, WA_AudioMetadata* pMetadata)
+{
+
+	mpg123_id3v1* id3v1;
+	mpg123_id3v2* id3v2;
+	int uConvertedChars;
+	wchar_t pTempStr[WA_MPEG_TEMP_TAG_LEN];
+	bool bID3v1Found;
+	int nResult;
+
+	if (!pMetadata)
+		return WA_ERROR_BADPTR;
+
+	nResult = mpg123_id3(hMpg123, &id3v1, &id3v2);
+
+	if (nResult != MPG123_OK)
+		return WA_ERROR_FILENOTSUPPORTED;
+
+	ZeroMemory(pMetadata, sizeof(WA_AudioMetadata));
+
+
+	// Check if "TAG" string is present in ID3v1 tags
+	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->tag, 3, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+	bID3v1Found = false;
+	if (uConvertedChars > 0)
+		bID3v1Found = (wcscmp(pTempStr, L"TAG") == 0) ? true : false;
+
+	if (bID3v1Found)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->artist, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->title, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->album, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+
+		if (id3v1->genre < 80)
+			wcsncpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, GenresArray[id3v1->genre], WA_METADATA_MAX_LEN - 1);
+
+		return WA_OK;
+	}
+
+	// Find ID3v2
+	if (id3v2->artist)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+	}
+
+	if (id3v2->title)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN -1);
+	}
+
+
+	if (id3v2->album)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+	}
+
+
+	if (id3v2->genre)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		if (uConvertedChars > 0)
+			wcsncpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+	}
+
+	return WA_OK;
+}
+
+static uint32_t WA_Mpeg_ReadFormat(mpg123_handle* hMpg123, WA_AudioFormat* pFormat, int* pnEncoding)
+{
+	int nError;
+	long mpg123_lRate;
+	int mpg123_nChannels;
+	int mpg123_nEncoding;
+
+	// Get Stream Params
+	nError = mpg123_getformat(hMpg123, &mpg123_lRate, &mpg123_nChannels, &mpg123_nEncoding);
+
+	if (nError != MPG123_OK)
+		return WA_ERROR_BADFORMAT;
+
+	if (pnEncoding)
+		(*pnEncoding) = mpg123_nEncoding;
+
+	pFormat->uSamplerate = mpg123_lRate;
+	pFormat->uChannels = mpg123_nChannels;
+	pFormat->dwChannelMask = 0;
+
+	switch (mpg123_nEncoding)
+	{
+	case MPG123_ENC_SIGNED_32:
+	case MPG123_ENC_UNSIGNED_32:
+	case MPG123_ENC_32:
+		pFormat->uBitsPerSample = 32;
+		break;
+	case MPG123_ENC_SIGNED_24:
+	case MPG123_ENC_UNSIGNED_24:
+	case MPG123_ENC_24:
+		pFormat->uBitsPerSample = 24;
+		break;
+	case MPG123_ENC_SIGNED_16:
+	case MPG123_ENC_UNSIGNED_16:
+	case MPG123_ENC_16:
+		pFormat->uBitsPerSample = 16;
+		break;
+	case MPG123_ENC_SIGNED_8:
+	case MPG123_ENC_UNSIGNED_8:
+	case MPG123_ENC_8:
+		pFormat->uBitsPerSample = 8;
+	default:
+		return WA_ERROR_FILENOTSUPPORTED;
+	}
+
+	pFormat->uBlockAlign = pFormat->uBitsPerSample / 8 * pFormat->uChannels;
+	pFormat->uAvgBytesPerSec = pFormat->uSamplerate * pFormat->uBlockAlign;
+	pFormat->uSampleType = (mpg123_nEncoding & MPG123_ENC_SIGNED) ? WA_SIGNED_SAMPLE : WA_UNSIGNED_SAMPLE;
+
+	return WA_OK;
 }
 
 WA_HMODULE* WA_Plugin_GetHeader(void)
@@ -101,6 +236,10 @@ bool WA_Mpeg_New(WA_Input* This)
 	pInstance = (WA_MpegInstance*) This->hPluginData;
 
 	pInstance->bFileIsOpen = false;
+	pInstance->pCurrentPath = NULL;
+	pInstance->hFile = NULL;
+	pInstance->uPosition = 0U;
+	pInstance->uDuration = 0U;
 
 
 #if _DEBUG
@@ -170,19 +309,16 @@ void WA_Mpeg_Delete(WA_Input* This)
 }
 
 uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
-{
-	int nError;
+{	
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
-	long mpg123_lRate;
-	int mpg123_nChannels;
-	int mpg123_nEncoding;
+	int mpg123_nEncoding, nError;
 	long* mpg123_lRates = NULL;
 	uint32_t uRateCount = 0;
+	size_t uPathLen;
 
 	// Check if file is already open
 	if (pInstance->bFileIsOpen)
 		WA_Mpeg_Close(This);
-
 
 	// Open file
 	pInstance->hFile = CreateFile(lpwFilePath,
@@ -211,7 +347,6 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	}
 
 
-
 	// Set Supported Only Integer PCM Samples	
 	mpg123_format_none(pInstance->hMpg123);
 	mpg123_rates(&mpg123_lRates, &uRateCount);
@@ -234,11 +369,8 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	}
 
 
-	// Get Stream Params
-	nError = mpg123_getformat(pInstance->hMpg123, &mpg123_lRate, &mpg123_nChannels, &mpg123_nEncoding);
-
-
-	if (nError != MPG123_OK)
+	// Get Stream Wave Format
+	if (WA_Mpeg_ReadFormat(pInstance->hMpg123, &pInstance->Format, &mpg123_nEncoding) != WA_OK)
 	{
 		CloseHandle(pInstance->hFile);
 		mpg123_close(pInstance->hMpg123);
@@ -249,53 +381,25 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	/* Ensure that this output format will not change
        (it might, when we allow it). */
 	nError = mpg123_format_none(pInstance->hMpg123);
-	nError = mpg123_format(pInstance->hMpg123, mpg123_lRate, mpg123_nChannels, mpg123_nEncoding);
+	nError = mpg123_format(pInstance->hMpg123, pInstance->Format.uSamplerate, pInstance->Format.uChannels, mpg123_nEncoding);
 
 	if (nError != MPG123_OK)
 	{
 		CloseHandle(pInstance->hFile);
 		mpg123_close(pInstance->hMpg123);
 		return WA_ERROR_FILENOTSUPPORTED;
-	}
+	}	
 
-	pInstance->Format.uSamplerate = mpg123_lRate;
-	pInstance->Format.uChannels = mpg123_nChannels;
-	pInstance->Format.dwChannelMask = 0;
 	
-	switch (mpg123_nEncoding)
-	{
-	case MPG123_ENC_SIGNED_32:
-	case MPG123_ENC_UNSIGNED_32:
-	case MPG123_ENC_32:
-		pInstance->Format.uBitsPerSample = 32;
-		break;
-	case MPG123_ENC_SIGNED_24:
-	case MPG123_ENC_UNSIGNED_24:
-	case MPG123_ENC_24:
-		pInstance->Format.uBitsPerSample = 24;
-		break;
-	case MPG123_ENC_SIGNED_16:
-	case MPG123_ENC_UNSIGNED_16:
-	case MPG123_ENC_16:
-		pInstance->Format.uBitsPerSample = 16;
-		break;
-	case MPG123_ENC_SIGNED_8:
-	case MPG123_ENC_UNSIGNED_8:
-	case MPG123_ENC_8:
-		pInstance->Format.uBitsPerSample = 8;		
-	default:
-		// Return If Format is not supported
-		CloseHandle(pInstance->hFile);
-		mpg123_close(pInstance->hMpg123);
-		return WA_ERROR_FILENOTSUPPORTED;
+	uPathLen = wcslen(lpwFilePath) + 1; // Inlcude Null-Terminating char
+	pInstance->pCurrentPath = NULL;
 
+	if (uPathLen > 0)
+	{
+		pInstance->pCurrentPath = calloc(uPathLen, sizeof(wchar_t));
+		wcscpy_s(pInstance->pCurrentPath, uPathLen, lpwFilePath);
 	}
 
-	pInstance->Format.uBlockAlign = pInstance->Format.uBitsPerSample / 8 * pInstance->Format.uChannels;
-	pInstance->Format.uAvgBytesPerSec = pInstance->Format.uSamplerate * pInstance->Format.uBlockAlign;
-	pInstance->Format.uSampleType = (mpg123_nEncoding & MPG123_ENC_SIGNED) ? WA_SIGNED_SAMPLE : WA_UNSIGNED_SAMPLE;
-
-	// Find Duration
 	pInstance->uDuration = WA_Mpeg_Samples_To_Ms(&pInstance->Format, mpg123_length(pInstance->hMpg123));
 	pInstance->uPosition = 0U;
 	pInstance->bFileIsOpen = true;
@@ -313,6 +417,10 @@ void WA_Mpeg_Close(WA_Input* This)
 
 		CloseHandle(pInstance->hFile);
 
+		if (pInstance->pCurrentPath)
+			free(pInstance->pCurrentPath);
+
+		pInstance->pCurrentPath = NULL;
 		pInstance->hFile = NULL;
 		pInstance->uPosition = 0U;
 		pInstance->uDuration = 0U;
@@ -398,84 +506,8 @@ void  WA_Mpeg_PluginDialog(WA_Input* This, HWND hParent)
 uint32_t WA_Mpeg_GetMetadata(WA_Input* This, WA_AudioMetadata* pMetadata)
 {
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
-	mpg123_id3v1 *id3v1;
-	mpg123_id3v2 *id3v2;
-	int uConvertedChars;
-	wchar_t pTempStr[WA_MPEG_TEMP_TAG_LEN];
-	bool bID3v1Found;
-	int nResult;
-
-	if (!pMetadata)
-		return WA_ERROR_BADPTR;
-
-	nResult = mpg123_id3(pInstance->hMpg123, &id3v1, &id3v2);
-
-	if (nResult != MPG123_OK)
-		return WA_ERROR_FILENOTSUPPORTED;
-
-	ZeroMemory(pMetadata, sizeof(WA_AudioMetadata));
 	
-
-	// Check if "TAG" string is present in ID3v1 tags
-	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->tag, 3, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-	bID3v1Found = false;
-	if (uConvertedChars > 0)	
-		bID3v1Found = (wcscmp(pTempStr, L"TAG") == 0) ? true : false;
-	
-	if (bID3v1Found)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->artist, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr);
-
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->title, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr);
-
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->album, 30, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr);
-
-		if (id3v1->genre < 80)
-			wcscpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, GenresArray[id3v1->genre]);
-
-		return WA_OK;
-	}
-	
-	// Find ID3v2
-	if (id3v2->artist)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr);
-	}
-
-	if (id3v2->title)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr);
-	}
-
-
-	if (id3v2->album)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr);
-	}
-
-
-	if (id3v2->genre)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcscpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, pTempStr);
-	}
-
-	
-
-	return WA_OK;
+	return WA_Mpeg_ReadID3(pInstance->hMpg123, pMetadata);
 }
 
 uint32_t WA_Mpeg_GetFormat(WA_Input* This, WA_AudioFormat* pFormat)
@@ -487,6 +519,107 @@ uint32_t WA_Mpeg_GetFormat(WA_Input* This, WA_AudioFormat* pFormat)
 
 	// Copy Internal Audio Format
 	memcpy(pFormat, &pInstance->Format, sizeof(WA_AudioFormat));
+
+	return WA_OK;
+}
+
+uint32_t WA_Mpeg_GetFileInfo(WA_Input* This, const wchar_t* lpwFilePath, WA_AudioFormat* pFormat, WA_AudioMetadata* pMetadata, uint64_t *puDuration)
+{
+	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
+	mpg123_handle *hMpg123; 
+	HANDLE hFile;
+	int nError;
+	
+	// If path == current opened file use instance data
+	if (pInstance->pCurrentPath)
+	{
+		if (_wcsicmp(pInstance->pCurrentPath, lpwFilePath))
+		{
+			if (WA_Mpeg_GetMetadata(This, pMetadata) != WA_OK)
+				return WA_ERROR_BADPARAM;
+
+			if (WA_Mpeg_GetFormat(This, pFormat) != WA_OK)
+				return WA_ERROR_BADPARAM;
+
+			if (puDuration)
+				(*puDuration) = pInstance->uDuration;
+
+			return WA_OK;
+		}
+	}
+
+	// Otherwise create new mpg123 instance & get file infos
+	hMpg123 = mpg123_new(NULL, NULL);
+
+	if (!hMpg123)
+		return WA_ERROR_FAIL;
+
+	// Open file
+	hFile = CreateFile(lpwFilePath,
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL);
+
+	// Check for errors
+	if (hFile == INVALID_HANDLE_VALUE)
+	{
+		mpg123_delete(hMpg123);
+		return WA_ERROR_FILENOTFOUND;
+	}
+		
+
+
+	// Use Our Custom I/O Functions
+	nError = mpg123_replace_reader_handle(hMpg123,
+		WA_Mpeg_Custom_Read,
+		WA_Mpeg_Custom_Seek,
+		WA_Mpeg_Custom_Cleanup);
+
+	if (nError != MPG123_OK)
+	{
+		CloseHandle(hFile);
+		mpg123_delete(hMpg123);
+		return WA_ERROR_FILENOTSUPPORTED;
+	}
+
+	nError = mpg123_open_handle(hMpg123, hFile);
+
+	if (nError != MPG123_OK)
+	{
+		CloseHandle(hFile);
+		mpg123_delete(hMpg123);
+		return WA_ERROR_FILENOTSUPPORTED;
+	}
+
+
+	// Get Stream Wave Format
+	if (WA_Mpeg_ReadFormat(hMpg123, pFormat, NULL) != WA_OK)
+	{
+		mpg123_close(hMpg123);
+		CloseHandle(hFile);
+		mpg123_delete(hMpg123);
+		return WA_ERROR_FILENOTSUPPORTED;
+	}
+
+	// Get Stream Metadata
+	if (WA_Mpeg_ReadID3(hMpg123, pMetadata) != WA_OK)
+	{
+		mpg123_close(hMpg123);
+		CloseHandle(hFile);
+		mpg123_delete(hMpg123);
+		return WA_ERROR_FILENOTSUPPORTED;
+	}
+
+	if (puDuration)	
+		(*puDuration) =	WA_Mpeg_Samples_To_Ms(pFormat, mpg123_length(hMpg123));	
+
+	
+	mpg123_close(hMpg123);
+	CloseHandle(hFile);
+	mpg123_delete(hMpg123);	
 
 	return WA_OK;
 }

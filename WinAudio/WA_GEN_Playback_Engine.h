@@ -11,6 +11,8 @@ bool WA_Playback_Engine_Delete(void);
 /// </summary>
 uint32_t WA_Playback_Engine_GetExtFilter(COMDLG_FILTERSPEC** pFilter, wchar_t* pszTemp, uint32_t pszTempLen);
 
+WA_Input* WA_Playback_Engine_Find_Decoder(const wchar_t* lpwPath);
+
 
 bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath);
 bool WA_Playback_Engine_CloseFile();

@@ -36,8 +36,10 @@ struct TagWA_Input
 	void (*WA_Input_ConfigDialog)(WA_Input* This, HWND hParent); // Show Plugin Configuration Dialog
 	void (*WA_Input_PluginDialog)(WA_Input* This, HWND hParent); // Show Plugin Custom Dialog (ES. Tag Editing, or CD Selection)
 
-	uint32_t (*WA_Input_GetMetadata)(WA_Input* This, WA_AudioMetadata* pMetadata); // Get Audio Metadata (Needed for Playlist management). Return WA_OK or Error Code
-	uint32_t (*WA_Input_GetFormat)(WA_Input* This, WA_AudioFormat* pFormat);		   // Get Audio Wave Format. Return WA_OK or Error Code
+	uint32_t (*WA_Input_GetMetadata)(WA_Input* This, WA_AudioMetadata* pMetadata); // Get Audio Metadata for current opened file. Return WA_OK or Error Code
+	uint32_t (*WA_Input_GetFormat)(WA_Input* This, WA_AudioFormat* pFormat);		   // Get Audio Wave Format for current opened file.. Return WA_OK or Error Code
+
+	uint32_t(*WA_Input_GetFileInfo) (WA_Input* This, const wchar_t *lpwFilePath, WA_AudioFormat* pFormat, WA_AudioMetadata* pMetadata, uint64_t* puDuration); // Get WaveFormat and Metadata for a generic supported file. Return WA_OK or Error Code
 
 	HCOOKIE hPluginData;	// Store Plugin Private Data Here
 };

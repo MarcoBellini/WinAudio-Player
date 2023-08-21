@@ -20,7 +20,7 @@ const static wchar_t WA_Playback_Engine_SupportedFileString[] = L"All Supported 
 /// </summary>
 /// <param name="lpwPath">Local path of file</param>
 /// <returns>Pointer to a WA_Input* struct or NULL on fail</returns>
-static WA_Input* WA_Playback_Engine_Find_Decoder(const wchar_t* lpwPath)
+WA_Input* WA_Playback_Engine_Find_Decoder(const wchar_t* lpwPath)
 {
     WA_Input* pIn = NULL;
     wchar_t* lpwPluginExtension;

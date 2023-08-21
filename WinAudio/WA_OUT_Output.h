@@ -39,7 +39,7 @@ struct TagWA_Output
 	uint32_t(*WA_Output_Get_BufferData)(WA_Output* This, int8_t* pBuffer, uint32_t uBufferLen); // Get Current on Playing Data. Return WA_OK or Error Code
 	// uBufferLen must be at least puBufferLatency size or the function return BUFFEROVERFLOW error
 
-	uint32_t (*WA_Output_Process_DSP)(WA_Output* This, bool bEnable); // Enable or Disable DSP Processing. 
+	uint32_t (*WA_Output_Enable_Process_DSP)(WA_Output* This, bool bEnable); // Enable or Disable DSP Processing. 
 	// bEnable = false -> Disable Output to Call DSP Process() function
 	// bEnable = true -> Enable Output to Call DSP Process() function
 	 

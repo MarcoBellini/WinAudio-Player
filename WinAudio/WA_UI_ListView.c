@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "WA_UI_DarkMode.h"
 #include "WA_UI_ColorPolicy.h"
 #include "WA_GEN_Types.h"
@@ -8,11 +8,10 @@
 #include "WA_UI_ListView.h"
 #include "WA_GEN_Playlist.h"
 #include "WA_GEN_INI.h"
+#include "WA_GEN_Playback_Engine.h"
 #include "WA_UI_Visualizations.h"
 #include "Globals2.h"
 #include "resource.h"
-#define TAGLIB_STATIC
-#include "..\Taglibx86\bindings\tag_c.h"
 
 // String of Columns
 static wchar_t WA_Listview_Column_Status[] = L"Status\0";
@@ -434,10 +433,10 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
 // TODO: Spostare la funzione in un Thread per migliorare le prestazioni dell'UI
 static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
 {    
-    TagLib_File* pTaglib;
-    TagLib_Tag* pTag;
-    const TagLib_AudioProperties* pAudioProp;
     HANDLE hFile;
+    WA_Input* pIn;
+    WA_AudioFormat Format;
+    uint64_t uDuration;
 
     // Read File size
     hFile = CreateFile(pMetadata->lpwFilePath,
@@ -462,50 +461,30 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
         pMetadata->dwFileSizeBytes = 0LL;
     }
 
-    pTaglib = taglib_file_new(pMetadata->lpwFilePath);
-   
+    pIn = WA_Playback_Engine_Find_Decoder(pMetadata->lpwFilePath);
 
-    if (!pTaglib)
-    {        
+    if (!pIn)
+    {   
         pMetadata->uFileDurationMs = 0U;
-        wcscpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, L"\0");
-        wcscpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, L"\0");
-        wcscpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, L"\0");
-        wcscpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, L"\0");
-
-
+        ZeroMemory(&pMetadata->Metadata, sizeof(WA_AudioMetadata));
         return true;
     }
 
-    pTag = taglib_file_tag(pTaglib);
-    pAudioProp = taglib_file_audioproperties(pTaglib);
-
-    if (pAudioProp)
-    {
-        pMetadata->uFileDurationMs = (uint64_t)taglib_audioproperties_length(pAudioProp) * 1000U;
-
-        wcsncpy_s(pMetadata->Metadata.Title, WA_METADATA_MAX_LEN, taglib_tag_title(pTag), WA_METADATA_MAX_LEN - 1);
-        wcsncpy_s(pMetadata->Metadata.Artist, WA_METADATA_MAX_LEN, taglib_tag_artist(pTag), WA_METADATA_MAX_LEN - 1);
-        wcsncpy_s(pMetadata->Metadata.Album, WA_METADATA_MAX_LEN, taglib_tag_album(pTag), WA_METADATA_MAX_LEN - 1);
-        wcsncpy_s(pMetadata->Metadata.Genre, WA_METADATA_MAX_LEN, taglib_tag_genre(pTag), WA_METADATA_MAX_LEN - 1);
-    }
-
+    pIn->WA_Input_GetFileInfo(pIn, pMetadata->lpwFilePath, &Format, &pMetadata->Metadata, &uDuration);
+    pMetadata->uFileDurationMs = uDuration;
 
     // Use File Name if Tags are empty
     if ((wcslen(pMetadata->Metadata.Title) == 0) && (wcslen(pMetadata->Metadata.Artist) == 0))
     {
         wcsncpy_s(pMetadata->Metadata.Artist,
-            WA_METADATA_MAX_LEN, 
+            WA_METADATA_MAX_LEN,
             PathFindFileName(pMetadata->lpwFilePath),
             WA_METADATA_MAX_LEN - 1);
 
         PathRemoveExtension(pMetadata->Metadata.Artist);
     }
 
-    taglib_tag_free_strings();
-    taglib_file_free(pTaglib);
-    
-    return true;
+    return true;   
 }
 
 static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
@@ -526,8 +505,7 @@ static void WA_UI_Listview_UpdateCallback(bool bRedrawItems)
     }
 }
 
-// TODO: BUG Utilizzare il parametro cchTextMax per identificare la lunghezza
-//  della stringa di destinazione 
+
 static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
 {
     WA_Playlist_Metadata* pMetadata;
@@ -543,21 +521,21 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
     dwColumnID = WA_UI_Listview_GetIDFromIndex(pInfo->item.iSubItem);    
 
     if (pInfo->item.mask & LVIF_TEXT)
-    {
+    {        
         switch (dwColumnID)
         {
         case WA_LISTVIEW_COLUMN_STATUS:
             if(pMetadata->bFileSelected)
-                wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, L"->\0");
+                wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"->\0");
             else
-                wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, L"\0");
+                wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"\0");
             break;
         case WA_LISTVIEW_COLUMN_INDEX:
         {
             wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
             swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%d\0", pInfo->item.iItem);
             
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, Buffer);
             break;
         }
         case WA_LISTVIEW_COLUMN_TITLE_ARTIST:
@@ -572,11 +550,11 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
             else
                 swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Artist);
 
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, Buffer);
             break;
         }
         case WA_LISTVIEW_COLUMN_ALBUM:
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, pMetadata->Metadata.Album);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, pMetadata->Metadata.Album);
             break;
         case WA_LISTVIEW_COLUMN_DURATION:
         {
@@ -600,12 +578,12 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
             }      
 
 
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, Buffer);
             break;
         }
 
         case WA_LISTVIEW_COLUMN_GENRE:
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, pMetadata->Metadata.Genre);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, pMetadata->Metadata.Genre);
             break;
         case WA_LISTVIEW_COLUMN_SIZE:
         {  
@@ -614,15 +592,15 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
             // see https://learn.microsoft.com/en-us/windows/win32/api/shlwapi/nf-shlwapi-strformatbytesizew
             StrFormatByteSize(pMetadata->dwFileSizeBytes, Buffer, WA_LISTVIEW_PRINTF_MAX);
 
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, Buffer);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, Buffer);
             break;
         }
 
         case WA_LISTVIEW_COLUMN_PATH:
-            wcscpy_s(pInfo->item.pszText, MAX_PATH, pMetadata->lpwFilePath);
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, pMetadata->lpwFilePath);
             break;
         default:
-            wcscpy_s(pInfo->item.pszText, WA_LISTVIEW_PRINTF_MAX, L"\0");
+            wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"\0");
             break;
 
         }
@@ -882,9 +860,7 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
         case VK_BACK:
             WA_UI_Listview_DeleteSelected(hWnd);
             return 0;
-        }
- 
-            
+        }           
 
         break;
     }
