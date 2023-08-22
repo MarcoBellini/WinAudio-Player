@@ -10,6 +10,7 @@
 #include "WA_GEN_INI.h"
 #include "WA_GEN_Playback_Engine.h"
 #include "WA_UI_Visualizations.h"
+#include "WA_GEN_Messages.h"
 #include "Globals2.h"
 #include "resource.h"
 
@@ -437,6 +438,7 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
     WA_Input* pIn;
     WA_AudioFormat Format;
     uint64_t uDuration;
+    uint32_t uResult;
 
     // Read File size
     hFile = CreateFile(pMetadata->lpwFilePath,
@@ -470,7 +472,16 @@ static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
         return true;
     }
 
-    pIn->WA_Input_GetFileInfo(pIn, pMetadata->lpwFilePath, &Format, &pMetadata->Metadata, &uDuration);
+    uResult = pIn->WA_Input_GetFileInfo(pIn, pMetadata->lpwFilePath, &Format, &pMetadata->Metadata, &uDuration);
+
+    if (uResult != WA_OK)
+    {
+        pMetadata->uFileDurationMs = 0U;
+        ZeroMemory(&pMetadata->Metadata, sizeof(WA_AudioMetadata));
+        return true;
+    }
+
+
     pMetadata->uFileDurationMs = uDuration;
 
     // Use File Name if Tags are empty
