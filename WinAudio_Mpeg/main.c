@@ -535,7 +535,7 @@ uint32_t WA_Mpeg_GetFileInfo(WA_Input* This, const wchar_t* lpwFilePath, WA_Audi
 	// If path == current opened file use instance data
 	if (pInstance->pCurrentPath)
 	{
-		if (_wcsicmp(pInstance->pCurrentPath, lpwFilePath))
+		if (_wcsicmp(pInstance->pCurrentPath, lpwFilePath) == 0)
 		{
 			if (WA_Mpeg_GetMetadata(This, pMetadata) != WA_OK)
 				return WA_ERROR_BADPARAM;

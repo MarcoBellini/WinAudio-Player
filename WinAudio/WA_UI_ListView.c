@@ -431,7 +431,7 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
     DestroyMenu(hMenu);
 }
 
-// TODO: Spostare la funzione in un Thread per migliorare le prestazioni dell'UI
+
 static bool WA_UI_Listview_ReadCallback(WA_Playlist_Metadata* pMetadata)
 {    
     HANDLE hFile;
