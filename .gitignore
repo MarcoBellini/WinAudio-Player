@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /Taglibx86
 /WinAudio/Settings.c
+/WinAudio_Mpeg/lib/mpg123.lib
