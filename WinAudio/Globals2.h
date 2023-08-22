@@ -123,6 +123,6 @@ bool MainWindow_PreviousItem();
 bool MainWindow_NextItem();
 
 // Settings Proc
-BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 #endif

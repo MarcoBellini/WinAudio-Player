@@ -49,7 +49,7 @@ LRESULT CALLBACK WA_UI_Rebar_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
         WindowStyle = GetWindowLong(hWnd, GWL_STYLE);
         bShowBandBorders = (WindowStyle & RBS_BANDBORDERS) > 0 ? 1 : 0;
-        uBandCount = SendMessage(hWnd, RB_GETBANDCOUNT, 0, 0);
+        uBandCount = (UINT) SendMessage(hWnd, RB_GETBANDCOUNT, 0, 0);
 
         hdc = BeginPaint(hWnd, &ps);
 

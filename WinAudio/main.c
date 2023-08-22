@@ -321,7 +321,7 @@ void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs)
     for (int32_t i = 1; i < nParams; i++)
     {   
 
-        data.cbData = (wcslen(pArgs[i]) + 1) * sizeof(wchar_t);
+        data.cbData = (DWORD)((wcslen(pArgs[i]) + 1) * sizeof(wchar_t));
         data.dwData = (i == 1) ? MSG_OPENFILE : MSG_ENQUEUEFILE;
         data.lpData = pArgs[i];
 
@@ -476,7 +476,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             case NM_RELEASEDCAPTURE:
             {
                 DWORD uPositionValue;
-                uPositionValue = SendMessage(Globals2.hPositionTrackbar, TBM_GETPOS, 0, 0);
+                uPositionValue = (DWORD) SendMessage(Globals2.hPositionTrackbar, TBM_GETPOS, 0, 0);
                 
                 // Seek only if playing
                 if (Globals2.dwCurrentStatus == WA_STATUS_PLAY)
@@ -1088,7 +1088,7 @@ HWND MainWindow_CreateRebar(HWND hwndOwner)
   
 
     // Get the size of Toolbar button (loword = width - hiword = height)
-    DWORD dwToolbarButtonSize = SendMessage(Globals2.hToolbar, TB_GETBUTTONSIZE, 0, 0);
+    DWORD dwToolbarButtonSize = (DWORD) SendMessage(Globals2.hToolbar, TB_GETBUTTONSIZE, 0, 0);
 
     // Create Rebar bands
     rbBand.hwndChild = Globals2.hToolbar;
@@ -2075,7 +2075,7 @@ void MainWindow_UpdateVolumeFromTrackbarValue()
 {
     DWORD dwVolumeValue;
 
-    dwVolumeValue = SendMessage(Globals2.hVolumeTrackbar, TBM_GETPOS, 0, 0);
+    dwVolumeValue = (DWORD) SendMessage(Globals2.hVolumeTrackbar, TBM_GETPOS, 0, 0);
     dwVolumeValue = min(dwVolumeValue, UINT8_MAX);  
 
     WA_Playback_Engine_Set_Volume((uint8_t)dwVolumeValue);
@@ -2200,7 +2200,7 @@ LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam)
     {
         DWORD dwVolumeValue;
 
-        dwVolumeValue = SendMessage(Globals2.hVolumeTrackbar, TBM_GETPOS, 0, 0);        
+        dwVolumeValue = (DWORD) SendMessage(Globals2.hVolumeTrackbar, TBM_GETPOS, 0, 0);
 
         return dwVolumeValue;
     }

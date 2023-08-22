@@ -144,7 +144,7 @@ LRESULT WA_UI_Trackbar_CustomDraw(HWND hWnd, LPNMCUSTOMDRAW lpCustomDraw)
     if (!DarkMode_IsEnabled())
         return CDRF_DODEFAULT;
 
-    DWORD dwItemSpec = lpCustomDraw->dwItemSpec;
+    DWORD dwItemSpec = (DWORD) lpCustomDraw->dwItemSpec;
     DWORD dwDrawStage = lpCustomDraw->dwDrawStage;
     UINT uItemState = lpCustomDraw->uItemState;      
 
@@ -165,7 +165,7 @@ LRESULT WA_UI_Trackbar_CustomDraw(HWND hWnd, LPNMCUSTOMDRAW lpCustomDraw)
         }
         case TBCD_THUMB:
         {
-            DWORD dwStyle = GetWindowLongPtr(hWnd, GWL_STYLE);
+            DWORD dwStyle = (DWORD) GetWindowLongPtr(hWnd, GWL_STYLE);
 
             WA_UI_Trackbar_DrawThumb(hWnd, lpCustomDraw->hdc, &lpCustomDraw->rc, uItemState, dwStyle);  
             

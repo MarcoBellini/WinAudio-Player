@@ -85,7 +85,8 @@ static BOOL Settings_Handle_WM_Command(HWND hDialog, WORD ControlID, WORD Messag
 }
 
 
-BOOL CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam)
+
+INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {

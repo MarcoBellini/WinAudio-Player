@@ -192,7 +192,11 @@ uint32_t WA_GEN_PluginLoader_Load(HWND hMainWindow)
 
 	// Notify if no Input or Output Plugin are found
 	if ((dwInputCount == 0) || (dwOutputCount == 0))
+	{		
+		free(Plugins.pPluginList);
 		return WA_ERROR_INPUTOUTPUTNOTFOUND;
+	}
+		
 
 
 	return WA_OK;	

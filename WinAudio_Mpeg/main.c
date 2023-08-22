@@ -136,14 +136,14 @@ static uint32_t WA_Mpeg_ReadID3(mpg123_handle* hMpg123, WA_AudioMetadata* pMetad
 	// Find ID3v2
 	if (id3v2->artist)
 	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, (int) id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
 		if (uConvertedChars > 0)
 			wcsncpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
 	}
 
 	if (id3v2->title)
 	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, (int) id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
 		if (uConvertedChars > 0)
 			wcsncpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN -1);
 	}
@@ -151,7 +151,7 @@ static uint32_t WA_Mpeg_ReadID3(mpg123_handle* hMpg123, WA_AudioMetadata* pMetad
 
 	if (id3v2->album)
 	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, (int) id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
 		if (uConvertedChars > 0)
 			wcsncpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
 	}
@@ -159,7 +159,7 @@ static uint32_t WA_Mpeg_ReadID3(mpg123_handle* hMpg123, WA_AudioMetadata* pMetad
 
 	if (id3v2->genre)
 	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, (int) id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
 		if (uConvertedChars > 0)
 			wcsncpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
 	}
@@ -313,8 +313,7 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
 	int mpg123_nEncoding, nError;
 	long* mpg123_lRates = NULL;
-	uint32_t uRateCount = 0;
-	size_t uPathLen;
+	size_t uPathLen, uRateCount;
 
 	// Check if file is already open
 	if (pInstance->bFileIsOpen)
@@ -397,7 +396,9 @@ uint32_t WA_Mpeg_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	if (uPathLen > 0)
 	{
 		pInstance->pCurrentPath = calloc(uPathLen, sizeof(wchar_t));
-		wcscpy_s(pInstance->pCurrentPath, uPathLen, lpwFilePath);
+
+		if(pInstance->pCurrentPath)
+			wcscpy_s(pInstance->pCurrentPath, uPathLen, lpwFilePath);
 	}
 
 	pInstance->uDuration = WA_Mpeg_Samples_To_Ms(&pInstance->Format, mpg123_length(pInstance->hMpg123));
@@ -471,9 +472,10 @@ uint32_t WA_Mpeg_Read(WA_Input* This, int8_t* pBuffer, uint32_t uBufferLen, uint
 {
 	WA_MpegInstance* pInstance = (WA_MpegInstance*)This->hPluginData;
 	int nError;
+	size_t nReadedBytes;
 
-
-	nError = mpg123_read(pInstance->hMpg123, pBuffer, uBufferLen, puReadedBytes);
+	nError = mpg123_read(pInstance->hMpg123, pBuffer, (size_t) uBufferLen, &nReadedBytes);
+	(*puReadedBytes) = (uint32_t)nReadedBytes;
 
 	if (nError == MPG123_DONE)
 		return WA_ERROR_ENDOFFILE;

@@ -416,7 +416,7 @@ bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wc
 	if (This->dwCount < dwStartIndex)
 		return false;
 
-	dwSearchStrLen = wcslen(lpwSearchStr);
+	dwSearchStrLen = (DWORD) wcslen(lpwSearchStr);
 	dwIndex = dwStartIndex;
 
 	do
@@ -424,7 +424,7 @@ bool WA_Playlist_FindByFirstChar(WA_Playlist* This, DWORD dwStartIndex, const wc
 		
 		lpwFileName = PathFindFileName(This->pMetadataArray[dwIndex].lpwFilePath);
 
-		if (_wcsnicmp(lpwFileName, lpwSearchStr, dwSearchStrLen) == 0)
+		if (_wcsnicmp(lpwFileName, lpwSearchStr, (size_t) dwSearchStrLen) == 0)
 		{
 			(*dwFoundIndex) = dwIndex;
 			return true;
@@ -581,7 +581,7 @@ bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath)
 
 		wcscpy_s(FilePath, (MAX_PATH + 2), This->pMetadataArray[i].lpwFilePath);
 		wcscat_s(FilePath, (MAX_PATH + 2), L"\r\n");
-		PathLen = wcslen(FilePath);
+		PathLen = (uint32_t) wcslen(FilePath);
 	
 		uUTF8RequiedSize = WideCharToMultiByte(CP_UTF8, 0, FilePath, PathLen, NULL, 0, NULL, NULL);
 

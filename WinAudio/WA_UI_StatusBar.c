@@ -41,7 +41,7 @@ static inline WORD WA_Status_GetMaxTextLen(HWND hWnd, WORD dwParts)
 
     for (WORD i = 0; i < dwParts; i++)
     {
-        dwResult = SendMessage(hWnd, SB_GETTEXTLENGTH, i, 0);
+        dwResult = (DWORD) SendMessage(hWnd, SB_GETTEXTLENGTH, i, 0);
 
         wCurrentTextLen = LOWORD(dwResult);
         wMaxTextLen = (wCurrentTextLen > wMaxTextLen) ? wCurrentTextLen : wMaxTextLen;
@@ -98,7 +98,7 @@ static void WA_Status_PaintSimple(HWND hWnd)
 
     GetClientRect(hWnd, &rcStatus);
 
-    StatusStyle = GetWindowLongPtr(hWnd, GWL_STYLE);
+    StatusStyle = (LONG) GetWindowLongPtr(hWnd, GWL_STYLE);
     bStatusHasGrip = ((StatusStyle & SBARS_SIZEGRIP) > 0) ? TRUE : FALSE;
 
     hdc = BeginPaint(hWnd, &ps);
@@ -161,7 +161,7 @@ static void WA_Status_PaintComplex(HWND hWnd)
 
     GetClientRect(hWnd, &rcStatus);
 
-    StatusStyle = GetWindowLongPtr(hWnd, GWL_STYLE);
+    StatusStyle = (LONG) GetWindowLongPtr(hWnd, GWL_STYLE);
     bStatusHasGrip = ((StatusStyle & SBARS_SIZEGRIP) > 0) ? TRUE : FALSE;
 
     hdc = BeginPaint(hWnd, &ps);
@@ -170,7 +170,7 @@ static void WA_Status_PaintComplex(HWND hWnd)
     if (ps.fErase == TRUE)
         FillRect(hdc, &rcStatus, ColorPolicy_Get_Surface_Brush());
 
-    dwParts = SendMessage(hWnd, SB_GETPARTS, 0, 0);
+    dwParts = (DWORD) SendMessage(hWnd, SB_GETPARTS, 0, 0);
     
     SetTextColor(hdc, ColorPolicy_Get_TextOnSurface_Color());
     SetBkColor(hdc, ColorPolicy_Get_Surface_Color());
@@ -254,7 +254,7 @@ LRESULT CALLBACK WA_UI_Status_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
     }
     case WM_PAINT:
     {
-        BOOL IsStatusSimple = SendMessage(hWnd, SB_ISSIMPLE, 0, 0);
+        BOOL IsStatusSimple = (BOOL) SendMessage(hWnd, SB_ISSIMPLE, 0, 0);
 
         // Paint Status
         if (IsStatusSimple)

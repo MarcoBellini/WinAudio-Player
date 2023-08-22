@@ -45,7 +45,7 @@ static void WA_UI_Listview_AddColumn(HWND hListview, wchar_t* pwColumnText, int3
 
     Column.cx = nColumnWidth;
     Column.pszText = pwColumnText;
-    Column.cchTextMax = wcslen(Column.pszText);
+    Column.cchTextMax = (int) wcslen(Column.pszText);
     Column.iSubItem = nColumnIndex + 1;
     Column.fmt = nFlags;
 
@@ -881,7 +881,7 @@ LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd)
     {     
       
 
-        if (WA_UI_Listview_IsRowSelected(hWnd, lplvcd->nmcd.dwItemSpec))
+        if (WA_UI_Listview_IsRowSelected(hWnd, (int) lplvcd->nmcd.dwItemSpec))
         {
             lplvcd->clrTextBk = ColorPolicy_Get_Secondary_Color();
             lplvcd->clrText = ColorPolicy_Get_TextOnSecondary_Color();
