@@ -40,12 +40,12 @@
 #define MW_VOLUME_MIN					0
 #define MW_VOLUME_MAX					255
 
-#define MW_LW_INVALID_INDEX				-1
-
 // Define Current Playback Status
 #define MW_PLAYING						WA_STATUS_PLAY
 #define MW_PAUSING						WA_STATUS_PAUSE
 #define MW_STOPPED						WA_STATUS_STOP
+
+#define MW_MAX_PLUGIN_DESC				127
 
 
 // Main Window Globals Vars
@@ -97,8 +97,8 @@ struct
 	ColorMode Mode;
 	ColorThemes Theme;
 
-	wchar_t* lpwActiveOutputDescr;
-	wchar_t* lpwActiveEffectDescr;
+	wchar_t pActiveOutputDescr[MW_MAX_PLUGIN_DESC];
+	wchar_t pActiveEffectDescr[MW_MAX_PLUGIN_DESC];
 	bool bEffectIsActive;
 
 	ColorThemes CurrentTheme;

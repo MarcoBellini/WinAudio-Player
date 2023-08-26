@@ -18,7 +18,10 @@ typedef enum TagColorThemes
 	Violet
 } ColorThemes;
 
-static const wchar_t ColorNames[6][10] = { L"Red", L"Orange" , L"Yellow" , L"Green" ,L"Blue" , L"Violet" };
+#define WA_UI_COLORPOLICY_COLOR_NAMES_LEN 6
+#define WA_UI_COLORPOLICY_COLOR_NAMES_TEXT_LEN 10
+
+static const wchar_t WA_UI_ColoPolicy_ColorNamesArr[WA_UI_COLORPOLICY_COLOR_NAMES_LEN][WA_UI_COLORPOLICY_COLOR_NAMES_TEXT_LEN] = { L"Red", L"Orange" , L"Yellow" , L"Green" ,L"Blue" , L"Violet" };
 
 typedef struct TagUIColors
 {

@@ -16,6 +16,58 @@
 const static wchar_t WA_Playback_Engine_SupportedFileString[] = L"All Supported Files\0";
 
 /// <summary>
+/// Set Active Output and Active Effect from Settings
+/// </summary>
+static void WA_Playback_Prepare_Output_Effect_From_Settings()
+{
+    WA_Effect* pEffect = NULL;
+    WA_Output* pOut = NULL;
+    bool bSkipOutput = false;
+    bool bSkipEffect = false;
+
+    for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
+    {
+
+        switch (Plugins.pPluginList[i].uPluginType)
+        {
+        case WA_PLUGINTYPE_OUTPUT:
+        {
+            if (bSkipOutput) continue;
+
+            pOut = (WA_Output*) Plugins.pPluginList[i].hVTable;
+
+            // As Default setting use first Output if pActiveOutputDescr is not set or is invalid
+            if(!Globals2.pOutput)
+                Globals2.pOutput = pOut;
+
+            if (wcscmp(Settings2.pActiveOutputDescr, pOut->Header.lpwDescription) == 0)
+            {
+                bSkipOutput = true;
+                Globals2.pOutput = pOut;
+            }
+
+            break;
+        }
+        case WA_PLUGINTYPE_DSP:
+        {
+            if (bSkipEffect) continue;
+
+            pEffect = (WA_Effect*)Plugins.pPluginList[i].hVTable;
+
+            if (wcscmp(Settings2.pActiveEffectDescr, pEffect->Header.lpwDescription) == 0)
+            {
+                bSkipEffect = true;
+                Globals2.pEffect = pEffect;
+            }
+
+            break;
+        }
+        }
+    }
+
+}
+
+/// <summary>
 /// Return a Pointer to a WA_Input Plugin that supports input file or return NULL on fail
 /// </summary>
 /// <param name="lpwPath">Local path of file</param>
@@ -30,9 +82,15 @@ WA_Input* WA_Playback_Engine_Find_Decoder(const wchar_t* lpwPath)
 
     for (uint32_t i = 0U; i < Plugins.uPluginsCount; i++)
     {
+      
         if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_INPUT)
         {
             pIn = (WA_Input*)Plugins.pPluginList[i].hVTable;
+
+            // Skip Inactive Plugins
+            if (!pIn->Header.bActive)
+                continue;
+
             lpwPluginExtension = pIn->lpwFilterExtensions;
 
             if (wcsstr(lpwPluginExtension, lpwExtension))
@@ -92,12 +150,22 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
     Globals2.pInput = pIn;
 
     // Get Active Output and DSP
+    WA_Playback_Prepare_Output_Effect_From_Settings();
     pOut = Globals2.pOutput;
     pEffect = Globals2.pEffect;
 
     // Assign Plugins to Output
     pOut->pIn = pIn;
     pOut->pEffect = pEffect;
+
+    if (pEffect)
+    {
+        pOut->WA_Output_Enable_Process_DSP(pOut, true);
+    }
+    else
+    {
+        pOut->WA_Output_Enable_Process_DSP(pOut, false);
+    }
 
 
 
@@ -110,6 +178,18 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
         MessageBox(Globals2.hMainWindow, L"Cannot open Output", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
         return false;
     }
+
+    // Update Active Effect WFX
+    if (pEffect)
+    {
+        WA_AudioFormat Format;
+
+        if (pIn->WA_Input_GetFormat(pIn, &Format) == WA_OK)      
+            pEffect->WA_Effect_UpdateFormat(pEffect, &Format);
+       
+        
+    }
+       
 
     Globals2.bFileIsOpen = true;
     Globals2.dwCurrentStatus = MW_STOPPED;
@@ -142,7 +222,7 @@ bool WA_Playback_Engine_CloseFile()
     
     // Close Plugins
     pOut->WA_Output_Close(pOut);
-    pIn->WA_Input_Close(pIn);
+    pIn->WA_Input_Close(pIn); 
     
     Globals2.bFileIsOpen = false;
     Globals2.dwCurrentStatus = MW_STOPPED;
@@ -515,16 +595,6 @@ bool WA_Playback_Engine_New(void)
     Globals2.pInput = NULL;
     Globals2.pOutput = NULL;
     Globals2.pEffect = NULL;
-
-    // Set first output plugin as Default (modified when loading settings)
-    for (uint32_t i = 0; i < Plugins.uPluginsCount; i++)
-    {
-        if (Plugins.pPluginList[i].uPluginType == WA_PLUGINTYPE_OUTPUT)
-        {
-            Globals2.pOutput = (WA_Output*)Plugins.pPluginList[i].hVTable;
-            break;
-        }
-    }
 
     return true;
 }

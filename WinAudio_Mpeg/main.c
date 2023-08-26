@@ -108,10 +108,16 @@ static uint32_t WA_Mpeg_ReadID3(mpg123_handle* hMpg123, WA_AudioMetadata* pMetad
 
 
 	// Check if "TAG" string is present in ID3v1 tags
-	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->tag, 3, pTempStr, WA_MPEG_TEMP_TAG_LEN);
 	bID3v1Found = false;
-	if (uConvertedChars > 0)
-		bID3v1Found = (wcscmp(pTempStr, L"TAG") == 0) ? true : false;
+
+	if (id3v1)
+	{
+		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v1->tag, 3, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+
+		if (uConvertedChars > 0)
+			bID3v1Found = (wcscmp(pTempStr, L"TAG") == 0) ? true : false;
+	}
+
 
 	if (bID3v1Found)
 	{
@@ -133,36 +139,42 @@ static uint32_t WA_Mpeg_ReadID3(mpg123_handle* hMpg123, WA_AudioMetadata* pMetad
 		return WA_OK;
 	}
 
-	// Find ID3v2
-	if (id3v2->artist)
+	if (id3v2)
 	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, (int) id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcsncpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+
+		// Find ID3v2
+		if (id3v2->artist)
+		{
+			uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->artist->p, (int)id3v2->artist->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+			if (uConvertedChars > 0)
+				wcsncpy_s(pMetadata->Artist, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+		}
+
+		if (id3v2->title)
+		{
+			uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, (int)id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+			if (uConvertedChars > 0)
+				wcsncpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+		}
+
+
+		if (id3v2->album)
+		{
+			uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, (int)id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+			if (uConvertedChars > 0)
+				wcsncpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+		}
+
+
+		if (id3v2->genre)
+		{
+			uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, (int)id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
+			if (uConvertedChars > 0)
+				wcsncpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
+		}
 	}
 
-	if (id3v2->title)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->title->p, (int) id3v2->title->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcsncpy_s(pMetadata->Title, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN -1);
-	}
 
-
-	if (id3v2->album)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->album->p, (int) id3v2->album->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcsncpy_s(pMetadata->Album, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
-	}
-
-
-	if (id3v2->genre)
-	{
-		uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, id3v2->genre->p, (int) id3v2->genre->fill, pTempStr, WA_MPEG_TEMP_TAG_LEN);
-		if (uConvertedChars > 0)
-			wcsncpy_s(pMetadata->Genre, WA_METADATA_MAX_LEN, pTempStr, WA_METADATA_MAX_LEN - 1);
-	}
 
 	return WA_OK;
 }

@@ -196,9 +196,7 @@ bool WA_Ini_Write_UInt32(WA_Ini* This, uint32_t uValue, wchar_t* Section, wchar_
 }
 
 bool WA_Ini_Write_String(WA_Ini* This, wchar_t* lpwBuffer, DWORD dwBufferSize, wchar_t* Section, wchar_t* Key)
-{
-	UNREFERENCED_PARAMETER(Section);
-
+{	
 	return (WritePrivateProfileString(Section, Key, lpwBuffer, This->lpwIniPath) > 0) ? true : false;
 }
 

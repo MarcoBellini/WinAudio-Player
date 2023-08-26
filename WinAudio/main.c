@@ -423,7 +423,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		HDC hdc = BeginPaint(hwnd, &ps);
 
 		// Fill Background with window color
-		FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
+		FillRect(hdc, &ps.rcPaint, ColorPolicy_Get_Background_Brush());
 
 		EndPaint(hwnd, &ps);
 
@@ -653,6 +653,12 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_TOOLBAR_NEXT:
         MainWindow_NextItem();
         break;
+    case WM_TOOLBAR_OPEN:
+
+        if (!MainWindow_AddFilesDialog(Globals2.hMainWindow))
+            MessageBox(Globals2.hMainWindow, L"Unable to Show File Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
+
+        break;
     case ID_PLAYLIST_DELETEALL:
         if (Globals2.pPlaylist)
         {
@@ -747,7 +753,7 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle)
     tbButtons[2].iString = (INT_PTR) L"Pause";
 
     tbButtons[3].iBitmap = MAKELONG(3, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[3].fsState = TBSTATE_ENABLED;
+    tbButtons[3].fsState = TBSTATE_ENABLED | TBSTATE_CHECKED;
     tbButtons[3].fsStyle = BTNS_BUTTON;
     tbButtons[3].idCommand = WM_TOOLBAR_STOP;
     tbButtons[3].iString = (INT_PTR) L"Stop";
@@ -2304,6 +2310,9 @@ void MainWindow_LoadSettings()
     Settings2.uCurrentVolume = WA_Ini_Read_UInt32(pIni, 255, L"Globals", L"CurrentVolume");
     Settings2.bSavePlaylistOnExit = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SavePlaylistOnExit");
 
+    WA_Ini_Read_String(pIni, Settings2.pActiveOutputDescr, MW_MAX_PLUGIN_DESC, L"", L"Globals", L"OutputPluginDescr");
+    WA_Ini_Read_String(pIni, Settings2.pActiveEffectDescr, MW_MAX_PLUGIN_DESC, L"", L"Globals", L"OutputEffectDescr");
+
     WA_Ini_Delete(pIni);  
 }
 
@@ -2320,6 +2329,9 @@ void MainWindow_SaveSettings()
     WA_Ini_Write_Bool(pIni, Settings2.bPlayNextItem, L"Globals", L"PlayNextItem");
     WA_Ini_Write_UInt32(pIni, Settings2.uCurrentVolume, L"Globals", L"CurrentVolume");
     WA_Ini_Write_Bool(pIni, Settings2.bSavePlaylistOnExit, L"Globals", L"SavePlaylistOnExit");
+
+    WA_Ini_Write_String(pIni, Settings2.pActiveOutputDescr, MW_MAX_PLUGIN_DESC, L"Globals", L"OutputPluginDescr");
+    WA_Ini_Write_String(pIni, Settings2.pActiveEffectDescr, MW_MAX_PLUGIN_DESC, L"Globals", L"OutputEffectDescr");
 
     WA_Ini_Delete(pIni);
 
