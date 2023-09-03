@@ -378,7 +378,7 @@ void MainWindow_StartMainLoop()
     MSG msg;
 
     while (GetMessage(&msg, NULL, 0, 0))
-    {
+    {    
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
@@ -629,8 +629,8 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case ID_FILE_CLOSE:
         DestroyWindow(Globals2.hMainWindow);
         break;
-    case ID_FILE_SETTINGS:        
-        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);
+    case ID_FILE_SETTINGS:   
+        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);     
         break;    
     case ID_PLAYBACK_PLAY:
         MainWindow_Play();

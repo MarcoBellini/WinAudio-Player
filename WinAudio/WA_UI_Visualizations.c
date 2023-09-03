@@ -127,11 +127,11 @@ static void WA_Visualizations_Bytes_To_Float(WA_Visualizations* This, int8_t* pB
 				break;
 			case 24:
 				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8) + 
-									(pByte[uIndex + 1] << 16)) / 8388607.0f;
+									(pByte[uIndex + 2] << 16)) / 8388607.0f;
 				break;
 			case 32:
 				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8) + 
-									(pByte[uIndex + 1] << 16) + (pByte[uIndex + 1] << 24)) / 2147483647.0f;				
+									(pByte[uIndex + 2] << 16) + (pByte[uIndex + 3] << 24)) / 2147483647.0f;				
 			}
 			
 

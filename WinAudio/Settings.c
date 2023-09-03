@@ -49,19 +49,23 @@ static void Settings_UpdateEffect(HWND hCombo)
     int nIndex;
     WA_Output* pOut;
     WA_Effect* pEffect;    
+    WA_Input* pIn;
+    WA_AudioFormat Format;
 
     pOut = Globals2.pOutput;
-
-    if (!pOut)
-        return;
 
     nIndex = ComboBox_GetCurSel(hCombo);
 
     if (nIndex == 0)
     {
-        pOut->WA_Output_Enable_Process_DSP(pOut, false);
-        pOut->pEffect = NULL;
-        Globals2.pEffect = NULL;        
+        if (pOut)
+        {
+            pOut->WA_Output_Enable_Process_DSP(pOut, false);
+            pOut->pEffect = NULL;
+        }
+
+        Globals2.pEffect = NULL;
+        Settings2.pActiveEffectDescr[0] = 0;
     }
     else
     {
@@ -76,10 +80,22 @@ static void Settings_UpdateEffect(HWND hCombo)
                 if (wcscmp(Settings2.pActiveEffectDescr, pEffect->Header.lpwDescription) == 0)
                 {
 
-                    pOut->WA_Output_Enable_Process_DSP(pOut, false);
-                    pOut->pEffect = pEffect;
+                    if (pOut)
+                    {
+                        pOut->WA_Output_Enable_Process_DSP(pOut, false);
+                        pOut->pEffect = pEffect;
+                    }
+
                     Globals2.pEffect = pEffect;
-                    pOut->WA_Output_Enable_Process_DSP(pOut, true);
+
+                    pIn = Globals2.pInput;
+
+                    if(pIn)
+                        if (pIn->WA_Input_GetFormat(pIn, &Format) == WA_OK)
+                            pEffect->WA_Effect_UpdateFormat(pEffect, &Format);
+
+                    if(pOut)
+                        pOut->WA_Output_Enable_Process_DSP(pOut, true);
 
                     break;
                 }
@@ -136,7 +152,7 @@ static void Settings_Configure_Plugin(HWND hCombo, uint16_t uPluginType)
             pOut->WA_Output_ConfigDialog(pOut, Globals2.hMainWindow);
             break;
         case WA_PLUGINTYPE_DSP:
-            pEffect = (WA_Output*)hModule;
+            pEffect = (WA_Effect*)hModule;
             pEffect->WA_Effect_ConfigDialog(pEffect, Globals2.hMainWindow);
             break;
 
@@ -212,6 +228,7 @@ INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
         HWND hColorCombo;        
         HWND hPluginCombo;
         WA_PluginHeader* pHeader;
+        uint32_t uDspCount = 0U;
 
         // Fill Theme Color Section
         hColorCombo = GetDlgItem(hwndDlg, IDC_THEME_COMBO);
@@ -226,6 +243,11 @@ INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
         ComboBox_SetCurSel(hColorCombo, (DWORD) Settings2.CurrentTheme);
 
         // Fill Plugins section
+        // Add "None" element on Effects combo
+        hPluginCombo = GetDlgItem(hwndDlg, IDC_EFFECT_COMBO);
+        ComboBox_AddString(hPluginCombo, L"(None)");
+        ComboBox_SetCurSel(hPluginCombo, 0);
+
         for (uint32_t i = 0; i < Plugins.uPluginsCount; i++)
         {
             pHeader = (WA_PluginHeader*)Plugins.pPluginList[i].hVTable;
@@ -246,15 +268,10 @@ INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
                 hPluginCombo = GetDlgItem(hwndDlg, IDC_EFFECT_COMBO);
                 wcscpy_s(PluginName, MW_MAX_PLUGIN_DESC, pHeader->lpwDescription);
                 ComboBox_AddString(hPluginCombo, PluginName);
+                uDspCount++;
                 break;
             }
         }
-
-        // Add "None" element on Effects combo
-        hPluginCombo = GetDlgItem(hwndDlg, IDC_EFFECT_COMBO);
-        ComboBox_AddString(hPluginCombo, L"(None)");
-        ComboBox_SetCurSel(hPluginCombo, 0);
-
 
         hPluginCombo = GetDlgItem(hwndDlg, IDC_OUTPUT_COMBO);
         ComboBox_SelectString(hPluginCombo, -1, Settings2.pActiveOutputDescr);
@@ -262,9 +279,11 @@ INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
         hPluginCombo = GetDlgItem(hwndDlg, IDC_INPUT_COMBO);
         ComboBox_SetCueBannerText(hPluginCombo, L"Select and Configure...");
 
-
-        hPluginCombo = GetDlgItem(hwndDlg, IDC_EFFECT_COMBO);
-        ComboBox_SelectString(hPluginCombo, -1, Settings2.pActiveEffectDescr);
+        if ((uDspCount > 0) && wcslen(Settings2.pActiveEffectDescr))
+        {            
+            hPluginCombo = GetDlgItem(hwndDlg, IDC_EFFECT_COMBO);
+            ComboBox_SelectString(hPluginCombo, -1, Settings2.pActiveEffectDescr);
+        }
 
 
         if (Settings2.CurrentMode == Light)       

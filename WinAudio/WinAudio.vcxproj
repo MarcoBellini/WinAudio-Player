@@ -172,7 +172,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="biquad.c" />
     <ClCompile Include="CircleBuffer.c" />
     <ClCompile Include="WA_DSP_Effect.c" />
     <ClCompile Include="WA_GEN_INI.c" />
@@ -197,7 +196,6 @@
     <ClCompile Include="WA_UI_Visualizations.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="biquad.h" />
     <ClInclude Include="CircleBuffer.h" />
     <ClInclude Include="Globals2.h" />
     <ClInclude Include="WA_DSP_Effect.h" />

@@ -184,8 +184,10 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
     {
         WA_AudioFormat Format;
 
-        if (pIn->WA_Input_GetFormat(pIn, &Format) == WA_OK)      
+        if (pIn->WA_Input_GetFormat(pIn, &Format) == WA_OK)
             pEffect->WA_Effect_UpdateFormat(pEffect, &Format);
+        else
+            pOut->WA_Output_Enable_Process_DSP(pOut, false); // Disable DSP on Error
        
         
     }

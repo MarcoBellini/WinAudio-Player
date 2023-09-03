@@ -1305,9 +1305,17 @@ uint32_t WA_Wasapi_Enable_DSP(WA_Output* This, bool bEnable)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
 
-	EnterCriticalSection(&pInstance->CriticalSection);
-	pInstance->bEnableDSP = bEnable;
-	LeaveCriticalSection(&pInstance->CriticalSection);
+	// If Device == Close CriticalSection is invalid
+	if (pInstance->bDeviceIsOpen)
+	{
+		EnterCriticalSection(&pInstance->CriticalSection);
+		pInstance->bEnableDSP = bEnable;
+		LeaveCriticalSection(&pInstance->CriticalSection);
+	}
+	else
+	{
+		pInstance->bEnableDSP = bEnable;
+	}
 
 	return WA_OK;
 }

@@ -30,9 +30,6 @@
     <ClCompile Include="WA_UI_Visualizations.c">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="biquad.c">
-      <Filter>File di origine</Filter>
-    </ClCompile>
     <ClCompile Include="Settings.c">
       <Filter>File di origine</Filter>
     </ClCompile>
@@ -102,9 +99,6 @@
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="d2d1_586.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
-    <ClInclude Include="biquad.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="WA_UI_DarkMode.h">
