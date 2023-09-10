@@ -174,7 +174,6 @@
   <ItemGroup>
     <ClCompile Include="CircleBuffer.c" />
     <ClCompile Include="WA_DSP_Effect.c" />
-    <ClCompile Include="WA_GEN_INI.c" />
     <ClCompile Include="WA_GEN_Messages.c" />
     <ClCompile Include="WA_GEN_Playlist.c" />
     <ClCompile Include="WA_GEN_PluginLoader.c" />
@@ -199,7 +198,6 @@
     <ClInclude Include="CircleBuffer.h" />
     <ClInclude Include="Globals2.h" />
     <ClInclude Include="WA_DSP_Effect.h" />
-    <ClInclude Include="WA_GEN_INI.h" />
     <ClInclude Include="WA_GEN_Messages.h" />
     <ClInclude Include="WA_GEN_Playlist.h" />
     <ClInclude Include="WA_GEN_PluginLoader.h" />
@@ -232,6 +230,11 @@
     <Image Include="..\Icons\play.ico" />
     <Image Include="..\Icons\previous.ico" />
     <Image Include="..\Icons\stop.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WInAudio_SharedFunc\WInAudio_SharedFunc.vcxproj">
+      <Project>{029c7d78-9039-4635-8fce-9b813a650d87}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

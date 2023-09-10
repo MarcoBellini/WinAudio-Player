@@ -43,7 +43,7 @@ struct TagWA_Output
 	// bEnable = false -> Disable Output to Call DSP Process() function
 	// bEnable = true -> Enable Output to Call DSP Process() function
 	 
-	void (*WA_Output_ConfigDialog)(WA_Input* This, HWND hParent); // Show Plugin Configuration Dialog
+	void (*WA_Output_ConfigDialog)(WA_Output* This, HWND hParent); // Show Plugin Configuration Dialog
 
 	HCOOKIE hPluginData;			// Store Plugin Private Data Here
 };

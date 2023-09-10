@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>

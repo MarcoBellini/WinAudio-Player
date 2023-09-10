@@ -8,6 +8,7 @@
 #include <math.h>
 #include <commctrl.h>
 #include <wchar.h>
+#include <stdlib.h>
 
 
 #define _CRTDBG_MAP_ALLOC

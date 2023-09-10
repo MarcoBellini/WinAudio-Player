@@ -4,9 +4,25 @@
 #include "Globals.h"
 
 
+
+static void WA_EQ_Gain_To_Trackbar(HWND hTrackbar, float fGain)
+{
+    float fValue;
+    int32_t nPosition;
+
+    // Convert Scales
+    fValue = ((float)(fGain - WA_EQ_GAIN_MIN) / (WA_EQ_GAIN_MAX - WA_EQ_GAIN_MIN)) * (WA_EQ_LOGIC_GAIN_MAX - WA_EQ_LOGIC_GAIN_MIN) + WA_EQ_LOGIC_GAIN_MIN;
+
+    // Invert Values
+    nPosition = (WA_EQ_LOGIC_GAIN_MAX - (int32_t) fValue);
+
+    SendMessage(hTrackbar, TBM_SETPOS, TRUE, nPosition);
+}
+
 static void WA_EQ_PrepareUI(HWND hwndDlg)
 {
-    
+    wchar_t Buffer[10];
+
     // Init Trackbars
     for (int32_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
     {
@@ -15,12 +31,19 @@ static void WA_EQ_PrepareUI(HWND hwndDlg)
 
         SendMessage(hTrack, TBM_SETRANGEMIN, FALSE, WA_EQ_LOGIC_GAIN_MIN);
         SendMessage(hTrack, TBM_SETRANGEMAX, FALSE, WA_EQ_LOGIC_GAIN_MAX);
-        SendMessage(hTrack, TBM_SETPOS, TRUE, WA_EQ_LOGIC_GAIN_MID);
 
-        SetWindowText(hEdit, L"2.0\0");
+        WA_EQ_Gain_To_Trackbar(hTrack, UI.Gain[i]);
+
+        if (swprintf(Buffer, 10, L"%.1f", UI.Q[i]) > 0)
+            SetWindowText(hEdit, Buffer);
+        else
+            SetWindowText(hEdit, L"1.0");
+
+
+        CheckDlgButton(hwndDlg, IDC_ENABLE_EQ, UI.bEnableEq ? BST_CHECKED : BST_UNCHECKED);
+                
 
     }
-
 
 }
 
@@ -35,6 +58,7 @@ static float WA_EQ_Trackbar_To_Gain(HWND hTrackbar)
     // Invert Values
     nPosition = (WA_EQ_LOGIC_GAIN_MAX - nPosition);
 
+    // Convert Scales
     fValue = ((float)(nPosition - WA_EQ_LOGIC_GAIN_MIN) / (WA_EQ_LOGIC_GAIN_MAX - WA_EQ_LOGIC_GAIN_MIN)) * (WA_EQ_GAIN_MAX - WA_EQ_GAIN_MIN) + WA_EQ_GAIN_MIN;
 
     return fValue;
@@ -136,6 +160,9 @@ static BOOL Settings_Handle_WM_Command(HWND hDialog, WORD ControlID, WORD Messag
         case IDOK:
             EndDialog(hDialog, 0);
             return TRUE;
+        case IDC_ENABLE_EQ:
+            UI.bEnableEq = IsDlgButtonChecked(hDialog, IDC_ENABLE_EQ) ? true : false;
+            return TRUE;
         }
 
     }
@@ -159,11 +186,14 @@ INT_PTR CALLBACK DialogEQProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
     {
         NMHDR* pHdr = (NMHDR*)lParam;
 
+#pragma warning(push)
+#pragma warning(disable : 26454)
         if (pHdr->code & (UINT) NM_RELEASEDCAPTURE)
         {
-            WA_EQ_UpdateGain((UINT) pHdr->idFrom, (UINT) pHdr->hwndFrom);
-            return TRUE;
+            WA_EQ_UpdateGain((UINT) pHdr->idFrom, pHdr->hwndFrom);
+            return TRUE;        
         }
+#pragma warning(pop)
 
         break;
     }

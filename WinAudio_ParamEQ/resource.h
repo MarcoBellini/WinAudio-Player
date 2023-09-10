@@ -21,14 +21,6 @@
 #define IDC_EDIT_Q8                     1017
 #define IDC_ENABLE_EQ                   1018
 #define IDC_LABEL_GAIN1                 1019
-#define IDC_LABEL_GAIN2                 1020
-#define IDC_LABEL_GAIN3                 1021
-#define IDC_LABEL_GAIN4                 1022
-#define IDC_LABEL_GAIN5                 1023
-#define IDC_LABEL_GAIN6                 1024
-#define IDC_LABEL_GAIN7                 1025
-#define IDC_LABEL_GAIN8                 1026
-#define IDC_SPIN1                       1027
 
 // Next default values for new objects
 // 

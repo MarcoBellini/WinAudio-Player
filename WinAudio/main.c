@@ -16,7 +16,7 @@
 #include "WA_GEN_PluginLoader.h"
 #include "WA_GEN_Playback_Engine.h"
 #include "WA_GEN_Playlist.h"
-#include "WA_GEN_INI.h"
+#include "..\WInAudio_SharedFunc\WA_GEN_INI.h"
 #include "WA_UI_Visualizations.h"
 #include "Globals2.h"
 

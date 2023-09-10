@@ -29,7 +29,7 @@ uint32_t WA_Wasapi_Get_Volume(WA_Output* This, uint8_t* puVolume);
 uint32_t WA_Wasapi_Get_BufferData(WA_Output* This, int8_t* pBuffer, uint32_t uBufferLen);
 
 uint32_t WA_Wasapi_Enable_DSP(WA_Output* This, bool bEnable);
-void WA_Wasapi_ConfigDialog(WA_Input* This, HWND hParent);
+void WA_Wasapi_ConfigDialog(WA_Output* This, HWND hParent);
 
 
 // Local Functions
@@ -1320,7 +1320,7 @@ uint32_t WA_Wasapi_Enable_DSP(WA_Output* This, bool bEnable)
 	return WA_OK;
 }
 
-void WA_Wasapi_ConfigDialog(WA_Input* This, HWND hParent)
+void WA_Wasapi_ConfigDialog(WA_Output* This, HWND hParent)
 {
 	WA_WasapiInstance* pInstance = (WA_WasapiInstance*)This->hPluginData;
 

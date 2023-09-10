@@ -3,6 +3,8 @@
 #include "WA_Biquad.h"
 #include "resource.h"
 #include "Globals.h"
+#include "..\WInAudio_SharedFunc\WA_GEN_INI.h"
+
 
 
 
@@ -179,24 +181,46 @@ EXPORTS WA_HMODULE* WA_Plugin_GetHeader(void)
 bool WA_ParamEQ_New(WA_Effect* This)
 {
 	WA_ParamEQ_Intance* pInstance;
+	WA_Ini* pIni;
+	wchar_t Buffer[32];
 
 	pInstance = (WA_ParamEQ_Intance*)malloc(sizeof(WA_ParamEQ_Intance));
 
 	if (!pInstance)
 		return false;	
 
-	for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
-	{
-		pInstance->BiquadArray[i] = WA_Biquad_New();
-		pInstance->Gain[i] = 0.0f;
-		pInstance->Q[i] = 1.0f;
+	pIni = WA_Ini_New();
 
-		UI.Gain[i] = 0.0f;
-		UI.Q[i] = 1.0f;
-		UI.bEnableEq = true;
+	if (!pIni)
+	{
+		free(pInstance);
+		return WA_ERROR_MALLOCERROR;
 	}
 
+	for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
+	{
+		ZeroMemory(Buffer, sizeof(Buffer));
+
+		pInstance->BiquadArray[i] = WA_Biquad_New();
+
+		swprintf_s(Buffer, 32, L"Gain_%d\0", i);
+		pInstance->Gain[i] = WA_Ini_Read_Float(pIni, WA_EQ_STD_GAIN, WA_EQ_INI_SECTION, Buffer);
+
+		swprintf_s(Buffer, 32, L"Q_%d\0", i);
+		pInstance->Q[i] = WA_Ini_Read_Float(pIni, WA_EQ_STD_Q, WA_EQ_INI_SECTION, Buffer);
+
+
+		UI.Gain[i] = pInstance->Gain[i];
+		UI.Q[i] = pInstance->Q[i];
+		
+	}
+
+	pInstance->bEnableEq = WA_Ini_Read_Bool(pIni, false, WA_EQ_INI_SECTION, L"EnableEq");
+	UI.bEnableEq = pInstance->bEnableEq;
+
 	This->hPluginData = (HCOOKIE)pInstance;
+
+	WA_Ini_Delete(pIni);
 
 	return true;
 }
@@ -204,17 +228,40 @@ bool WA_ParamEQ_New(WA_Effect* This)
 void WA_ParamEQ_Delete(WA_Effect* This)
 {
 	WA_ParamEQ_Intance* pInstance = (WA_ParamEQ_Intance*) This->hPluginData;
+	wchar_t Buffer[32];
+	WA_Ini* pIni;
+
+	pIni = WA_Ini_New();
 
 	for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
 	{
+
+		if (pIni)
+		{
+			ZeroMemory(Buffer, sizeof(Buffer));
+
+			swprintf_s(Buffer, 32, L"Gain_%d\0", i);
+			WA_Ini_Write_Float(pIni, pInstance->Gain[i], WA_EQ_INI_SECTION, Buffer);
+
+			swprintf_s(Buffer, 32, L"Q_%d\0", i);
+			WA_Ini_Write_Float(pIni, pInstance->Q[i], WA_EQ_INI_SECTION, Buffer);
+		}	
+
+
 		WA_Biquad_Delete(pInstance->BiquadArray[i]);
 		pInstance->BiquadArray[i] = NULL;
+	}
+
+	if (pIni)
+	{
+		WA_Ini_Write_Bool(pIni, pInstance->bEnableEq, WA_EQ_INI_SECTION, L"EnableEq");
+		WA_Ini_Delete(pIni);
 	}
 
 	if (pInstance)
 		free(pInstance);
 
-	pInstance = NULL;
+	pInstance = NULL;	
 
 }
 
@@ -239,10 +286,10 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 	uint32_t uFloatLen;
 	float* pFloat;
 
+
 	// Update Biquad on Differences
 	for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
 	{
-
 		if ((pInstance->Gain[i] != UI.Gain[i]) ||
 			(pInstance->Q[i] != UI.Q[i]))
 		{
@@ -252,14 +299,22 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 			WA_Biquad_Update(pInstance->BiquadArray[i], PEAK, WA_EQ_Freq_Array[i], pInstance->Q[i], pInstance->Gain[i], pInstance->Format.uSamplerate);
 
 		}
+	}
 
-	}	
+	pInstance->bEnableEq = UI.bEnableEq;
+
+
+	if (!pInstance->bEnableEq)
+	{
+		(*puProcessedBytes) = uBufferLen;
+		return WA_OK;
+	}
+		
 
 	pFloat = WA_ParamEQ_AllocFloat(This, uBufferLen, &uFloatLen);
 
 	if (!pFloat)
 		return WA_ERROR_MALLOCERROR;
-
 	
 	WA_ParamEQ_Bytes_To_Float(This, pBuffer, uBufferLen, pFloat, uFloatLen);
 
@@ -271,8 +326,7 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 
 	WA_ParamEQ_Float_To_Bytes(This, pFloat, uFloatLen, pBuffer, uBufferLen);
 
-	WA_ParamEQ_FreeFloat(This, pFloat);
-		
+	WA_ParamEQ_FreeFloat(This, pFloat);		
 
 	(*puProcessedBytes) = uBufferLen;
 
@@ -285,7 +339,6 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 void WA_ParamEQ_ConfigDialog(WA_Effect* This, HWND hParent)
 {
 	WA_ParamEQ_Intance* pInstance = (WA_ParamEQ_Intance*)This->hPluginData;
-	HWND hDialog;
 
 	DialogBox(GetCurrentModuleHandle(), MAKEINTRESOURCE(IDD_EQ_DIALOG), hParent, DialogEQProc);
 	//ShowWindow(hDialog, SW_SHOW);

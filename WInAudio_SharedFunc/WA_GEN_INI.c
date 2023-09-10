@@ -1,6 +1,7 @@
 
-#include "stdafx.h"
+#include "pch.h"
 #include "WA_GEN_INI.h"
+
 
 struct TagWA_Ini
 {
@@ -107,7 +108,7 @@ uint8_t WA_Ini_Read_UInt8(WA_Ini* This, uint8_t Default, wchar_t* Section, wchar
 }
 
 
-uint16_t WA_Ini_Read_UInt16(WA_Ini* This, uint32_t Default, wchar_t* Section, wchar_t* Key)
+uint16_t WA_Ini_Read_UInt16(WA_Ini* This, uint16_t Default, wchar_t* Section, wchar_t* Key)
 {
 	return (uint16_t)GetPrivateProfileInt(Section, Key, (INT)Default, This->lpwIniPath);
 }
@@ -116,6 +117,25 @@ uint16_t WA_Ini_Read_UInt16(WA_Ini* This, uint32_t Default, wchar_t* Section, wc
 uint32_t WA_Ini_Read_UInt32(WA_Ini* This, uint32_t Default, wchar_t* Section, wchar_t* Key)
 {
 	return (uint32_t)GetPrivateProfileInt(Section, Key, (INT)Default, This->lpwIniPath);
+}
+
+float WA_Ini_Read_Float(WA_Ini* This, float Default, wchar_t* Section, wchar_t* Key)
+{
+	wchar_t Buffer[32];
+	wchar_t* pEnd;
+	float fValue;
+
+	ZeroMemory(Buffer, sizeof(Buffer));
+
+	if (!WA_Ini_Read_String(This, Buffer, 32, L"\0", Section, Key))
+		return Default;
+
+	if (Buffer[0] == L'\0')
+		return Default;
+
+	fValue = wcstof(Buffer, &pEnd);
+
+	return fValue;
 }
 
 
@@ -177,7 +197,7 @@ bool WA_Ini_Write_UInt8(WA_Ini* This, uint8_t uValue, wchar_t* Section, wchar_t*
 	return (WritePrivateProfileString(Section, Key, Buffer, This->lpwIniPath) > 0) ? true : false;
 }
 
-bool WA_Ini_Write_UInt16(WA_Ini* This, uint32_t uValue, wchar_t* Section, wchar_t* Key)
+bool WA_Ini_Write_UInt16(WA_Ini* This, uint16_t uValue, wchar_t* Section, wchar_t* Key)
 {
 	wchar_t Buffer[6];
 
@@ -191,6 +211,15 @@ bool WA_Ini_Write_UInt32(WA_Ini* This, uint32_t uValue, wchar_t* Section, wchar_
 	wchar_t Buffer[11];
 
 	swprintf_s(Buffer, 11, L"%u\0", uValue);
+
+	return (WritePrivateProfileString(Section, Key, Buffer, This->lpwIniPath) > 0) ? true : false;
+}
+
+bool WA_Ini_Write_Float(WA_Ini* This, float uValue, wchar_t* Section, wchar_t* Key)
+{
+	wchar_t Buffer[32];
+
+	swprintf_s(Buffer, 32, L"%f\0", uValue);
 
 	return (WritePrivateProfileString(Section, Key, Buffer, This->lpwIniPath) > 0) ? true : false;
 }
