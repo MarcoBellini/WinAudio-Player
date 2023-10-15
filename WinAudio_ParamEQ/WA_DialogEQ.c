@@ -5,13 +5,13 @@
 
 
 
-static void WA_EQ_Gain_To_Trackbar(HWND hTrackbar, float fGain)
+static void WA_EQ_Gain_To_Trackbar(HWND hTrackbar, double fGain)
 {
-    float fValue;
+    double fValue;
     int32_t nPosition;
 
     // Convert Scales
-    fValue = ((float)(fGain - WA_EQ_GAIN_MIN) / (WA_EQ_GAIN_MAX - WA_EQ_GAIN_MIN)) * (WA_EQ_LOGIC_GAIN_MAX - WA_EQ_LOGIC_GAIN_MIN) + WA_EQ_LOGIC_GAIN_MIN;
+    fValue = ((double)(fGain - WA_EQ_GAIN_MIN) / (WA_EQ_GAIN_MAX - WA_EQ_GAIN_MIN)) * (WA_EQ_LOGIC_GAIN_MAX - WA_EQ_LOGIC_GAIN_MIN) + WA_EQ_LOGIC_GAIN_MIN;
 
     // Invert Values
     nPosition = (WA_EQ_LOGIC_GAIN_MAX - (int32_t) fValue);
@@ -22,6 +22,7 @@ static void WA_EQ_Gain_To_Trackbar(HWND hTrackbar, float fGain)
 static void WA_EQ_PrepareUI(HWND hwndDlg)
 {
     wchar_t Buffer[10];
+    HWND hVolumeTrack;
 
     // Init Trackbars
     for (int32_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
@@ -37,20 +38,27 @@ static void WA_EQ_PrepareUI(HWND hwndDlg)
         if (swprintf(Buffer, 10, L"%.1f", UI.Q[i]) > 0)
             SetWindowText(hEdit, Buffer);
         else
-            SetWindowText(hEdit, L"1.0");
-
-
-        CheckDlgButton(hwndDlg, IDC_ENABLE_EQ, UI.bEnableEq ? BST_CHECKED : BST_UNCHECKED);
-                
+            SetWindowText(hEdit, L"1.0");                  
 
     }
+
+    CheckDlgButton(hwndDlg, IDC_ENABLE_EQ, UI.bEnableEq ? BST_CHECKED : BST_UNCHECKED);
+
+    hVolumeTrack = GetDlgItem(hwndDlg, IDC_VOLUME_SLIDER);
+
+    SendMessage(hVolumeTrack, TBM_SETRANGEMIN, FALSE, 1);
+    SendMessage(hVolumeTrack, TBM_SETRANGEMAX, FALSE, 20);
+
+    SendMessage(hVolumeTrack, TBM_SETPOS, TRUE, (uint32_t) UI.fVolumeMult);
+
+    CheckDlgButton(hwndDlg, IDC_ENABLE_BOOST, UI.bEnableBoost? BST_CHECKED : BST_UNCHECKED);
 
 }
 
 
-static float WA_EQ_Trackbar_To_Gain(HWND hTrackbar)
+static double WA_EQ_Trackbar_To_Gain(HWND hTrackbar)
 {
-    float fValue;
+    double fValue;
     int32_t nPosition;
 
     nPosition = (int32_t) SendMessage(hTrackbar, TBM_GETPOS, 0, 0);
@@ -64,20 +72,20 @@ static float WA_EQ_Trackbar_To_Gain(HWND hTrackbar)
     return fValue;
 }
 
-static float WA_EQ_WChar_To_Float(HWND hEdit)
+static double WA_EQ_WChar_To_Double(HWND hEdit)
 {
     wchar_t Buffer[10];
     wchar_t* pEnd;
 
-    float fValue = 1.0f;
+    double fValue = 1.0;
 
     if (GetWindowText(hEdit, Buffer, 10))
     {
-        fValue = wcstof(Buffer, &pEnd);
+        fValue = wcstod(Buffer, &pEnd);
     }
 
-    fValue = max(0.1f, fValue);
-    fValue = min(5.0f, fValue);
+    fValue = max(0.1, fValue);
+    fValue = min(5.0, fValue);
 
     return fValue;
 }
@@ -109,6 +117,9 @@ static void WA_EQ_UpdateGain(UINT Id, HWND hTrackbar)
         break;
     case IDC_GAIN8:
         UI.Gain[7] = WA_EQ_Trackbar_To_Gain(hTrackbar);
+        break;
+    case IDC_VOLUME_SLIDER:
+        UI.fVolumeMult = (double)SendMessage(hTrackbar, TBM_GETPOS, 0, 0);
 
     }
 
@@ -119,28 +130,28 @@ static void WA_EQ_UpdateQ(UINT Id, HWND hEdit)
     switch (Id)
     {
     case IDC_EDIT_Q1:
-        UI.Q[0] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[0] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q2:
-        UI.Q[1] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[1] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q3:
-        UI.Q[2] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[2] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q4:
-        UI.Q[3] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[3] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q5:
-        UI.Q[4] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[4] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q6:
-        UI.Q[5] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[5] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q7:
-        UI.Q[6] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[6] = WA_EQ_WChar_To_Double(hEdit);
         break;
     case IDC_EDIT_Q8:
-        UI.Q[7] = WA_EQ_WChar_To_Float(hEdit);
+        UI.Q[7] = WA_EQ_WChar_To_Double(hEdit);
 
     }
 
@@ -162,6 +173,9 @@ static BOOL Settings_Handle_WM_Command(HWND hDialog, WORD ControlID, WORD Messag
             return TRUE;
         case IDC_ENABLE_EQ:
             UI.bEnableEq = IsDlgButtonChecked(hDialog, IDC_ENABLE_EQ) ? true : false;
+            return TRUE;
+        case IDC_ENABLE_BOOST:
+            UI.bEnableBoost = IsDlgButtonChecked(hDialog, IDC_ENABLE_BOOST) ? true : false;
             return TRUE;
         }
 

@@ -20,7 +20,9 @@
 #define IDC_EDIT_Q7                     1016
 #define IDC_EDIT_Q8                     1017
 #define IDC_ENABLE_EQ                   1018
-#define IDC_LABEL_GAIN1                 1019
+#define IDC_ENABLE_EQ2                  1019
+#define IDC_ENABLE_BOOST                1019
+#define IDC_VOLUME_SLIDER               1028
 
 // Next default values for new objects
 // 
@@ -28,7 +30,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        103
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1028
+#define _APS_NEXT_CONTROL_VALUE         1029
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
