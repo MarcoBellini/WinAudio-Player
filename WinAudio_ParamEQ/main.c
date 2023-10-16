@@ -286,12 +286,14 @@ void WA_ParamEQ_Delete(WA_Effect* This)
 uint32_t WA_ParamEQ_UpdateFormat(WA_Effect* This, const WA_AudioFormat* pAudioFormat)
 {
 	WA_ParamEQ_Intance* pInstance = (WA_ParamEQ_Intance*)This->hPluginData;
+	double Nyquist = pAudioFormat->uSamplerate / 2.0;
 
 	memcpy(&pInstance->Format, pAudioFormat, sizeof(WA_AudioFormat));
 
 	for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
 	{
-		WA_Biquad_Update(pInstance->BiquadArray[i], PEAK, WA_EQ_Freq_Array[i], pInstance->Q[i], pInstance->Gain[i], pAudioFormat->uSamplerate);
+		if(WA_EQ_Freq_Array[i] <= Nyquist)
+			WA_Biquad_Update(pInstance->BiquadArray[i], PEAK, WA_EQ_Freq_Array[i], pInstance->Q[i], pInstance->Gain[i], pAudioFormat->uSamplerate);
 	}
 
 	WA_Volume_Boost_Update(pInstance->pBoost, pAudioFormat->uAvgBytesPerSec, pAudioFormat->uChannels, pInstance->fVolumeMult);
@@ -305,7 +307,7 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 	WA_ParamEQ_Intance* pInstance = (WA_ParamEQ_Intance*)This->hPluginData;
 	uint32_t uDoubleLen;
 	double* pDouble;
-
+	double Nyquist = pInstance->Format.uSamplerate / 2.0;
 
 	// Update Biquad on Differences
 	for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
@@ -316,7 +318,8 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 			pInstance->Gain[i] = UI.Gain[i];
 			pInstance->Q[i] = UI.Q[i];
 
-			WA_Biquad_Update(pInstance->BiquadArray[i], PEAK, WA_EQ_Freq_Array[i], pInstance->Q[i], pInstance->Gain[i], pInstance->Format.uSamplerate);
+			if (WA_EQ_Freq_Array[i] <= Nyquist)
+				WA_Biquad_Update(pInstance->BiquadArray[i], PEAK, WA_EQ_Freq_Array[i], pInstance->Q[i], pInstance->Gain[i], pInstance->Format.uSamplerate);
 
 		}
 	}
@@ -358,7 +361,8 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 	{
 		for (uint16_t i = 0U; i < WA_BIQUAD_ARRAY; i++)
 		{
-			WA_Biquad_Process(pInstance->BiquadArray[i], pDouble, uDoubleLen, pInstance->Format.uChannels);
+			if (WA_EQ_Freq_Array[i] <= Nyquist)
+				WA_Biquad_Process(pInstance->BiquadArray[i], pDouble, uDoubleLen, pInstance->Format.uChannels);
 		}
 	}	
 

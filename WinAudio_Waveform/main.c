@@ -359,7 +359,7 @@ uint32_t WA_Sndlib_Read(WA_Input* This, int8_t* pBuffer, uint32_t uBufferLen, ui
 			int16_t Val = (int16_t) (Temp[i] >> 16);
 
 			memcpy(pBuffer + uIndex, &Val, sizeof(int16_t));
-			uIndex += 2;
+			uIndex += 2U;
 			break;
 		}
 		case 24:
@@ -367,7 +367,7 @@ uint32_t WA_Sndlib_Read(WA_Input* This, int8_t* pBuffer, uint32_t uBufferLen, ui
 			int32_t Val = (int32_t)(Temp[i] >> 8);
 
 			memcpy(pBuffer + uIndex, &Val, 3);
-			uIndex += 3;
+			uIndex += 3U;
 			break;
 		}
 		case 32:
@@ -375,7 +375,7 @@ uint32_t WA_Sndlib_Read(WA_Input* This, int8_t* pBuffer, uint32_t uBufferLen, ui
 			int32_t Val = (int32_t)(Temp[i]);
 
 			memcpy(pBuffer + uIndex, &Val, sizeof(int32_t));
-			uIndex += 4;
+			uIndex += 4U;
 			break;
 		}
 		}
