@@ -708,8 +708,8 @@ uint32_t WA_Wasapi_Open(WA_Output* This, uint32_t* puBufferLatency)
 
 
 	// Create Input Stream WaveFormat and Store Locally
-	pWfx->Format.cbSize = 0;
-	pWfx->Format.wFormatTag = WAVE_FORMAT_PCM;
+	pWfx->Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+	pWfx->Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
 	pWfx->SubFormat = WASAPI_KSDATAFORMAT_SUBTYPE_PCM;
 	pWfx->Format.nSamplesPerSec = (DWORD)WAFormat.uSamplerate;
 

@@ -111,12 +111,55 @@ static uint32_t WA_Sndlib_ReadFormat(SF_INFO* Info, WA_AudioFormat* pFormat)
 		pFormat->uBitsPerSample = 32;
 		pFormat->uSampleType = WA_SIGNED_SAMPLE;
 		break;
+	case SF_FORMAT_FLOAT:
+		pFormat->uBitsPerSample = 32;
+		pFormat->uSampleType = WA_SIGNED_SAMPLE;
+		break;
 	default:
 		return WA_ERROR_FILENOTSUPPORTED;
 	}
 
 	pFormat->uBlockAlign = (pFormat->uBitsPerSample / 8) * pFormat->uChannels;
 	pFormat->uAvgBytesPerSec = pFormat->uSamplerate * pFormat->uBlockAlign;
+
+
+
+	/*
+		Prepare Channel Mask on (Channels > 2)
+	    see https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653308(v=vs.85)?redirectedfrom=MSDN
+
+		Channel Order:
+	
+		Front Left - FL
+		Front Right - FR
+		Front Center - FC
+		Low Frequency - LF
+		Back Left - BL
+		Back Right - BR
+		Front Left of Center - FLC
+		Front Right of Center - FRC
+		Back Center - BC
+		Side Left - SL
+		Side Right - SR
+		Top Center - TC
+		Top Front Left - TFL
+		Top Front Center - TFC
+		Top Front Right - TFR
+		Top Back Left - TBL
+		Top Back Center - TBC
+		Top Back Right - TBR	
+	*/
+
+	pFormat->dwChannelMask = 0;
+
+	if ((pFormat->uChannels > 2) && (pFormat->uChannels <= 18))
+	{		
+
+		for (uint32_t i = 0U; i < pFormat->uChannels; i++)
+		{			
+			pFormat->dwChannelMask |= (uint64_t) 1 << i;
+		}
+	}
 
 	return WA_OK;
 }
@@ -222,7 +265,15 @@ uint32_t WA_Sndlib_Open(WA_Input* This, const wchar_t* lpwFilePath)
 	pInstance->bCastToSigned = ((Info.format & SF_FORMAT_SUBMASK) == SF_FORMAT_PCM_U8) ? true : false;
 	pInstance->bStreamIsSeekable = (Info.seekable > 0) ? true : false;	
 	pInstance->uPosition = 0U;
-	pInstance->uDuration = (Info.frames / Info.samplerate) * 1000;
+	pInstance->uDuration = (Info.frames / Info.samplerate) * 1000;	
+
+	// Scale data when libsndfile convert from floating-point to int data
+	// using sf_readf_int function
+	if (((Info.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT))
+	{
+		//SFC_SET_SCALE_FLOAT_INT_READ
+		sf_command(pInstance->pSndFile, SFC_SET_SCALE_FLOAT_INT_READ, NULL, TRUE);
+	}
 
 	nPathLen = wcslen(lpwFilePath) + 1; // Inlcude Null-Terminating char
 	pInstance->pCurrentPath = NULL;

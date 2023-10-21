@@ -61,7 +61,7 @@ static HMODULE GetCurrentModuleHandle() {
 	return hModule;
 }
 
-static void WA_ParamEQ_Bytes_To_Float(WA_Effect* This, const int8_t* pByte, uint32_t uByteLen, double* pFloat, uint32_t uFloatLen)
+static void WA_ParamEQ_Bytes_To_Double(WA_Effect* This, const int8_t* pByte, uint32_t uByteLen, double* pFloat, uint32_t uFloatLen)
 {
 	WA_ParamEQ_Intance* pInstance = (WA_ParamEQ_Intance*)This->hPluginData;
 	uint32_t uSampleSize, uTotalSamples, uFloatSample;
@@ -350,7 +350,7 @@ uint32_t WA_ParamEQ_Process(WA_Effect* This, int8_t* pBuffer, uint32_t uBufferLe
 	if (!pDouble)
 		return WA_ERROR_MALLOCERROR;
 	
-	WA_ParamEQ_Bytes_To_Float(This, pBuffer, uBufferLen, pDouble, uDoubleLen);
+	WA_ParamEQ_Bytes_To_Double(This, pBuffer, uBufferLen, pDouble, uDoubleLen);
 
 	if (pInstance->bEnableBoost)
 	{
