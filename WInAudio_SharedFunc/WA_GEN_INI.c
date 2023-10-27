@@ -138,6 +138,25 @@ float WA_Ini_Read_Float(WA_Ini* This, float Default, wchar_t* Section, wchar_t* 
 	return fValue;
 }
 
+double WA_Ini_Read_Double(WA_Ini* This, double Default, wchar_t* Section, wchar_t* Key)
+{
+	wchar_t Buffer[32];
+	wchar_t* pEnd;
+	double fValue;
+
+	ZeroMemory(Buffer, sizeof(Buffer));
+
+	if (!WA_Ini_Read_String(This, Buffer, 32, L"\0", Section, Key))
+		return Default;
+
+	if (Buffer[0] == L'\0')
+		return Default;
+
+	fValue = wcstod(Buffer, &pEnd);
+
+	return fValue;
+}
+
 
 bool WA_Ini_Read_String(WA_Ini* This, wchar_t* lpwBuffer, DWORD dwBufferSize, wchar_t* lpwDefault, wchar_t* Section, wchar_t* Key)
 {
@@ -216,6 +235,15 @@ bool WA_Ini_Write_UInt32(WA_Ini* This, uint32_t uValue, wchar_t* Section, wchar_
 }
 
 bool WA_Ini_Write_Float(WA_Ini* This, float uValue, wchar_t* Section, wchar_t* Key)
+{
+	wchar_t Buffer[32];
+
+	swprintf_s(Buffer, 32, L"%f\0", uValue);
+
+	return (WritePrivateProfileString(Section, Key, Buffer, This->lpwIniPath) > 0) ? true : false;
+}
+
+bool WA_Ini_Write_Double(WA_Ini* This, double uValue, wchar_t* Section, wchar_t* Key)
 {
 	wchar_t Buffer[32];
 

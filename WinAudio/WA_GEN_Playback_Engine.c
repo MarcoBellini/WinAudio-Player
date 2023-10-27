@@ -125,15 +125,15 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
 
     if (!PathFileExists(lpwPath))
     {
-        MessageBox(Globals2.hMainWindow, L"File not Found", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
+        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not found, try another file path", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 
     pIn = WA_Playback_Engine_Find_Decoder(lpwPath);
 
     if (!pIn)
-    {
-        MessageBox(Globals2.hMainWindow, L"File not Supported", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
+    {       
+        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not supported, try to add a proper plugin to support it", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 
@@ -141,8 +141,8 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
     uResult = pIn->WA_Input_Open(pIn, lpwPath);
 
     if (uResult != WA_OK)
-    {
-        MessageBox(Globals2.hMainWindow, L"Input Plugin cannot open this file", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
+    {  
+        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not supported, or the input is not able to decode it", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 
@@ -174,8 +174,8 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
 
     if (uResult != WA_OK)
     {
-        WA_Playback_Engine_CloseFile();
-        MessageBox(Globals2.hMainWindow, L"Cannot open Output", L"WinAudio Error", MB_OK | MB_ICONEXCLAMATION);
+        pIn->WA_Input_Close(pIn);         
+        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open output", L"The file format is not supported, or the output is not active", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 

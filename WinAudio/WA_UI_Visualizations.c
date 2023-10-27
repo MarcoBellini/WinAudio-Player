@@ -103,16 +103,15 @@ static void WA_Visualizations_Cache_IndexesTable(WA_Visualizations* This)
 
 }
 
-static void WA_Visualizations_Bytes_To_Float(WA_Visualizations* This, int8_t* pByte, float* pFloatSamples)
+static void WA_Visualizations_Bytes_To_Float(WA_Visualizations* This, int8_t* pByte, float* pSamples)
 {
 	
 	uint16_t uChuckSize = This->uBitsPerSample / 8U;
 	uint32_t uIndex = 0;
-	
 
 	for (uint32_t i = 0; i < WA_VISUALIZATIONS_INPUT_BUFFER; i++)
 	{
-		pFloatSamples[i] = 0.0f;		
+		pSamples[i] = 0.0f;
 
 		for (uint32_t j = 1; j <= This->uChannels; j++)
 		{
@@ -120,26 +119,26 @@ static void WA_Visualizations_Bytes_To_Float(WA_Visualizations* This, int8_t* pB
 			switch (This->uBitsPerSample)
 			{
 			case 8:
-				pFloatSamples[i] += pByte[uIndex] / 127.0f;
+				pSamples[i] += (pByte[uIndex] & 0xFF) / 127.0f;
 				break;
 			case 16:
-				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8)) / 32767.0f;				
+				pSamples[i] += ((pByte[uIndex] & 0xFF) | (pByte[uIndex + 1] << 8)) / 32767.0f;
 				break;
 			case 24:
-				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8) + 
-									(pByte[uIndex + 2] << 16)) / 8388607.0f;
+				pSamples[i] += ((pByte[uIndex] & 0xFF) | ((pByte[uIndex + 1] << 8) & 0xFF00) |
+					(pByte[uIndex + 2] << 16)) / 8388607.0f;
 				break;
 			case 32:
-				pFloatSamples[i] += (pByte[uIndex] + (pByte[uIndex + 1] << 8) + 
-									(pByte[uIndex + 2] << 16) + (pByte[uIndex + 3] << 24)) / 2147483647.0f;				
+				pSamples[i] += ((pByte[uIndex] & 0xFF) | ((pByte[uIndex + 1] << 8) & 0xFF00) |
+					((pByte[uIndex + 2] << 16) & 0xFF0000) | (pByte[uIndex + 3] << 24)) / 2147483647.0f;
 			}
-			
+
 
 			uIndex += uChuckSize;
-			
+
 		}
 
-		pFloatSamples[i] /= This->uChannels;
+		pSamples[i] /= This->uChannels;
 	}
 }
 

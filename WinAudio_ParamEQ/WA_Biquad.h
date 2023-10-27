@@ -21,12 +21,12 @@ typedef struct TagWA_Biquad WA_Biquad;
 WA_Biquad* WA_Biquad_New();
 void WA_Biquad_Delete(WA_Biquad* This);
 
-void WA_Biquad_Update(WA_Biquad* This, BIQUAD_FILTER type, float frequency, float q,
-					float dbGain,
+void WA_Biquad_Update(WA_Biquad* This, BIQUAD_FILTER type, double frequency, double q,
+	double dbGain,
 					uint32_t sample_rate);
 
 
-void WA_Biquad_Process(WA_Biquad* This, float* pBuffer, uint32_t uCount, uint32_t uChannels);
+void WA_Biquad_Process(WA_Biquad* This, double* pBuffer, uint32_t uCount, uint32_t uChannels);
 
 
 

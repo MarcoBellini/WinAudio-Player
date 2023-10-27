@@ -21,18 +21,6 @@
     <ClInclude Include="pch.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
-    <ClInclude Include="WA_Biquad.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
-    <ClInclude Include="Globals.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
-    <ClInclude Include="WA_VolumeBoost.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.c">
@@ -44,19 +32,5 @@
     <ClCompile Include="main.c">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="WA_Biquad.c">
-      <Filter>File di origine</Filter>
-    </ClCompile>
-    <ClCompile Include="WA_DialogEQ.c">
-      <Filter>File di origine</Filter>
-    </ClCompile>
-    <ClCompile Include="WA_VolumeBoost.c">
-      <Filter>File di origine</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="WinAudio_ParamEQ.rc">
-      <Filter>File di risorse</Filter>
-    </ResourceCompile>
   </ItemGroup>
 </Project>

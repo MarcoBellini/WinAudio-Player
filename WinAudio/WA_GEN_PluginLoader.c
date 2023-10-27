@@ -180,10 +180,17 @@ uint32_t WA_GEN_PluginLoader_Load(HWND hMainWindow)
 					}					
 				}
 				else
-				{
+				{					
 					FreeLibrary(hModule);
 				}			
 			}
+#if _DEBUG
+			else
+			{
+				DWORD err = GetLastError();
+				_RPTW1(_CRT_WARN, L"Fail to load lib, error code: %u\n", err);
+			}
+#endif
 
 		} while (FindNextFile(hFindHandle, &FindData) != 0);
 
