@@ -36,6 +36,7 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
 void MainWindow_DestroyMenu();
 HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle);
+HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle);
 HWND MainWindow_CreateVolumeTrackbar(HWND hOwnerHandle);
 HWND MainWindow_CreateSpectrumBar(HWND hOwnerHandle);
 
@@ -1202,9 +1203,38 @@ HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle)
     // Install a Subclass to process custom messages
     SetWindowSubclass(hTrackbarHandle, PositionSubclassProc, MW_ID_POS_SUBCLASS, 0);
 
+    // Create Tracking Tooltip
+    Globals2.hPositionTool = MainWindow_CreatePositionTooltip(hTrackbarHandle, &Globals2.PositionToolInfo);
+
 
     return hTrackbarHandle;
 
+}
+
+HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle, TOOLINFO *pInfo)
+{
+   
+
+    // Create the tooltip. 
+    HWND hwndTip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        hOwnerHandle, NULL,
+        GetModuleHandle(NULL), NULL);
+
+
+    ZeroMemory(pInfo, sizeof(TOOLINFO));
+    pInfo->cbSize = sizeof(TOOLINFO);
+    pInfo->hwnd = hOwnerHandle;
+    pInfo->hinst = GetModuleHandle(NULL);
+    pInfo->uId = (UINT_PTR)hOwnerHandle;
+    pInfo->uFlags = TTF_IDISHWND | TTF_TRACK | TTF_ABSOLUTE;;
+    pInfo->lpszText = L"0:00 / 3.42";    
+
+    SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)pInfo);
+
+    return hwndTip;
 }
 
 /// <summary>
@@ -1992,6 +2022,63 @@ DWORD MainWindow_HandleEndOfStreamMsg()
     return WA_OK;
 }
 
+static void MainWindow_UpdatePositionTooltipValue(HWND hPositionTrackbar, HWND hPositionTooltip, TOOLINFO* pInfo)
+{
+    RECT rcThumb;
+    POINT ptToolPosition;
+    DWORD dwTooltipSize, dwTrackbarValue, dwTrackbarMax;
+    WORD TooltipWidth, TooltipHeight;
+    WORD PositionHour, PositionMinute, PositionSeconds;
+    WORD DurationHour, DurationMinute, DurationSeconds;
+    wchar_t TimeStr[50];
+
+    SendMessage(hPositionTrackbar, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
+
+
+    dwTooltipSize = SendMessage(Globals2.hPositionTool, TTM_GETBUBBLESIZE, 0, (LPARAM)pInfo);
+    TooltipWidth = LOWORD(dwTooltipSize);
+    TooltipHeight = HIWORD(dwTooltipSize);
+
+    ptToolPosition.x = rcThumb.right;
+    ptToolPosition.y = rcThumb.bottom;
+
+    ClientToScreen(hPositionTrackbar, &ptToolPosition);
+
+    ptToolPosition.x = ptToolPosition.x - (TooltipWidth / 2);
+    ptToolPosition.y = ptToolPosition.y - (TooltipHeight * 2);
+
+    dwTrackbarMax = (DWORD)SendMessage(hPositionTrackbar, TBM_GETRANGEMAX, 0, 0);
+    dwTrackbarValue = (DWORD)SendMessage(hPositionTrackbar, TBM_GETPOS, 0, 0);
+
+    PositionSeconds = dwTrackbarValue / 1000;
+    PositionMinute = PositionSeconds / 60;
+    PositionHour = PositionMinute / 60;
+
+    PositionSeconds = PositionSeconds % 60;
+    PositionMinute = PositionMinute % 60;
+
+    DurationSeconds = dwTrackbarMax / 1000;
+    DurationMinute = DurationSeconds / 60;
+    DurationHour = DurationMinute / 60;
+
+    DurationSeconds = DurationSeconds % 60;
+    DurationMinute = DurationMinute % 60;
+
+    ZeroMemory(TimeStr, sizeof(TimeStr));
+
+    if(DurationHour > 0)
+        swprintf_s(TimeStr, 50, L"%02u:%02u:%02u-%02u:%02u:%02u", PositionHour, PositionMinute, PositionSeconds, DurationHour, DurationMinute, DurationSeconds);
+    else
+        swprintf_s(TimeStr, 50, L"%02u:%02u-%02u:%02u", PositionMinute, PositionSeconds, DurationMinute, DurationSeconds);
+
+    Globals2.PositionToolInfo.lpszText = TimeStr;
+
+    SendMessage(hPositionTooltip, TTM_SETTOOLINFO, 0, (LPARAM)pInfo);
+
+    SendMessage(hPositionTooltip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(ptToolPosition.x, ptToolPosition.y));
+
+}
+
 /// <summary>
 /// Subclass Position Trackbar to Handle Mouse Events
 /// </summary>
@@ -2001,11 +2088,80 @@ LRESULT CALLBACK PositionSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     switch (uMsg)
     {
     case WM_LBUTTONDOWN:
-        Globals2.bMouseDownOnPosition = true;
+    {
+        POINT ptMouse;
+        RECT rcThumb, rcChannel;
+        DWORD dwMin, dwMax, dwLogicPos, dwDelta, dwRange, dwMouseX;
+
+        SendMessage(hWnd, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
+
+        ptMouse.x = GET_X_LPARAM(lParam);
+        ptMouse.y = GET_Y_LPARAM(lParam);
+
+        // If mouse is on channel, convert mouse coordinates 
+        // to a trackbar logic value
+        if (!PtInRect(&rcThumb, ptMouse))
+        {
+
+            SendMessage(hWnd, TBM_GETCHANNELRECT, 0, (LPARAM)&rcChannel);
+
+            dwMin = (DWORD)SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
+            dwMax = (DWORD)SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
+
+            dwRange = rcChannel.right - rcChannel.left;
+
+            if (ptMouse.x < rcChannel.left)
+            {
+                dwMouseX = 0;
+            }
+            else
+            {
+                dwMouseX = ptMouse.x - rcChannel.left;
+            }
+
+            dwMouseX = min(dwMouseX, dwRange);
+
+            dwDelta = dwRange - (dwRange - dwMouseX);
+
+            dwLogicPos = ((dwDelta * (dwMax - dwMin)) / dwRange) + dwMin;
+
+            SendMessage(hWnd, TBM_SETPOS, (WPARAM) TRUE, (LPARAM)dwLogicPos);
+
+            // Seek only if playing
+            if (Globals2.dwCurrentStatus == WA_STATUS_PLAY)
+                WA_Playback_Engine_Seek((uint64_t)dwLogicPos);
+
+            return 0;
+        }
+        else
+        {
+            Globals2.bMouseDownOnPosition = true;
+
+            // Activate the tooltip.
+            SendMessage(Globals2.hPositionTool, TTM_TRACKACTIVATE, (WPARAM)TRUE, (LPARAM)&Globals2.PositionToolInfo);
+
+            MainWindow_UpdatePositionTooltipValue(hWnd, Globals2.hPositionTool, &Globals2.PositionToolInfo);
+        }
+
         break;
+    }
     case WM_LBUTTONUP:
         Globals2.bMouseDownOnPosition = false;
+
+        // Deactivate the tooltip.
+        SendMessage(Globals2.hPositionTool, TTM_TRACKACTIVATE, (WPARAM)FALSE, (LPARAM)&Globals2.PositionToolInfo);
+
         break;
+    case WM_MOUSEMOVE:
+    {
+        // If Mouse is Down Update Tooltip value and position
+        if (Globals2.bMouseDownOnPosition)
+        {
+            MainWindow_UpdatePositionTooltipValue(hWnd, Globals2.hPositionTool, &Globals2.PositionToolInfo);          
+        }
+
+        break;
+    }
     }
 
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -2018,8 +2174,54 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     switch (uMsg)
     {
     case WM_LBUTTONDOWN:
-        Globals2.bMouseDownOnVolume = true;  
+    {
+        POINT ptMouse;
+        RECT rcThumb, rcChannel;
+        DWORD dwMin, dwMax, dwLogicPos, dwDelta, dwRange, dwMouseX;       
+
+        SendMessage(hWnd, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
+
+        ptMouse.x = GET_X_LPARAM(lParam);
+        ptMouse.y = GET_Y_LPARAM(lParam);
+
+        // If mouse is on channel, convert mouse coordinates 
+        // to a trackbar logic value
+        if (!PtInRect(&rcThumb, ptMouse))
+        {
+            
+            SendMessage(hWnd, TBM_GETCHANNELRECT, 0, (LPARAM)&rcChannel);
+
+            dwMin = (DWORD)SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
+            dwMax = (DWORD)SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
+
+            dwRange = rcChannel.right - rcChannel.left;
+
+            if (ptMouse.x < rcChannel.left)
+            {
+                dwMouseX = 0;
+            }
+            else
+            {
+              dwMouseX = ptMouse.x - rcChannel.left;     
+            }            
+
+            dwMouseX = min(dwMouseX, dwRange);
+
+            dwDelta = dwRange - (dwRange - dwMouseX);
+
+            dwLogicPos = ((dwDelta * (dwMax - dwMin)) / dwRange) + dwMin;
+
+            SendMessage(hWnd, TBM_SETPOS, (WPARAM) TRUE, (LPARAM)dwLogicPos);                      
+
+            return 0;
+        }
+        else
+        {
+            Globals2.bMouseDownOnVolume = true;
+        }
+       
         break;
+    }
     case WM_LBUTTONUP:
         Globals2.bMouseDownOnVolume = false;
         break;

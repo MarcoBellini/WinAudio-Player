@@ -89,6 +89,9 @@ struct
 	FORMATETC DropFormat;
 	IDropTargetHelper* pDropTargetHelper;
 	bool bUseTargetHelper;
+
+	TOOLINFO PositionToolInfo;
+	HWND hPositionTool;
 } Globals2;
 
 
