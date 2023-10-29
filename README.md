@@ -1,10 +1,10 @@
 # WinAudio
 
-![WinAudio_Screenshot](https://github.com/MarcoBellini/WinAudio-Player/assets/66796124/411286c1-55ac-4c3e-b037-3767b95a2ccf)
+![WinAudio_Screen2](https://github.com/MarcoBellini/WinAudio-Player/assets/66796124/fc62a3a3-9d23-4692-9ee6-781822558b2c)
 
-WinAudio is a lightweight audio program developed in C and Win32, designed to cater to both audio enthusiasts and programming aficionados. The project is a result of my passion for computers and programming, developed during my spare time after work and on my holidays.
+WinAudio is a lightweight audio program developed in C and Win32, designed to cater to both audio enthusiasts and programming aficionados. The project is a result of my passion for computers and programming, developed during my spare time after work.
 
-**NOTE: The project is currently in an alpha phase and under active development.**
+**Note: The project is currently in an alpha phase and under active development.**
 
 ## Features
 
@@ -21,18 +21,17 @@ WinAudio is a lightweight audio program developed in C and Win32, designed to ca
 To get started with WinAudio, follow these steps:
 
 1. Clone the repository: `git clone https://github.com/MarcoBellini/WinAudio-Player.git`
-2. Download and install [CMake](https://cmake.org/download/), if you haven't already.
+2. Download and install [CMake](https://cmake.org/download), if you haven't already.
 3. Download the [mpg123 library source code](https://www.mpg123.de/) and extract it.
 4. Create a build directory within the mpg123 source directory.
 5. Generate the build files using CMake, specifying the appropriate generator for your system (e.g., Visual Studio).
 6. Build the mpg123 library using the generated build files.
-7. Copy the compiled mpg123 library to the WinAudio project directory.
-8. Open the WinAudio project in Visual Studio 2022.
-9. Build and run the application.
-
-## MP3 Input Plugin
-
-The MP3 input plugin for WinAudio is based on the open-source [mpg123 library](https://www.mpg123.de/). This library provides the functionality to handle MP3 audio files. Please make sure to integrate this library into your project for full MP3 support.
+7. Copy the compiled mpg123 library and headers to the WinAudio project directory.
+8. Download the [libsndfile library](https://libsndfile.github.io/libsndfile/) and extract it.
+9. Link the static library `sndfile.lib` to the WinAudio_WaveForm project to enable support for WAV, AIFF, OGG, FLAC, and OPUS file formats.
+10. Open the WinAudio project in Visual Studio 2022.
+11. Build and run the application.
+12. Explore the various features of WinAudio and enjoy its lightweight and extensible design.
 
 ## Contributing
 
@@ -47,5 +46,9 @@ Contributions to WinAudio are more than welcome! If you're interested in enhanci
 ## License
 
 This project is licensed under the [MIT License](LICENSE), allowing you to use, modify, and distribute the code as per the terms specified.
+
+## Contact
+
+If you have any questions, suggestions, or just want to chat about WinAudio or programming in general, feel free to reach out to me at [marco.bellini8@gmail.com](mailto:marco.bellini8@gmail.com).
 
 Happy coding!
