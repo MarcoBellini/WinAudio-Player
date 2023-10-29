@@ -36,6 +36,7 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
 void MainWindow_DestroyMenu();
 HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle);
+HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle, TOOLINFO *pInfo);
 HWND MainWindow_CreateVolumeTrackbar(HWND hOwnerHandle);
 HWND MainWindow_CreateSpectrumBar(HWND hOwnerHandle);
 
@@ -45,7 +46,8 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uint32_t uSamplerate,
     uint32_t uChannels,
     uint16_t uBitsPerSample,
-    uint64_t uPositionInMs);
+    uint64_t uPositionInMs,
+    uint64_t uDurationMs);
 
 // Listview Helpers
 HWND MainWindow_CreateListView(HWND hOwnerHandle);
@@ -1202,9 +1204,40 @@ HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle)
     // Install a Subclass to process custom messages
     SetWindowSubclass(hTrackbarHandle, PositionSubclassProc, MW_ID_POS_SUBCLASS, 0);
 
+    // Create Tracking Tooltip
+    Globals2.hPositionTool = MainWindow_CreatePositionTooltip(hTrackbarHandle, &Globals2.PositionToolInfo);
+
 
     return hTrackbarHandle;
 
+}
+
+/// <summary>
+/// Create Tracking Tooltip used in Position Trackbar
+/// </summary>
+HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle, TOOLINFO *pInfo)
+{  
+
+    // Create the tooltip. 
+    HWND hwndTip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        hOwnerHandle, NULL,
+        GetModuleHandle(NULL), NULL);
+
+
+    ZeroMemory(pInfo, sizeof(TOOLINFO));
+    pInfo->cbSize = sizeof(TOOLINFO);
+    pInfo->hwnd = hOwnerHandle;
+    pInfo->hinst = GetModuleHandle(NULL);
+    pInfo->uId = (UINT_PTR)hOwnerHandle;
+    pInfo->uFlags = TTF_IDISHWND | TTF_TRACK | TTF_ABSOLUTE;;
+    pInfo->lpszText = L"0:00 / 3.42";    
+
+    SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)pInfo);
+
+    return hwndTip;
 }
 
 /// <summary>
@@ -1958,6 +1991,7 @@ bool MainWindow_Close()
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 {
     WA_AudioFormat Format;
+    uint64_t uDuration;
 
     // Update only if there is no mouse operations in progress
     if (!Globals2.bMouseDownOnPosition)
@@ -1966,11 +2000,14 @@ void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 
     if (WA_Playback_Engine_Get_Current_Format(&Format))
     {
+
+        WA_Playback_Engine_Get_Duration(&uDuration);
+
         MainWindow_UpdateStatusText(Globals2.hStatus,
             Format.uSamplerate,
             Format.uChannels,
             Format.uBitsPerSample,
-            uNewValue);
+            uNewValue, uDuration);
     }
 
 }
@@ -1993,6 +2030,73 @@ DWORD MainWindow_HandleEndOfStreamMsg()
 }
 
 /// <summary>
+/// Update the position of Tracking Tooltip that follows 
+/// the Position Trackbar Thumb. The tooltip displays the
+/// time of current position and the duration of the audio track
+/// in this format: hh:mm:ss - hh:mm:ss
+/// 
+/// see also: https://learn.microsoft.com/en-us/windows/win32/controls/implement-tracking-tooltips
+/// </summary>
+static void MainWindow_UpdatePositionTooltipValue(HWND hPositionTrackbar, HWND hPositionTooltip, TOOLINFO* pInfo)
+{
+    RECT rcThumb;
+    POINT ptToolPosition;
+    DWORD dwTooltipSize, dwTrackbarValue, dwTrackbarMax;
+    WORD TooltipWidth, TooltipHeight;
+    DWORD PositionHour, PositionMinute, PositionSeconds;
+    DWORD DurationHour, DurationMinute, DurationSeconds;
+    wchar_t TimeStr[50];
+
+    SendMessage(hPositionTrackbar, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
+
+
+    dwTooltipSize = (DWORD) SendMessage(Globals2.hPositionTool, TTM_GETBUBBLESIZE, 0, (LPARAM)pInfo);
+    TooltipWidth = LOWORD(dwTooltipSize);
+    TooltipHeight = HIWORD(dwTooltipSize);
+
+    ptToolPosition.x = rcThumb.right;
+    ptToolPosition.y = rcThumb.bottom;
+
+    ClientToScreen(hPositionTrackbar, &ptToolPosition);
+
+    ptToolPosition.x = ptToolPosition.x - (TooltipWidth / 2);
+    ptToolPosition.y = ptToolPosition.y - (TooltipHeight * 2);
+
+    dwTrackbarMax = (DWORD)SendMessage(hPositionTrackbar, TBM_GETRANGEMAX, 0, 0);
+    dwTrackbarValue = (DWORD)SendMessage(hPositionTrackbar, TBM_GETPOS, 0, 0);
+
+    // Curent Position in Ms
+    PositionSeconds = dwTrackbarValue / 1000;
+    PositionMinute = PositionSeconds / 60;
+    PositionHour = PositionMinute / 60;
+
+    PositionSeconds = PositionSeconds % 60;
+    PositionMinute = PositionMinute % 60;
+
+    // Current Duration in Ms
+    DurationSeconds = dwTrackbarMax / 1000;
+    DurationMinute = DurationSeconds / 60;
+    DurationHour = DurationMinute / 60;
+
+    DurationSeconds = DurationSeconds % 60;
+    DurationMinute = DurationMinute % 60;
+
+    ZeroMemory(TimeStr, sizeof(TimeStr));
+
+    if(DurationHour > 0)
+        swprintf_s(TimeStr, 50, L"%02u:%02u:%02u-%02u:%02u:%02u", PositionHour, PositionMinute, PositionSeconds, DurationHour, DurationMinute, DurationSeconds);
+    else
+        swprintf_s(TimeStr, 50, L"%02u:%02u-%02u:%02u", PositionMinute, PositionSeconds, DurationMinute, DurationSeconds);
+
+    Globals2.PositionToolInfo.lpszText = TimeStr;
+
+    SendMessage(hPositionTooltip, TTM_SETTOOLINFO, 0, (LPARAM)pInfo);
+
+    SendMessage(hPositionTooltip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(ptToolPosition.x, ptToolPosition.y));
+
+}
+
+/// <summary>
 /// Subclass Position Trackbar to Handle Mouse Events
 /// </summary>
 LRESULT CALLBACK PositionSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
@@ -2001,25 +2105,144 @@ LRESULT CALLBACK PositionSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     switch (uMsg)
     {
     case WM_LBUTTONDOWN:
-        Globals2.bMouseDownOnPosition = true;
+    {
+        POINT ptMouse;
+        RECT rcThumb, rcChannel;
+        DWORD dwMin, dwMax, dwLogicPos, dwDelta, dwRange, dwMouseX;
+
+        SendMessage(hWnd, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
+
+        ptMouse.x = GET_X_LPARAM(lParam);
+        ptMouse.y = GET_Y_LPARAM(lParam);
+
+        // If mouse is on channel, convert mouse coordinates 
+        // to a trackbar logic value
+        if (!PtInRect(&rcThumb, ptMouse))
+        {
+
+            SendMessage(hWnd, TBM_GETCHANNELRECT, 0, (LPARAM)&rcChannel);
+
+            dwMin = (DWORD)SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
+            dwMax = (DWORD)SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
+
+            dwRange = rcChannel.right - rcChannel.left;
+
+            if (ptMouse.x < rcChannel.left)
+            {
+                dwMouseX = 0;
+            }
+            else
+            {
+                dwMouseX = ptMouse.x - rcChannel.left;
+            }
+
+            dwMouseX = min(dwMouseX, dwRange);
+
+            dwDelta = dwRange - (dwRange - dwMouseX);
+
+            dwLogicPos = ((dwDelta * (dwMax - dwMin)) / dwRange) + dwMin;
+
+            SendMessage(hWnd, TBM_SETPOS, (WPARAM) TRUE, (LPARAM)dwLogicPos);
+
+            // Seek only if playing
+            if (Globals2.dwCurrentStatus == WA_STATUS_PLAY)
+                WA_Playback_Engine_Seek((uint64_t)dwLogicPos);
+
+            return 0;
+        }
+        else
+        {
+            Globals2.bMouseDownOnPosition = true;
+
+            // Activate the tooltip.
+            SendMessage(Globals2.hPositionTool, TTM_TRACKACTIVATE, (WPARAM)TRUE, (LPARAM)&Globals2.PositionToolInfo);
+
+            MainWindow_UpdatePositionTooltipValue(hWnd, Globals2.hPositionTool, &Globals2.PositionToolInfo);
+        }
+
         break;
+    }
     case WM_LBUTTONUP:
         Globals2.bMouseDownOnPosition = false;
+
+        // Deactivate the tooltip.
+        SendMessage(Globals2.hPositionTool, TTM_TRACKACTIVATE, (WPARAM)FALSE, (LPARAM)&Globals2.PositionToolInfo);
+
         break;
+    case WM_MOUSEMOVE:
+    {
+        // If Mouse is Down Update Tooltip value and position
+        if (Globals2.bMouseDownOnPosition)
+        {
+            MainWindow_UpdatePositionTooltipValue(hWnd, Globals2.hPositionTool, &Globals2.PositionToolInfo);          
+        }
+
+        break;
+    }
     }
 
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
-
+/// <summary>
+/// Subclass Volume Trackbar to Handle Mouse Events
+/// </summary>
 LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
     switch (uMsg)
     {
     case WM_LBUTTONDOWN:
-        Globals2.bMouseDownOnVolume = true;  
+    {
+        POINT ptMouse;
+        RECT rcThumb, rcChannel;
+        DWORD dwMin, dwMax, dwLogicPos, dwDelta, dwRange, dwMouseX;       
+
+        SendMessage(hWnd, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
+
+        ptMouse.x = GET_X_LPARAM(lParam);
+        ptMouse.y = GET_Y_LPARAM(lParam);
+
+        // If mouse is on channel, convert mouse coordinates 
+        // to a trackbar logic value
+        if (!PtInRect(&rcThumb, ptMouse))
+        {
+            
+            SendMessage(hWnd, TBM_GETCHANNELRECT, 0, (LPARAM)&rcChannel);
+
+            dwMin = (DWORD)SendMessage(hWnd, TBM_GETRANGEMIN, 0, 0);
+            dwMax = (DWORD)SendMessage(hWnd, TBM_GETRANGEMAX, 0, 0);
+
+            dwRange = rcChannel.right - rcChannel.left;
+
+            if (ptMouse.x < rcChannel.left)
+            {
+                dwMouseX = 0;
+            }
+            else
+            {
+              dwMouseX = ptMouse.x - rcChannel.left;     
+            }            
+
+            dwMouseX = min(dwMouseX, dwRange);
+
+            dwDelta = dwRange - (dwRange - dwMouseX);
+
+            dwLogicPos = ((dwDelta * (dwMax - dwMin)) / dwRange) + dwMin;
+
+            SendMessage(hWnd, TBM_SETPOS, (WPARAM) TRUE, (LPARAM)dwLogicPos);   
+
+            MainWindow_UpdateVolumeFromTrackbarValue();
+
+            return 0;
+        }
+        else
+        {
+            Globals2.bMouseDownOnVolume = true;
+        }
+       
         break;
+    }
     case WM_LBUTTONUP:
         Globals2.bMouseDownOnVolume = false;
         break;
@@ -2119,11 +2342,14 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uint32_t uSamplerate, 
     uint32_t uChannels, 
     uint16_t uBitsPerSample,
-    uint64_t uPositionInMs)
+    uint64_t uPositionInMs,
+    uint64_t uDurationMs)
 {
     wchar_t StatusText[MAX_PATH];
     uint32_t uHour, uMinute, uSeconds;
+    uint32_t uHourD, uMinuteD, uSecondsD;
 
+    // Position
     uSeconds = (uint32_t) (uPositionInMs / 1000U);
     uMinute = uSeconds / 60U;
     uHour = uMinute / 60U;
@@ -2131,21 +2357,52 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uSeconds = uSeconds % 60U;
     uMinute = uMinute % 60U;
 
+    // Duration
+    uSecondsD = (uint32_t)(uDurationMs / 1000U);
+    uMinuteD = uSecondsD / 60U;
+    uHourD = uMinuteD / 60U;
+
+    uSecondsD = uSecondsD % 60U;
+    uMinuteD = uMinuteD % 60U;
+
     StatusText[0] = L'\0'; 
 
-
-    if (swprintf_s(StatusText, 
-        MAX_PATH, 
-        L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u:%02u", 
-        uSamplerate, 
-        uChannels,
-        uBitsPerSample,
-        uHour,
-        uMinute,
-        uSeconds))
+    if (uHourD > 0)
     {
-        MainWindow_Status_SetText(hStatusHandle, StatusText, false);
+        if (swprintf_s(StatusText,
+            MAX_PATH,
+            L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u:%02u - %02u:%02u:%02u",
+            uSamplerate,
+            uChannels,
+            uBitsPerSample,
+            uHour,
+            uMinute,
+            uSeconds,
+            uHourD,
+            uMinuteD,
+            uSecondsD))
+        {
+            MainWindow_Status_SetText(hStatusHandle, StatusText, false);
+        }
     }
+    else
+    {
+        if (swprintf_s(StatusText,
+            MAX_PATH,
+            L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u - %02u:%02u",
+            uSamplerate,
+            uChannels,
+            uBitsPerSample,            
+            uMinute,
+            uSeconds,
+            uMinuteD,
+            uSecondsD))
+        {
+            MainWindow_Status_SetText(hStatusHandle, StatusText, false);
+        }
+    }
+
+
 }
 
 
