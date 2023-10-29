@@ -36,7 +36,7 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
 void MainWindow_DestroyMenu();
 HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle);
-HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle);
+HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle, TOOLINFO *pInfo);
 HWND MainWindow_CreateVolumeTrackbar(HWND hOwnerHandle);
 HWND MainWindow_CreateSpectrumBar(HWND hOwnerHandle);
 
@@ -46,7 +46,8 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uint32_t uSamplerate,
     uint32_t uChannels,
     uint16_t uBitsPerSample,
-    uint64_t uPositionInMs);
+    uint64_t uPositionInMs,
+    uint64_t uDurationMs);
 
 // Listview Helpers
 HWND MainWindow_CreateListView(HWND hOwnerHandle);
@@ -1211,9 +1212,11 @@ HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle)
 
 }
 
+/// <summary>
+/// Create Tracking Tooltip used in Position Trackbar
+/// </summary>
 HWND MainWindow_CreatePositionTooltip(HWND hOwnerHandle, TOOLINFO *pInfo)
-{
-   
+{  
 
     // Create the tooltip. 
     HWND hwndTip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
@@ -1988,6 +1991,7 @@ bool MainWindow_Close()
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 {
     WA_AudioFormat Format;
+    uint64_t uDuration;
 
     // Update only if there is no mouse operations in progress
     if (!Globals2.bMouseDownOnPosition)
@@ -1996,11 +2000,14 @@ void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 
     if (WA_Playback_Engine_Get_Current_Format(&Format))
     {
+
+        WA_Playback_Engine_Get_Duration(&uDuration);
+
         MainWindow_UpdateStatusText(Globals2.hStatus,
             Format.uSamplerate,
             Format.uChannels,
             Format.uBitsPerSample,
-            uNewValue);
+            uNewValue, uDuration);
     }
 
 }
@@ -2022,20 +2029,28 @@ DWORD MainWindow_HandleEndOfStreamMsg()
     return WA_OK;
 }
 
+/// <summary>
+/// Update the position of Tracking Tooltip that follows 
+/// the Position Trackbar Thumb. The tooltip displays the
+/// time of current position and the duration of the audio track
+/// in this format: hh:mm:ss - hh:mm:ss
+/// 
+/// see also: https://learn.microsoft.com/en-us/windows/win32/controls/implement-tracking-tooltips
+/// </summary>
 static void MainWindow_UpdatePositionTooltipValue(HWND hPositionTrackbar, HWND hPositionTooltip, TOOLINFO* pInfo)
 {
     RECT rcThumb;
     POINT ptToolPosition;
     DWORD dwTooltipSize, dwTrackbarValue, dwTrackbarMax;
     WORD TooltipWidth, TooltipHeight;
-    WORD PositionHour, PositionMinute, PositionSeconds;
-    WORD DurationHour, DurationMinute, DurationSeconds;
+    DWORD PositionHour, PositionMinute, PositionSeconds;
+    DWORD DurationHour, DurationMinute, DurationSeconds;
     wchar_t TimeStr[50];
 
     SendMessage(hPositionTrackbar, TBM_GETTHUMBRECT, 0, (LPARAM)&rcThumb);
 
 
-    dwTooltipSize = SendMessage(Globals2.hPositionTool, TTM_GETBUBBLESIZE, 0, (LPARAM)pInfo);
+    dwTooltipSize = (DWORD) SendMessage(Globals2.hPositionTool, TTM_GETBUBBLESIZE, 0, (LPARAM)pInfo);
     TooltipWidth = LOWORD(dwTooltipSize);
     TooltipHeight = HIWORD(dwTooltipSize);
 
@@ -2050,6 +2065,7 @@ static void MainWindow_UpdatePositionTooltipValue(HWND hPositionTrackbar, HWND h
     dwTrackbarMax = (DWORD)SendMessage(hPositionTrackbar, TBM_GETRANGEMAX, 0, 0);
     dwTrackbarValue = (DWORD)SendMessage(hPositionTrackbar, TBM_GETPOS, 0, 0);
 
+    // Curent Position in Ms
     PositionSeconds = dwTrackbarValue / 1000;
     PositionMinute = PositionSeconds / 60;
     PositionHour = PositionMinute / 60;
@@ -2057,6 +2073,7 @@ static void MainWindow_UpdatePositionTooltipValue(HWND hPositionTrackbar, HWND h
     PositionSeconds = PositionSeconds % 60;
     PositionMinute = PositionMinute % 60;
 
+    // Current Duration in Ms
     DurationSeconds = dwTrackbarMax / 1000;
     DurationMinute = DurationSeconds / 60;
     DurationHour = DurationMinute / 60;
@@ -2167,7 +2184,9 @@ LRESULT CALLBACK PositionSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
-
+/// <summary>
+/// Subclass Volume Trackbar to Handle Mouse Events
+/// </summary>
 LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
@@ -2211,7 +2230,9 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
             dwLogicPos = ((dwDelta * (dwMax - dwMin)) / dwRange) + dwMin;
 
-            SendMessage(hWnd, TBM_SETPOS, (WPARAM) TRUE, (LPARAM)dwLogicPos);                      
+            SendMessage(hWnd, TBM_SETPOS, (WPARAM) TRUE, (LPARAM)dwLogicPos);   
+
+            MainWindow_UpdateVolumeFromTrackbarValue();
 
             return 0;
         }
@@ -2321,11 +2342,14 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uint32_t uSamplerate, 
     uint32_t uChannels, 
     uint16_t uBitsPerSample,
-    uint64_t uPositionInMs)
+    uint64_t uPositionInMs,
+    uint64_t uDurationMs)
 {
     wchar_t StatusText[MAX_PATH];
     uint32_t uHour, uMinute, uSeconds;
+    uint32_t uHourD, uMinuteD, uSecondsD;
 
+    // Position
     uSeconds = (uint32_t) (uPositionInMs / 1000U);
     uMinute = uSeconds / 60U;
     uHour = uMinute / 60U;
@@ -2333,21 +2357,52 @@ void MainWindow_UpdateStatusText(HWND hStatusHandle,
     uSeconds = uSeconds % 60U;
     uMinute = uMinute % 60U;
 
+    // Duration
+    uSecondsD = (uint32_t)(uDurationMs / 1000U);
+    uMinuteD = uSecondsD / 60U;
+    uHourD = uMinuteD / 60U;
+
+    uSecondsD = uSecondsD % 60U;
+    uMinuteD = uMinuteD % 60U;
+
     StatusText[0] = L'\0'; 
 
-
-    if (swprintf_s(StatusText, 
-        MAX_PATH, 
-        L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u:%02u", 
-        uSamplerate, 
-        uChannels,
-        uBitsPerSample,
-        uHour,
-        uMinute,
-        uSeconds))
+    if (uHourD > 0)
     {
-        MainWindow_Status_SetText(hStatusHandle, StatusText, false);
+        if (swprintf_s(StatusText,
+            MAX_PATH,
+            L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u:%02u - %02u:%02u:%02u",
+            uSamplerate,
+            uChannels,
+            uBitsPerSample,
+            uHour,
+            uMinute,
+            uSeconds,
+            uHourD,
+            uMinuteD,
+            uSecondsD))
+        {
+            MainWindow_Status_SetText(hStatusHandle, StatusText, false);
+        }
     }
+    else
+    {
+        if (swprintf_s(StatusText,
+            MAX_PATH,
+            L"%u Hz | %u Channels | %u Bits | Playback: %02u:%02u - %02u:%02u",
+            uSamplerate,
+            uChannels,
+            uBitsPerSample,            
+            uMinute,
+            uSeconds,
+            uMinuteD,
+            uSecondsD))
+        {
+            MainWindow_Status_SetText(hStatusHandle, StatusText, false);
+        }
+    }
+
+
 }
 
 
