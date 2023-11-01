@@ -1,6 +1,8 @@
 #ifndef GLOBALS2_H
 #define GLOBALS2_H
 
+// Increase at every commit
+#define MW_ID_BUILD_NR					1
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480
@@ -125,7 +127,8 @@ bool MainWindow_Close();
 bool MainWindow_PreviousItem();
 bool MainWindow_NextItem();
 
-// Settings Proc
+// Dialogs
 INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK AboutProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 #endif
