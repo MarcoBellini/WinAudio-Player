@@ -1152,7 +1152,7 @@ HWND WA_UI_Listview_Create(HWND hOwner, PRECT pRect)
 
     if ((Globals2.hCacheAbort) && (Globals2.hCacheSemaphore))
         Globals2.hCacheThread = CreateThread(NULL, 0, WA_ListView_CacheThread, Globals2.pPlaylist, 0, NULL);
-       
+
     // Use slow caching on fail to create thread
     if (!Globals2.hCacheThread)
         Globals2.bCacheThreadFail = true;
@@ -1163,13 +1163,7 @@ HWND WA_UI_Listview_Create(HWND hOwner, PRECT pRect)
 }
 
 VOID WA_UI_Listview_Destroy(HWND hListview)
-{  
-
-    if (Globals2.hCacheSemaphore)
-    {
-        CloseHandle(Globals2.hCacheSemaphore);
-    }
-   
+{   
     if (Globals2.hCacheAbort)
     {
         // Close Caching Thread
@@ -1181,10 +1175,14 @@ VOID WA_UI_Listview_Destroy(HWND hListview)
         }
 
         CloseHandle(Globals2.hCacheAbort);
-    }         
+    }
 
-    DeleteCriticalSection(&Globals2.CacheThreadSection);
-  
+    if (Globals2.hCacheSemaphore)
+    {
+        CloseHandle(Globals2.hCacheSemaphore);
+    }
+
+    DeleteCriticalSection(&Globals2.CacheThreadSection); 
 
     if (Globals2.pPlaylist)
         WA_Playlist_Delete(Globals2.pPlaylist);
@@ -1290,13 +1288,17 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
 DWORD WINAPI WA_ListView_CacheThread(_In_ LPVOID lpParameter)
 {    
     bool bAbort = false;
+    DWORD dwResult;
 
     // Wait Until Main Window loads plugins, settings, ecc..
-    WaitForSingleObject(Globals2.hCacheSemaphore, INFINITE);
+    dwResult = WaitForSingleObject(Globals2.hCacheSemaphore, 2500);
+
+    if (dwResult != WAIT_OBJECT_0)
+        return EXIT_FAILURE;
 
     while (!bAbort)
     {
-        DWORD dwResult;
+       
 
         dwResult = WaitForSingleObject(Globals2.hCacheAbort, WA_LISTVIEW_CACHING_TIMEOUT);
 
@@ -1322,3 +1324,7 @@ VOID WA_ListView_RunCacheThread()
     if (Globals2.hCacheSemaphore)
         SetEvent(Globals2.hCacheSemaphore);
 }
+
+
+
+
