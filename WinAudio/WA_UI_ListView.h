@@ -11,8 +11,10 @@
 #define WA_LISTVIEW_COLUMN_SIZE             0x0040
 #define WA_LISTVIEW_COLUMN_PATH             0x0080
 
-#define WA_LISTVIEW_COLUMNS_COUNT   8
-#define WA_LISTVIEW_PRINTF_MAX      100
+#define WA_LISTVIEW_COLUMNS_COUNT           8
+#define WA_LISTVIEW_PRINTF_MAX              100
+
+#define WA_LISTVIEW_CACHING_TIMEOUT         50 // In Ms
 
 
 // Store Columns Order and Visibility
