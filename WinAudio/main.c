@@ -63,6 +63,8 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam);
 bool MainWindow_OpenFileDialog(HWND hOwnerHandle);
 bool MainWindow_AddFilesDialog(HWND hOwnerHandle);
 bool MainWindow_AddFolderDialog(HWND hOwnerHandle);
+bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle);
+bool MainWindow_SaveAsPlaylistDialog(HWND hOwnerHandle);
 
 DWORD MainWindow_HandleEndOfStreamMsg();
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue);
@@ -671,6 +673,13 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
             WA_Playlist_UpdateView(Globals2.pPlaylist, false);
         }
 
+        break;
+    case ID_PLAYLIST_OPEN:
+        MainWindow_OpenPlaylistDialog(Globals2.hMainWindow);
+        break;
+    case ID_PLAYLIST_SAVEAS:
+        MainWindow_SaveAsPlaylistDialog(Globals2.hMainWindow);
+        break;
     }
 }
 
@@ -1684,6 +1693,146 @@ bool MainWindow_AddFolderDialog(HWND hOwnerHandle)
 
         IFileOpenDialog_Release(pFileOpen);
         pFileOpen = NULL;
+    }
+
+    return true;
+}
+
+/// <summary>
+/// Show Playlist Open File Dialog
+/// On success, tihs function open playlist from specified path
+/// </summary>
+bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle)
+{
+    IFileOpenDialog* pFileOpen;
+    COMDLG_FILTERSPEC Filter;
+    HRESULT hr;
+
+    // Check if we have a working Playlist Object
+    // Should be always valid
+    if (!Globals2.pPlaylist)
+        return false;
+
+    // Create the FileOpenDialog object.
+    hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+        &IID_IFileOpenDialog, (LPVOID*)(&pFileOpen));
+
+
+    if SUCCEEDED(hr)
+    {
+        Filter.pszName = L"M3U8 Playlist";
+        Filter.pszSpec = L"*.m3u8";
+
+        IFileOpenDialog_SetFileTypes(pFileOpen, 1U, &Filter);
+        IFileOpenDialog_SetFileTypeIndex(pFileOpen, 1U);
+
+        IFileOpenDialog_SetTitle(pFileOpen, L"Open M3U8 Playlist...");
+
+        // Allow Multiple Selections
+        IFileOpenDialog_SetOptions(pFileOpen, FOS_FILEMUSTEXIST);
+
+        // Show the Open dialog box.
+        hr = IFileOpenDialog_Show(pFileOpen, hOwnerHandle);
+
+        if SUCCEEDED(hr)
+        {
+            IShellItemArray* pItemsArray;       
+
+            hr = IFileOpenDialog_GetResults(pFileOpen, &pItemsArray);
+
+            if SUCCEEDED(hr)
+            {           
+                IShellItem* pItem;
+
+                hr = IShellItemArray_GetItemAt(pItemsArray, 0, &pItem);
+
+                if SUCCEEDED(hr)
+                {
+                    LPWSTR pszFilePath;
+                    hr = IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &pszFilePath);
+
+                    if SUCCEEDED(hr)
+                    {
+                        // Clear Playlist and load new one
+                        WA_Playlist_RemoveAll(Globals2.pPlaylist);                
+                        WA_Playlist_LoadM3U(Globals2.pPlaylist, pszFilePath);
+
+                        CoTaskMemFree(pszFilePath);
+                    }
+
+                    IShellItem_Release(pItem);
+                }              
+
+                // Update Listview Count
+                WA_Playlist_UpdateView(Globals2.pPlaylist, false);         
+
+                IShellItemArray_Release(pItemsArray);
+            }
+        }
+
+        IFileOpenDialog_Release(pFileOpen);
+        pFileOpen = NULL;
+    }
+
+    return true;
+}
+
+/// <summary>
+/// Show Playlist File Save Dialog.
+/// On success, this function save the playlist at specified path
+/// </summary>
+bool MainWindow_SaveAsPlaylistDialog(HWND hOwnerHandle)
+{
+    IFileSaveDialog* pFileSave;
+    COMDLG_FILTERSPEC Filter;
+    HRESULT hr;
+    IShellItem* pItem;
+
+    // Check if we have a working Playlist Object
+    // Should be always valid
+    if (!Globals2.pPlaylist)
+        return false;
+
+    // Create the FileOpenDialog object.
+    hr = CoCreateInstance(&CLSID_FileSaveDialog, NULL, CLSCTX_ALL,
+        &IID_IFileSaveDialog, (LPVOID*)(&pFileSave));
+
+
+    if SUCCEEDED(hr)
+    {
+        Filter.pszName = L"M3U8 Playlist";
+        Filter.pszSpec = L"*.m3u8";
+     
+        IFileSaveDialog_SetFileTypes(pFileSave, 1U, &Filter);
+        IFileSaveDialog_SetFileTypeIndex(pFileSave, 1U);
+
+        IFileSaveDialog_SetTitle(pFileSave, L"Save M3U8 Playlist...");
+
+        // Show the Save dialog box.
+        hr = IFileSaveDialog_Show(pFileSave, hOwnerHandle);     
+   
+        if SUCCEEDED(hr)
+        {
+            hr = IFileSaveDialog_GetResult(pFileSave, &pItem);
+
+            if SUCCEEDED(hr)
+            {
+                LPWSTR pszFilePath;
+                hr = IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &pszFilePath);
+
+                if SUCCEEDED(hr)
+                {
+                   
+                    WA_Playlist_SaveAsM3U(Globals2.pPlaylist, pszFilePath);
+                    CoTaskMemFree(pszFilePath);
+                }
+
+                IShellItem_Release(pItem);
+            }
+        }     
+
+        IFileSaveDialog_Release(pFileSave);
+        pFileSave = NULL;
     }
 
     return true;
