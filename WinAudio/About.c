@@ -28,7 +28,7 @@ INT_PTR CALLBACK AboutProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
         SendMessage(hDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
         SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
 
-        SendDlgItemMessage(hDlg, IDC_LOGO_CTRL, STM_SETICON, (WPARAM)hIcon, NULL);
+        SendDlgItemMessage(hDlg, IDC_LOGO_CTRL, STM_SETICON, (WPARAM)hIcon, 0);
 
         // Convert ANSI macro to UNICODE
         sprintf_s(BuildAnsi, ABOUT_BUILD_STR_LEN, "%u / %s %s\0", MW_ID_BUILD_NR, __TIME__, __DATE__);
@@ -61,7 +61,8 @@ INT_PTR CALLBACK AboutProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     {
         LPNMHDR pHdr = (LPNMHDR)lParam;
         
-
+#pragma warning( push )
+#pragma warning( disable : 26454 )
         if ((pHdr->code == NM_CLICK) && (pHdr->idFrom = IDC_GITHUB_LINK))
         {
 
@@ -72,7 +73,7 @@ INT_PTR CALLBACK AboutProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 
             return TRUE;
         }
-
+#pragma warning( pop )
         return FALSE;
     }
     case WM_CLOSE:
