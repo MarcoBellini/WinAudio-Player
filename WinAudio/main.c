@@ -634,6 +634,9 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case ID_FILE_SETTINGS:   
         DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);     
         break;    
+    case ID_ABOUT_INFO:
+        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_ABOUT), Globals2.hMainWindow, AboutProc);
+        break;
     case ID_PLAYBACK_PLAY:
         MainWindow_Play();
         break;

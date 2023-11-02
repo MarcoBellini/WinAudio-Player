@@ -172,6 +172,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="About.c" />
     <ClCompile Include="CircleBuffer.c" />
     <ClCompile Include="WA_DSP_Effect.c" />
     <ClCompile Include="WA_GEN_Messages.c" />

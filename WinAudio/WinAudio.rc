@@ -137,6 +137,14 @@ BEGIN
         TOPMARGIN, 7
         BOTTOMMARGIN, 233
     END
+
+    IDD_ABOUT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 74
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -174,6 +182,23 @@ BEGIN
     LTEXT           "Globals",IDC_STATIC,25,90,29,8
 END
 
+IDD_ABOUT DIALOGEX 0, 0, 235, 81
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "WinAudio"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,178,60,50,14
+    ICON            "",IDC_LOGO_CTRL,19,15,21,20,SS_CENTERIMAGE
+    LTEXT           "WinAudio Player",IDC_ABOUT_TITLE,51,15,76,10
+    CONTROL         "<a href=""https://github.com/MarcoBellini/WinAudio-Player"">Github Project Page</a>",IDC_GITHUB_LINK,
+                    "SysLink",WS_TABSTOP,51,25,73,11
+    RTEXT           "Build:",IDC_STATIC,22,48,18,8
+    RTEXT           "Platform:",IDC_STATIC,21,58,30,11
+    LTEXT           "20 on 01/11/2023",IDC_BUILD_STATIC,56,48,138,8
+    LTEXT           "x64",IDC_PLATFORM_STATIC,57,58,30,11
+    LTEXT           "_______________________________________________",IDC_STATIC,23,36,161,8,WS_DISABLED
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -181,6 +206,11 @@ END
 //
 
 IDD_SETTINGS AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_ABOUT AFX_DIALOG_LAYOUT
 BEGIN
     0
 END
