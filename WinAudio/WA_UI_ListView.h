@@ -46,5 +46,8 @@ VOID WA_UI_Listview_Destroy(HWND hListview);
 VOID WA_UI_Listview_SaveSettings(HWND hListview);
 VOID WA_UI_Listview_LoadSettings(HWND hListview);
 
+// Signal to Cache Thread that main window is ready
+VOID WA_ListView_RunCacheThread();
+
 
 #endif

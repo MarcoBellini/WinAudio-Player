@@ -243,6 +243,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     ShowWindow(Globals2.hMainWindow, nShowCmd);
     UpdateWindow(Globals2.hMainWindow);
 
+    // Run Playlist Caching Thread
+    WA_ListView_RunCacheThread();
+
     _RPTW1(_CRT_WARN, L"DPI: %u\n", GetDpiForWindow(Globals2.hMainWindow));
 
     // Run the message loop.
