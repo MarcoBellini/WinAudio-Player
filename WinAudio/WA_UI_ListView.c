@@ -26,6 +26,7 @@ static wchar_t WA_Listview_Column_Path[] = L"File Path\0";
 
 // Process Custom Draw (Recived in a form of WM_NOTIFY)
 LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd);
+DWORD WINAPI WA_ListView_CacheThread(_In_ LPVOID lpParameter);
 
 WA_Listview_Column Columns[WA_LISTVIEW_COLUMNS_COUNT];
 
@@ -358,13 +359,17 @@ static void WA_UI_Listview_DeleteSelected(HWND hListview)
 
     while (nCounter > -1)
     {
+        EnterCriticalSection(&Globals2.CacheThreadSection);
         WA_Playlist_Remove(Globals2.pPlaylist, IntArray[nCounter]);
+        LeaveCriticalSection(&Globals2.CacheThreadSection);
         nCounter--;
     }
 
     free(IntArray);
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
     
 }
 
@@ -422,8 +427,10 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
 
         if (Globals2.pPlaylist)
         {
+            EnterCriticalSection(&Globals2.CacheThreadSection);
             WA_Playlist_RemoveAll(Globals2.pPlaylist);
             WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+            LeaveCriticalSection(&Globals2.CacheThreadSection);
         }
     }
 
@@ -522,7 +529,9 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
     WA_Playlist_Metadata* pMetadata;
     DWORD dwColumnID;
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     pMetadata = WA_Playlist_Get_Item(Globals2.pPlaylist, pInfo->item.iItem);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     _ASSERT(pMetadata);
 
@@ -536,10 +545,19 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
         switch (dwColumnID)
         {
         case WA_LISTVIEW_COLUMN_STATUS:
-            if(pMetadata->bFileSelected)
-                wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"->\0");
+            if (pMetadata->bFileReaded)
+            {
+                if (pMetadata->bFileSelected)
+                    wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"->\0");
+                else
+                    wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"\0");
+                
+            }
             else
-                wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"\0");
+            {
+                wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, L"Reading..\0");
+            }
+
             break;
         case WA_LISTVIEW_COLUMN_INDEX:
         {
@@ -621,14 +639,17 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
 
 static void WA_Listview_PrepCache(NMLVCACHEHINT *pCache)
 {   
-    WA_Playlist_UpdateCache(Globals2.pPlaylist, (DWORD) pCache->iFrom,(DWORD) pCache->iTo);
+    // Use slow caching if we fail to create caching thread
+    if(Globals2.bCacheThreadFail)
+        WA_Playlist_UpdateCache(Globals2.pPlaylist, (DWORD) pCache->iFrom,(DWORD) pCache->iTo);
 }
 
 static LRESULT WA_Listview_FindItem(LPNMLVFINDITEM pFindItem)
 {
     LVFINDINFOW* pFindInfo = &pFindItem->lvfi;
-    DWORD dwStartIndex = (DWORD)(pFindItem->iStart) % WA_Playlist_Get_Count(Globals2.pPlaylist);
+    DWORD dwStartIndex;
     DWORD dwFoundIndex;
+    bool bResult;
 
     /*
 
@@ -647,11 +668,13 @@ static LRESULT WA_Listview_FindItem(LPNMLVFINDITEM pFindItem)
     if (!Globals2.pPlaylist)
         return -1;
 
-    if(!WA_Playlist_FindByFirstChar(Globals2.pPlaylist, 
-        dwStartIndex, 
-        pFindInfo->psz, 
-        &dwFoundIndex))   
-        return -1;
+    EnterCriticalSection(&Globals2.CacheThreadSection);
+    dwStartIndex = (DWORD)(pFindItem->iStart) % WA_Playlist_Get_Count(Globals2.pPlaylist);
+    bResult = WA_Playlist_FindByFirstChar(Globals2.pPlaylist, dwStartIndex, pFindInfo->psz, &dwFoundIndex);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
+    
+    if (!bResult)    
+        return -1;          
 
     return (LRESULT)dwFoundIndex;
 }
@@ -671,7 +694,9 @@ static void WA_Listview_ReorderSelectedItems(HWND hListview, INT uTargetIndex)
     if (!Globals2.pPlaylist)
         return;
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     if (dwCount < (DWORD)uTargetIndex)
         return;
@@ -702,7 +727,9 @@ static void WA_Listview_ReorderSelectedItems(HWND hListview, INT uTargetIndex)
         
     }
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     WA_Playlist_ReorderIndexes(Globals2.pPlaylist, ItemsArray, uSelectedCount, (DWORD)uTargetIndex);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     free(ItemsArray);
 
@@ -726,8 +753,8 @@ static void WA_Listview_OpenSelectedItem(HWND hListview)
     nIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
 
     if (nIndex != -1)
-    {
-        MainWindow_Open_Playlist_Index(nIndex);
+    {      
+        MainWindow_Open_Playlist_Index(nIndex);        
     }
 }
 
@@ -870,6 +897,14 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
         case VK_DELETE:
         case VK_BACK:
             WA_UI_Listview_DeleteSelected(hWnd);
+            return 0;
+        case 0x41: // CTRL + A -> Select All
+            if(GetAsyncKeyState(VK_CONTROL))
+                ListView_SetItemState(hWnd, -1, LVIS_SELECTED, LVIS_SELECTED);
+            return 0;
+        case 0x44:  // CTRL + D -> Deselect All
+            if (GetAsyncKeyState(VK_CONTROL))
+              ListView_SetItemState(hWnd, -1, 0, LVIS_SELECTED);
             return 0;
         }           
 
@@ -1106,13 +1141,49 @@ HWND WA_UI_Listview_Create(HWND hOwner, PRECT pRect)
      
 
     // Create Columns
-    WA_UI_Listview_InitColumns(hListview);
+    WA_UI_Listview_InitColumns(hListview);   
+
+    // Create Caching Thread
+    InitializeCriticalSection(&Globals2.CacheThreadSection);
+
+    Globals2.hCacheAbort = CreateEvent(NULL, FALSE, FALSE, L"CacheAbortEvent");
+    Globals2.hCacheSemaphore = CreateEvent(NULL, FALSE, FALSE, L"CacheSemaphoreEvent");
+    Globals2.hCacheThread = NULL;
+
+    if ((Globals2.hCacheAbort) && (Globals2.hCacheSemaphore))
+        Globals2.hCacheThread = CreateThread(NULL, 0, WA_ListView_CacheThread, Globals2.pPlaylist, 0, NULL);
+
+    // Use slow caching on fail to create thread
+    if (!Globals2.hCacheThread)
+        Globals2.bCacheThreadFail = true;
+    else
+        Globals2.bCacheThreadFail = false;
 
     return hListview;
 }
 
 VOID WA_UI_Listview_Destroy(HWND hListview)
-{
+{   
+    if (Globals2.hCacheAbort)
+    {
+        // Close Caching Thread
+        if (Globals2.hCacheThread)
+        {
+            SetEvent(Globals2.hCacheAbort);
+            WaitForSingleObject(Globals2.hCacheThread, INFINITE);
+            CloseHandle(Globals2.hCacheThread);
+        }
+
+        CloseHandle(Globals2.hCacheAbort);
+    }
+
+    if (Globals2.hCacheSemaphore)
+    {
+        CloseHandle(Globals2.hCacheSemaphore);
+    }
+
+    DeleteCriticalSection(&Globals2.CacheThreadSection); 
+
     if (Globals2.pPlaylist)
         WA_Playlist_Delete(Globals2.pPlaylist);
 }
@@ -1212,3 +1283,48 @@ VOID WA_UI_Listview_LoadSettings(HWND hListview)
 
     WA_Ini_Delete(pIni);
 }
+
+
+DWORD WINAPI WA_ListView_CacheThread(_In_ LPVOID lpParameter)
+{    
+    bool bAbort = false;
+    DWORD dwResult;
+
+    // Wait Until Main Window loads plugins, settings, ecc..
+    dwResult = WaitForSingleObject(Globals2.hCacheSemaphore, 2500);
+
+    if (dwResult != WAIT_OBJECT_0)
+        return EXIT_FAILURE;
+
+    while (!bAbort)
+    {
+       
+
+        dwResult = WaitForSingleObject(Globals2.hCacheAbort, WA_LISTVIEW_CACHING_TIMEOUT);
+
+        if (dwResult == WAIT_OBJECT_0)
+            bAbort = true;        
+
+
+        if (Globals2.pPlaylist)
+        {
+            EnterCriticalSection(&Globals2.CacheThreadSection);
+            WA_Playlist_CacheNextItem(Globals2.pPlaylist);
+            LeaveCriticalSection(&Globals2.CacheThreadSection);
+        }         
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+
+VOID WA_ListView_RunCacheThread()
+{
+    if (Globals2.hCacheSemaphore)
+        SetEvent(Globals2.hCacheSemaphore);
+}
+
+
+
+

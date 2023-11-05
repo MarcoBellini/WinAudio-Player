@@ -51,4 +51,6 @@ bool WA_Playlist_Get_SelectedIndex(WA_Playlist* This, DWORD *dwIndex);
 bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath);
 bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath);
 
+void WA_Playlist_CacheNextItem(WA_Playlist* This);
+
 #endif

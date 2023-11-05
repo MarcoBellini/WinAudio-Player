@@ -243,6 +243,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     ShowWindow(Globals2.hMainWindow, nShowCmd);
     UpdateWindow(Globals2.hMainWindow);
 
+    // Run Playlist Caching Thread
+    WA_ListView_RunCacheThread();
+
     _RPTW1(_CRT_WARN, L"DPI: %u\n", GetDpiForWindow(Globals2.hMainWindow));
 
     // Run the message loop.
@@ -288,18 +291,25 @@ void MainWindow_ProcessStartupFiles(int32_t nParams, wchar_t** pArgs)
     for (i = 1; i < nParams; i++)
     {
         // Check if file exist
-        if (PathFileExists(pArgs[i]))        
-            WA_Playlist_Add(Globals2.pPlaylist, pArgs[i]);         
+        if (PathFileExists(pArgs[i]))
+        {
+            EnterCriticalSection(&Globals2.CacheThreadSection);
+            WA_Playlist_Add(Globals2.pPlaylist, pArgs[i]);
+            LeaveCriticalSection(&Globals2.CacheThreadSection);
+        }
+                   
                
     }
 
     // Update Listview Count
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     // Open and Play file at Index [0]
     if (MainWindow_Open_Playlist_Index(0)) 
         MainWindow_Play();
-  
+    
   
         
 
@@ -669,8 +679,10 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case ID_PLAYLIST_DELETEALL:
         if (Globals2.pPlaylist)
         {
+            EnterCriticalSection(&Globals2.CacheThreadSection);
             WA_Playlist_RemoveAll(Globals2.pPlaylist);
             WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+            LeaveCriticalSection(&Globals2.CacheThreadSection);
         }
 
         break;
@@ -920,7 +932,10 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
     ListRect.right = WindowRect.right;
     ListRect.bottom = WindowRect.bottom - RebarRect.bottom - StatusRect.bottom;
 
-
+    /*
+    In this function we load Listview settings, and create Playlist object
+    used in main.c. We create also Caching thread and
+    */
     hListview = WA_UI_Listview_Create(hOwnerHandle, &ListRect);
 
     SetWindowSubclass(hListview, WA_UI_Listview_Proc, MW_ID_LISTVIEW, 0);
@@ -944,8 +959,8 @@ HWND MainWindow_CreateListView(HWND hOwnerHandle)
 void MainWindow_DestroyListView()
 {
     WA_UI_Listview_SaveSettings(Globals2.hListView);
-    WA_UI_Listview_Destroy(Globals2.hListView);
     RemoveWindowSubclass(Globals2.hListView, WA_UI_Listview_Proc, MW_ID_LISTVIEW);
+    WA_UI_Listview_Destroy(Globals2.hListView);    
 }
 
 /// <summary>
@@ -995,8 +1010,10 @@ void MainWindow_CreateUI(HWND hMainWindow)
 
             if (MainWindow_GetPlaylistSaveFolder(PlaylistPath))
             {
+                EnterCriticalSection(&Globals2.CacheThreadSection);
                 WA_Playlist_LoadM3U(Globals2.pPlaylist, PlaylistPath);
                 WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+                LeaveCriticalSection(&Globals2.CacheThreadSection);
             }           
 
 
@@ -1037,7 +1054,12 @@ void MainWindow_DestroyUI()
         wchar_t PlaylistPath[MAX_PATH];
 
         if (MainWindow_GetPlaylistSaveFolder(PlaylistPath))
+        {
+            EnterCriticalSection(&Globals2.CacheThreadSection);
             WA_Playlist_SaveAsM3U(Globals2.pPlaylist, PlaylistPath);
+            LeaveCriticalSection(&Globals2.CacheThreadSection);
+        }
+            
         
     }
 
@@ -1435,7 +1457,9 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
                     IShellItem* pItem;
 
                     // Clear Playlist
+                    EnterCriticalSection(&Globals2.CacheThreadSection);
                     WA_Playlist_RemoveAll(Globals2.pPlaylist);
+                    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
                     // Get The Path of Each Selected File
                     for (DWORD i = 0U; i < dwFilesCount; i++)
@@ -1453,7 +1477,12 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 
                                 // Add item to Playlist
                                 if (WA_Playback_Engine_IsFileSupported(pszFilePath))
+                                {
+                                    EnterCriticalSection(&Globals2.CacheThreadSection);
                                     WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+                                    LeaveCriticalSection(&Globals2.CacheThreadSection);
+                                }
+                                    
 
                                 CoTaskMemFree(pszFilePath);
                             }
@@ -1465,7 +1494,9 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
                     }
 
                     // Update Listview Count
+                    EnterCriticalSection(&Globals2.CacheThreadSection);
                     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+                    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
                     // Open First Index in the playlist
                     MainWindow_Open_Playlist_Index(0);
@@ -1562,8 +1593,13 @@ bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
                             if SUCCEEDED(hr)
                             {
                                 
-                                if(WA_Playback_Engine_IsFileSupported(pszFilePath))                          
+                                if (WA_Playback_Engine_IsFileSupported(pszFilePath))
+                                {
+                                    EnterCriticalSection(&Globals2.CacheThreadSection);
                                     WA_Playlist_Add(Globals2.pPlaylist, pszFilePath);
+                                    LeaveCriticalSection(&Globals2.CacheThreadSection);
+                                }
+                                   
 
                                 CoTaskMemFree(pszFilePath);
                             }
@@ -1575,7 +1611,9 @@ bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
                     }
 
                     // Update Listview Count
+                    EnterCriticalSection(&Globals2.CacheThreadSection);
                     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+                    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
                 }
 
@@ -1624,7 +1662,12 @@ static void MainWindow_Folder2Playlist(const LPWSTR pszFilePath)
         wcscat_s(lpwFilePath, MAX_PATH, data.cFileName);
 
         if (WA_Playback_Engine_IsFileSupported(lpwFilePath))
+        {
+            EnterCriticalSection(&Globals2.CacheThreadSection);
             WA_Playlist_Add(Globals2.pPlaylist, lpwFilePath);
+            LeaveCriticalSection(&Globals2.CacheThreadSection);
+        }
+           
 
     } while (FindNextFile(hFind, &data) != 0);
 
@@ -1632,7 +1675,10 @@ static void MainWindow_Folder2Playlist(const LPWSTR pszFilePath)
     FindClose(hFind);
 
     // Update Listview Count
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
+   
 
 }
 
@@ -1754,8 +1800,10 @@ bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle)
                     if SUCCEEDED(hr)
                     {
                         // Clear Playlist and load new one
+                        EnterCriticalSection(&Globals2.CacheThreadSection);
                         WA_Playlist_RemoveAll(Globals2.pPlaylist);                
                         WA_Playlist_LoadM3U(Globals2.pPlaylist, pszFilePath);
+                        LeaveCriticalSection(&Globals2.CacheThreadSection);
 
                         CoTaskMemFree(pszFilePath);
                     }
@@ -1764,7 +1812,9 @@ bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle)
                 }              
 
                 // Update Listview Count
+                EnterCriticalSection(&Globals2.CacheThreadSection);
                 WA_Playlist_UpdateView(Globals2.pPlaylist, false);         
+                LeaveCriticalSection(&Globals2.CacheThreadSection);
 
                 IShellItemArray_Release(pItemsArray);
             }
@@ -1823,7 +1873,9 @@ bool MainWindow_SaveAsPlaylistDialog(HWND hOwnerHandle)
                 if SUCCEEDED(hr)
                 {
                    
+                    EnterCriticalSection(&Globals2.CacheThreadSection);
                     WA_Playlist_SaveAsM3U(Globals2.pPlaylist, pszFilePath);
+                    LeaveCriticalSection(&Globals2.CacheThreadSection);
                     CoTaskMemFree(pszFilePath);
                 }
 
@@ -1982,7 +2034,9 @@ bool MainWindow_NextItem()
     if (!Globals2.pPlaylist)
         return false;
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     if (dwCount < 1)
         return false;
@@ -2010,7 +2064,9 @@ bool MainWindow_PreviousItem()
     if (!Globals2.pPlaylist)
         return false;
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     if (dwCount < 1)
         return false;
@@ -2041,7 +2097,9 @@ bool MainWindow_Open_Playlist_Index(DWORD dwIndex)
     if (!Globals2.pPlaylist)
         return false;
 
+    EnterCriticalSection(&Globals2.CacheThreadSection);
     pMetadata = WA_Playlist_Get_Item(Globals2.pPlaylist, dwIndex);
+    LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     if (!pMetadata)
         return false;
@@ -2053,8 +2111,10 @@ bool MainWindow_Open_Playlist_Index(DWORD dwIndex)
     // Update Listview
     if (Globals2.pPlaylist)
     {
+        EnterCriticalSection(&Globals2.CacheThreadSection);
         WA_Playlist_SelectIndex(Globals2.pPlaylist, dwIndex);
         WA_Playlist_UpdateView(Globals2.pPlaylist, true);
+        LeaveCriticalSection(&Globals2.CacheThreadSection);
     }
 
     MainWindow_Play();
@@ -2120,12 +2180,13 @@ bool MainWindow_Close()
     {
         DWORD dwIndex = 0;
 
+        EnterCriticalSection(&Globals2.CacheThreadSection);
         if (WA_Playlist_Get_SelectedIndex(Globals2.pPlaylist, &dwIndex))
         {
             WA_Playlist_DeselectIndex(Globals2.pPlaylist, dwIndex);
             WA_Playlist_UpdateView(Globals2.pPlaylist, true);
         }
-
+        LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     }
 
@@ -2644,12 +2705,13 @@ LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam)
         if (!WA_Playback_Engine_IsFileSupported((wchar_t*)lpCopy->lpData))
             return FALSE;
 
+        EnterCriticalSection(&Globals2.CacheThreadSection);
         WA_Playlist_RemoveAll(Globals2.pPlaylist);
-
         WA_Playlist_Add(Globals2.pPlaylist, (wchar_t*) lpCopy->lpData);
 
         // Update Listview Count
         WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        LeaveCriticalSection(&Globals2.CacheThreadSection);
 
         // Open and Play file at Index [0]
         if (MainWindow_Open_Playlist_Index(0)) 
@@ -2667,10 +2729,12 @@ LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam)
         if (!WA_Playback_Engine_IsFileSupported((wchar_t*)lpCopy->lpData))
             return FALSE;
        
+        EnterCriticalSection(&Globals2.CacheThreadSection);
         WA_Playlist_Add(Globals2.pPlaylist, (wchar_t*)lpCopy->lpData);
 
         // Update Listview Count
         WA_Playlist_UpdateView(Globals2.pPlaylist, false);
+        LeaveCriticalSection(&Globals2.CacheThreadSection);
 
         break;
     }
@@ -2891,7 +2955,9 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
             {         
                 if (WA_Playback_Engine_IsFileSupported(FilePath))
                 {
+                    EnterCriticalSection(&Globals2.CacheThreadSection);
                     WA_Playlist_Add(Globals2.pPlaylist, FilePath);
+                    LeaveCriticalSection(&Globals2.CacheThreadSection);
                     dwAddedFiles++;
                 }                      
             }
@@ -2901,8 +2967,10 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 
     if (dwAddedFiles > 0)
     {
+        EnterCriticalSection(&Globals2.CacheThreadSection);
         WA_Playlist_UpdateView(Globals2.pPlaylist, false);
         dwLastIndex = WA_Playlist_Get_Count(Globals2.pPlaylist) - 1U;
+        LeaveCriticalSection(&Globals2.CacheThreadSection);
 
         ListView_EnsureVisible(Globals2.hListView, dwLastIndex, FALSE);
     }

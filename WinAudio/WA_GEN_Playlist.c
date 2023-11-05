@@ -42,9 +42,7 @@ WA_Playlist* WA_Playlist_New(uint32_t uInitialSize, WA_Playlist_ReadCallback* pR
 	{
 		free(pPlaylist);
 		return NULL;
-	}
-
-
+	}	
 
 	return pPlaylist;
 }
@@ -81,10 +79,9 @@ bool WA_Playlist_Add(WA_Playlist* This, const wchar_t* pFilePath)
 	errno_t nError;
 
 	// Add a path to playlist. Detailed information will be calculated later when caching
-	nError = wcscpy_s(This->pMetadataArray[This->dwCount].lpwFilePath, MAX_PATH, pFilePath);
-	This->pMetadataArray[This->dwCount].bFileReaded = false;
-	This->pMetadataArray[This->dwCount].bFileSelected = false;
-
+	ZeroMemory(&This->pMetadataArray[This->dwCount], sizeof(WA_Playlist_Metadata));
+	nError = wcscpy_s(This->pMetadataArray[This->dwCount].lpwFilePath, MAX_PATH, pFilePath);	
+		
 	if (nError != 0)
 		return false;
 
@@ -304,23 +301,11 @@ bool WA_Playlist_ReorderIndexes(WA_Playlist* This, DWORD *pIndexesArray, DWORD d
 /// <param name="dwIndex">Index of a Item to Get Data</param>
 /// <returns>Pointer to an itemor NULL on fail</returns>
 WA_Playlist_Metadata* WA_Playlist_Get_Item(WA_Playlist* This, DWORD dwIndex)
-{
+{	
+
 	// Skip indices out of range
 	if (This->dwCount < dwIndex)
 		return NULL;
-	
-
-	// Add an item to the cache that is not present
-	if (!This->pMetadataArray[dwIndex].bFileReaded)
-	{
-		DWORD dwFrom, dwTo;
-
-		dwFrom = dwIndex;
-		dwTo = dwIndex + This->dwCount; // Try to update current block
-		
-		WA_Playlist_UpdateCache(This, dwFrom, dwTo);		
-	}
-
 
 	return &This->pMetadataArray[dwIndex];	
 }
@@ -608,4 +593,37 @@ bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath)
 
 	return true;
 
+}
+
+void WA_Playlist_CacheNextItem(WA_Playlist* This)
+{
+	DWORD dwIndexToCache;
+	bool bNeedToCache = false;	
+
+	if (This->dwCount == 0)
+		return;
+	
+
+	// Find First item to be cached
+	for (DWORD i = 0; i < This->dwCount; i++)
+	{
+		if (!This->pMetadataArray[i].bFileReaded)
+		{
+			dwIndexToCache = i;
+			bNeedToCache = true;
+			break;
+		}
+	}
+
+	if (!bNeedToCache)
+		return;
+
+	// Read Metadata
+	if (This->pRead(&This->pMetadataArray[dwIndexToCache]))
+		This->pMetadataArray[dwIndexToCache].bFileReaded = true;;
+
+	// Update View
+	WA_Playlist_UpdateView(This, true);
+
+	
 }

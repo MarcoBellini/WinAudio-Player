@@ -2,7 +2,7 @@
 #define GLOBALS2_H
 
 // Increase at every commit
-#define MW_ID_BUILD_NR					2
+#define MW_ID_BUILD_NR					4
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480
@@ -94,6 +94,13 @@ struct
 
 	TOOLINFO PositionToolInfo;
 	HWND hPositionTool;
+
+
+	HANDLE hCacheAbort;
+	HANDLE hCacheSemaphore;
+	HANDLE hCacheThread;
+	CRITICAL_SECTION CacheThreadSection;
+	bool bCacheThreadFail;
 } Globals2;
 
 
