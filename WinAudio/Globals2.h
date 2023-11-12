@@ -2,7 +2,7 @@
 #define GLOBALS2_H
 
 // Increase at every commit
-#define MW_ID_BUILD_NR					4
+#define MW_ID_BUILD_NR					5
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480

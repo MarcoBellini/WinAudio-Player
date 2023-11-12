@@ -533,8 +533,6 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
     pMetadata = WA_Playlist_Get_Item(Globals2.pPlaylist, pInfo->item.iItem);
     LeaveCriticalSection(&Globals2.CacheThreadSection);
 
-    _ASSERT(pMetadata);
-
     if (!pMetadata)
         return;
 
@@ -562,7 +560,7 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
         case WA_LISTVIEW_COLUMN_INDEX:
         {
             wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
-            swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%d\0", pInfo->item.iItem);
+            _snwprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, WA_LISTVIEW_PRINTF_MAX - 1, L"%d\0", pInfo->item.iItem);
             
             wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, Buffer);
             break;
@@ -571,13 +569,7 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
         {
             wchar_t Buffer[WA_LISTVIEW_PRINTF_MAX];
 
-            if(wcslen(pMetadata->Metadata.Title) != 0U)
-                if (wcslen(pMetadata->Metadata.Artist) != 0U)
-                    swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s - %s\0", pMetadata->Metadata.Artist, pMetadata->Metadata.Title);
-                else
-                    swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Title);
-            else
-                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%s\0", pMetadata->Metadata.Artist);
+            WA_Playlist_Merge_Artist_Title(Buffer, WA_LISTVIEW_PRINTF_MAX, pMetadata->Metadata.Artist, pMetadata->Metadata.Title);
 
             wcscpy_s(pInfo->item.pszText, pInfo->item.cchTextMax, Buffer);
             break;
@@ -599,11 +591,11 @@ static void WA_Listview_GetItem(NMLVDISPINFO* pInfo)
 
             if (uHour > 0)
             {
-                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02u:%02u:%02u\0", uHour, uMinute, uSeconds);
+                _snwprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, WA_LISTVIEW_PRINTF_MAX - 1, L"%02u:%02u:%02u\0", uHour, uMinute, uSeconds);
             }
             else
             {
-                swprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, L"%02u:%02u\0", uMinute, uSeconds);
+                _snwprintf_s(Buffer, WA_LISTVIEW_PRINTF_MAX, WA_LISTVIEW_PRINTF_MAX - 1, L"%02u:%02u\0", uMinute, uSeconds);
             }      
 
 
@@ -758,6 +750,99 @@ static void WA_Listview_OpenSelectedItem(HWND hListview)
     }
 }
 
+static void WA_Listview_Header_Click(HWND hListView, int32_t nItemIndex)
+{
+    HWND hHeader;
+    HDITEM Item;
+    BOOL bValue;
+    int32_t nItemsCount, nSortOrder;
+    DWORD dwColumnID;
+
+    dwColumnID = WA_UI_Listview_GetIDFromIndex((DWORD)nItemIndex);
+
+    // Skip Status and Index Columns
+    if (dwColumnID < WA_LISTVIEW_COLUMN_TITLE_ARTIST)
+        return;
+
+
+    hHeader = ListView_GetHeader(hListView);
+
+    if (!hHeader)
+        return;
+
+    // Show a sorting arrow on clicked column (UP or DOWN)
+    bValue = Header_GetItem(hHeader, nItemIndex, &Item);
+
+    if (!bValue)
+        return;
+
+    Item.mask |= HDI_FORMAT;
+
+    if (Item.fmt & HDF_SORTUP)
+    {
+        Item.fmt &= ~HDF_SORTUP;
+        Item.fmt |= HDF_SORTDOWN;
+        nSortOrder = WA_PLAYLIST_SORT_DOWN;
+    }
+    else
+    {
+        Item.fmt |= HDF_SORTUP;
+        nSortOrder = WA_PLAYLIST_SORT_UP;
+    }
+
+    Header_SetItem(hHeader, nItemIndex, &Item);
+
+    // Perform Sorting
+    switch (dwColumnID)
+    {
+    case WA_LISTVIEW_COLUMN_TITLE_ARTIST:
+        WA_Playlist_Sort(Globals2.pPlaylist, WA_PLAYLIST_SORT_BY_ARTIST_TITLE, nSortOrder);
+        break;
+    case WA_LISTVIEW_COLUMN_ALBUM:
+        WA_Playlist_Sort(Globals2.pPlaylist, WA_PLAYLIST_SORT_BY_ALBUM, nSortOrder);
+        break;
+    case WA_LISTVIEW_COLUMN_DURATION:
+        WA_Playlist_Sort(Globals2.pPlaylist, WA_PLAYLIST_SORT_BY_DURATION, nSortOrder);
+        break;
+    case WA_LISTVIEW_COLUMN_GENRE:
+        WA_Playlist_Sort(Globals2.pPlaylist, WA_PLAYLIST_SORT_BY_GENRE, nSortOrder);
+        break;
+    case WA_LISTVIEW_COLUMN_SIZE:
+        WA_Playlist_Sort(Globals2.pPlaylist, WA_PLAYLIST_SORT_BY_SIZE, nSortOrder);
+        break;
+    case WA_LISTVIEW_COLUMN_PATH:
+        WA_Playlist_Sort(Globals2.pPlaylist, WA_PLAYLIST_SORT_BY_PATH, nSortOrder);
+    }
+
+
+    // Reset Other Columns (Remove sorting arrow)
+    nItemsCount = Header_GetItemCount(hHeader);
+
+    if (nItemsCount == -1)
+        return;
+
+
+    for (int32_t i = 0; i < nItemsCount; i++)
+    {
+
+        // Skip Current Item
+        if (i == nItemIndex)
+            continue;
+
+        // Reset to default other items
+        bValue = Header_GetItem(hHeader, i, &Item);
+
+        if (bValue)
+        {
+            Item.mask |= HDI_FORMAT;
+            Item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+
+            Header_SetItem(hHeader, i, &Item);
+        }
+    }
+}
+
+
 
 LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
@@ -765,22 +850,26 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
     switch (uMsg)
     {
-    case WM_NOTIFY: // Header custom draw
+    case WM_NOTIFY: 
     {
-        // Use Standard Listview if Light Theme is Enabled
-        if (!DarkMode_IsEnabled())
-            return DefSubclassProc(hWnd, uMsg, wParam, lParam);
-
-
         LPNMHDR lpHdr = (LPNMHDR)lParam;
 
- // Disable warning Arithmetic overflow: '-' operation produces a negative 
- // unsigned result at compile time
-#pragma warning( push )
-#pragma warning( disable : 26454 )
-
-        if (lpHdr->code & NM_CUSTOMDRAW)
+        switch (lpHdr->code)
         {
+
+        case HDN_ITEMCLICK:
+        {    
+            LPNMHEADER pnmv = (LPNMHEADER)lParam;
+
+            WA_Listview_Header_Click(hWnd, pnmv->iItem);
+            break;         
+        }
+        case NM_CUSTOMDRAW: // Header custom draw
+        {
+            // Use Standard Listview if Light Theme is Enabled
+            if (!DarkMode_IsEnabled())
+                return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+          
             LPNMCUSTOMDRAW nmcd = (LPNMCUSTOMDRAW)lParam;
 
             switch (nmcd->dwDrawStage)
@@ -788,14 +877,15 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
             case CDDS_PREPAINT:
                 return CDRF_NOTIFYITEMDRAW;
             case CDDS_ITEMPREPAINT:
-            {               
+            {
                 SetTextColor(nmcd->hdc, ColorPolicy_Get_TextOnBackground_Color());
                 return CDRF_DODEFAULT;
             }
             }
+            
         }
-#pragma warning( pop )
-    }
+        }  // END lpHdr->Code
+    } // END WM_NOTIFY
     case WM_THEMECHANGED:
     {
         HWND hHeader = ListView_GetHeader(hWnd);
@@ -1291,10 +1381,14 @@ DWORD WINAPI WA_ListView_CacheThread(_In_ LPVOID lpParameter)
     DWORD dwResult;
 
     // Wait Until Main Window loads plugins, settings, ecc..
-    dwResult = WaitForSingleObject(Globals2.hCacheSemaphore, 2500);
+    dwResult = WaitForSingleObject(Globals2.hCacheSemaphore, 3000);
 
     if (dwResult != WAIT_OBJECT_0)
+    {
+        Globals2.bCacheThreadFail = true;
         return EXIT_FAILURE;
+    }
+        
 
     while (!bAbort)
     {
