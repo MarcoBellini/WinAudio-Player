@@ -14,8 +14,7 @@
 #define WA_LISTVIEW_COLUMNS_COUNT           8
 #define WA_LISTVIEW_PRINTF_MAX              100
 
-#define WA_LISTVIEW_CACHING_TIMEOUT         50 // In Ms
-
+#define WA_LISTVIEW_CACHING_TIMEOUT         200 // In Ms
 
 // Store Columns Order and Visibility
 typedef struct TagWA_Listview_Column

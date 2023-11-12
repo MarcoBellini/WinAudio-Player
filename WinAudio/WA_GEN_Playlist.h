@@ -5,6 +5,23 @@
 #define WA_PLAYLIST_INITIAL_MAX_SIZE 50
 #define WA_PLAYLIST_REALLOC_BLOCK 100
 
+// Sort By
+enum WA_PLAYLIST_SORT_BY
+{
+	WA_PLAYLIST_SORT_BY_ARTIST_TITLE,
+	WA_PLAYLIST_SORT_BY_ALBUM,
+	WA_PLAYLIST_SORT_BY_GENRE,
+	WA_PLAYLIST_SORT_BY_DURATION,
+	WA_PLAYLIST_SORT_BY_SIZE,
+	WA_PLAYLIST_SORT_BY_PATH
+};
+
+enum WA_PLAYLIST_SORT_ORDER
+{
+	WA_PLAYLIST_SORT_UP,
+	WA_PLAYLIST_SORT_DOWN
+};
+
 // Opaque Type
 struct TagWA_Playlist;
 typedef struct TagWA_Playlist WA_Playlist;
@@ -52,5 +69,23 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath);
 bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath);
 
 void WA_Playlist_CacheNextItem(WA_Playlist* This);
+
+void WA_Playlist_Sort(WA_Playlist* This, DWORD dwSortBy, int32_t nSortOrder);
+
+
+inline void WA_Playlist_Merge_Artist_Title(wchar_t* pBuffer, DWORD dwBufferSize, const wchar_t* pArtist, const wchar_t* pTitle)
+{
+	DWORD dwMaxCount = dwBufferSize - 1U;
+
+	if (wcslen(pTitle) != 0U)
+		if (wcslen(pArtist) != 0U)
+			_snwprintf_s(pBuffer, dwBufferSize, dwMaxCount, L"%s - %s\0", pArtist, pTitle);
+
+		else
+			_snwprintf_s(pBuffer, dwBufferSize, dwMaxCount, L"%s\0", pTitle);
+	else
+		_snwprintf_s(pBuffer, dwBufferSize, dwMaxCount, L"%s\0", pArtist);
+
+}
 
 #endif

@@ -445,7 +445,9 @@ bool WA_Playlist_Get_SelectedIndex(WA_Playlist* This, DWORD *dwIndex)
 	return false;
 }
 
-
+/// <summary>
+/// Load M3U8 Playlist
+/// </summary>
 bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 {
 	uint32_t uBytesReaded = 0;
@@ -461,7 +463,7 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 	BOOL bResult;
 	
 
-	hFile = CreateFile(pFilePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	hFile = CreateFile(pFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hFile == INVALID_HANDLE_VALUE)		
 		return false;
@@ -476,14 +478,14 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 		return false;
 	}		
 
-	UFT8Text = (char* )malloc(FileSize.LowPart);
+	UFT8Text = (char* )malloc(FileSize.LowPart + 1); // Reserve space for Null-Terminating character
 
 	if (!UFT8Text)
 	{
 		CloseHandle(hFile);
 		return false;
 	}
-		
+
 
 	bResult = ReadFile(hFile, UFT8Text, FileSize.LowPart, &uBytesReaded, NULL);
 
@@ -495,8 +497,11 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 		return false;	
 	}
 
-	// Calc the requied size of unicode buffer, in characters
-	uUnicodeRequiedSize = MultiByteToWideChar(CP_UTF8, 0, UFT8Text, uBytesReaded, NULL, 0);
+	// Insert Null-Terminating character
+	UFT8Text[FileSize.LowPart] = 0;
+
+	// Calc the requied size of unicode buffer, in characters (Include Null Terminating Character)
+	uUnicodeRequiedSize = MultiByteToWideChar(CP_UTF8, 0, UFT8Text, -1, NULL, 0);
 	uUnicodeRequiedSize = uUnicodeRequiedSize * sizeof(wchar_t);
 
 
@@ -509,9 +514,10 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 		CloseHandle(hFile);
 		return false;
 	}
+	
 
-	// Convert Chuck from UFT8 to wchar_t
-	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, UFT8Text, uBytesReaded, UnicodeText, uUnicodeRequiedSize);
+	// Convert Chuck from UFT8 to wchar_t (Include Null Terminating Character)
+	uConvertedChars = MultiByteToWideChar(CP_UTF8, 0, UFT8Text, -1, UnicodeText, uUnicodeRequiedSize);
 
 
 	if (uConvertedChars == 0)
@@ -527,15 +533,26 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 	free(UFT8Text);
 	UFT8Text = NULL;
 
-
+	
+	
+	// Split string into multiple paths
 	Token = wcstok_s(UnicodeText, L"\r\n", &Context);
 
 	while (Token != NULL)
 	{
 		if (wcschr(Token, L'#') == NULL)
 		{
-			if (PathFileExists(Token))
-				WA_Playlist_Add(This, Token);
+			// TODO: PathFileExists slow down the process when file is on SMB share
+			// check if exist anothe function or check file existence later, when file
+			// is opened by the user
+			// if (PathFileExists(Token)) It slow down the process on file on SMB
+			//if(PathIsNetworkPath(Token))
+			//	WA_Playlist_Add(This, Token);
+			//else
+			//	if (PathFileExists(Token))
+					WA_Playlist_Add(This, Token);
+					
+			
 		}
 	
 		Token = wcstok_s(NULL, L"\r\n", &Context);
@@ -547,7 +564,9 @@ bool WA_Playlist_LoadM3U(WA_Playlist* This, const wchar_t* pFilePath)
 	return true;
 }
 
-
+/// <summary>
+/// Save Playlist as M3U8
+/// </summary>
 bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath)
 {
 	HANDLE hFile;
@@ -595,6 +614,9 @@ bool WA_Playlist_SaveAsM3U(WA_Playlist* This, const wchar_t* pFilePath)
 
 }
 
+/// <summary>
+/// Find the next item without cached info and metadata
+/// </summary>
 void WA_Playlist_CacheNextItem(WA_Playlist* This)
 {
 	DWORD dwIndexToCache;
@@ -626,4 +648,199 @@ void WA_Playlist_CacheNextItem(WA_Playlist* This)
 	WA_Playlist_UpdateView(This, true);
 
 	
+}
+
+
+/// <summary>
+/// Compare function used in qsort_s
+/// Compare by Path
+/// </summary>
+static int WA_Playlist_Cmp_Path(void* order, const void* obj1, const void* obj2)
+{
+	int32_t SortOrder = *((int32_t*)order);
+	WA_Playlist_Metadata* p1 = (WA_Playlist_Metadata*)obj1;
+	WA_Playlist_Metadata* p2 = (WA_Playlist_Metadata*)obj2;
+	int32_t nResult;
+
+	nResult = _wcsicmp(p1->lpwFilePath, p2->lpwFilePath);
+
+	switch (SortOrder)
+	{
+	case WA_PLAYLIST_SORT_UP:
+		return (nResult > 0) ? 1 : ((nResult == 0) ? 0 : -1);
+	case WA_PLAYLIST_SORT_DOWN:
+		return (nResult > 0) ? -1 : ((nResult == 0) ? 0 : 1);
+	}
+
+	return 0;
+}
+
+
+/// <summary>
+/// Compare function used in qsort_s
+/// Compare by Artist/Title as viewed in listview
+/// </summary>
+static int WA_Playlist_Cmp_Artist_Title(void* order, const void* obj1, const void* obj2)
+{
+	int32_t SortOrder = *((int32_t*)order);
+	WA_Playlist_Metadata* p1 = (WA_Playlist_Metadata*)obj1;
+	WA_Playlist_Metadata* p2 = (WA_Playlist_Metadata*)obj2;
+	wchar_t Buffer1[50];
+	wchar_t Buffer2[50];
+	int32_t nResult;
+
+	WA_Playlist_Merge_Artist_Title(Buffer1, ARRAYSIZE(Buffer1), p1->Metadata.Artist, p1->Metadata.Title);
+	WA_Playlist_Merge_Artist_Title(Buffer2, ARRAYSIZE(Buffer2), p2->Metadata.Artist, p2->Metadata.Title);
+
+	nResult = _wcsicmp(Buffer1, Buffer2);
+			
+	switch (SortOrder)
+	{
+	case WA_PLAYLIST_SORT_UP:
+		return (nResult > 0) ? 1 : ((nResult == 0) ? 0 : -1);		
+	case WA_PLAYLIST_SORT_DOWN:
+		return (nResult > 0) ? -1 : ((nResult == 0) ? 0 : 1);
+	}
+
+	return 0;
+}
+
+/// <summary>
+/// Compare function used in qsort_s
+/// Compare by Album
+/// </summary>
+static int WA_Playlist_Cmp_Album(void* order, const void* obj1, const void* obj2)
+{
+	int32_t SortOrder = *((int32_t*)order);
+	const WA_Playlist_Metadata* p1 = (WA_Playlist_Metadata*)obj1;
+	const WA_Playlist_Metadata* p2 = (WA_Playlist_Metadata*)obj2;
+	int32_t nResult;
+
+	nResult = _wcsicmp(p1->Metadata.Album, p2->Metadata.Album);
+
+	switch (SortOrder)
+	{
+	case WA_PLAYLIST_SORT_UP:
+		return (nResult > 0) ? 1 : ((nResult == 0) ? 0 : -1);
+	case WA_PLAYLIST_SORT_DOWN:
+		return (nResult > 0) ? -1 : ((nResult == 0) ? 0 : 1);
+	}
+
+	return 0;
+}
+
+/// <summary>
+/// Compare function used in qsort_s
+/// Compare by Genre
+/// </summary>
+static int WA_Playlist_Cmp_Genre(void* order, const void* obj1, const void* obj2)
+{
+	int32_t SortOrder = *((int32_t*)order);
+	WA_Playlist_Metadata* p1 = (WA_Playlist_Metadata*)obj1;
+	WA_Playlist_Metadata* p2 = (WA_Playlist_Metadata*)obj2;
+	int32_t nResult;
+
+	nResult = _wcsicmp(p1->Metadata.Genre, p2->Metadata.Genre);
+
+	switch (SortOrder)
+	{
+	case WA_PLAYLIST_SORT_UP:
+		return (nResult > 0) ? 1 : ((nResult == 0) ? 0 : -1);
+	case WA_PLAYLIST_SORT_DOWN:
+		return (nResult > 0) ? -1 : ((nResult == 0) ? 0 : 1);
+	}
+
+	return 0;
+}
+
+/// <summary>
+/// Compare function used in qsort_s
+/// Compare by Duration (in milliseconds)
+/// </summary>
+static int WA_Playlist_Cmp_Duration(void* order, const void* obj1, const void* obj2)
+{
+	int32_t SortOrder = *((int32_t*)order);
+	WA_Playlist_Metadata* p1 = (WA_Playlist_Metadata*)obj1;
+	WA_Playlist_Metadata* p2 = (WA_Playlist_Metadata*)obj2;
+	int32_t nResult = 0;
+
+
+	switch (SortOrder)
+	{
+	case WA_PLAYLIST_SORT_UP:
+		if (p1->uFileDurationMs == p2->uFileDurationMs)
+			nResult = 0;
+		else if (p1->uFileDurationMs > p2->uFileDurationMs)
+			nResult = 1;
+		else
+			nResult = -1;
+
+	case WA_PLAYLIST_SORT_DOWN:
+		if (p1->uFileDurationMs == p2->uFileDurationMs)
+			nResult = 0;
+		else if (p1->uFileDurationMs > p2->uFileDurationMs)
+			nResult = -1;
+		else
+			nResult = 1;
+
+	}
+
+	return nResult;
+}
+
+
+/// <summary>
+/// Compare function used in qsort_s
+/// Compare by file Size
+/// </summary>
+static int WA_Playlist_Cmp_Size(void* order, const void* obj1, const void* obj2)
+{
+	int32_t SortOrder = *((int32_t*)order);
+	WA_Playlist_Metadata* p1 = (WA_Playlist_Metadata*)obj1;
+	WA_Playlist_Metadata* p2 = (WA_Playlist_Metadata*)obj2;
+	LONGLONG nResult;
+
+	nResult = p1->dwFileSizeBytes - p2->dwFileSizeBytes;
+
+	switch (SortOrder)
+	{
+	case WA_PLAYLIST_SORT_UP:
+		return (nResult > 0) ? 1 : ((nResult == 0) ? 0 : -1);
+	case WA_PLAYLIST_SORT_DOWN:
+		return (nResult > 0) ? -1 : ((nResult == 0) ? 0 : 1);
+	}
+
+	return 0;
+}
+
+
+/// <summary>
+/// Perform a Playlist sort
+/// </summary>
+/// <param name="dwSortBy">See WA_PLAYLIST_SORT_BY enum</param>
+/// <param name="nSortOrder">See WA_PLAYLIST_SORT_ORDER enum</param>
+void WA_Playlist_Sort(WA_Playlist* This, DWORD dwSortBy, int32_t nSortOrder)
+{
+	switch (dwSortBy)
+	{
+		case WA_PLAYLIST_SORT_BY_ARTIST_TITLE:
+			qsort_s(This->pMetadataArray, This->dwCount, sizeof(WA_Playlist_Metadata), WA_Playlist_Cmp_Artist_Title, &nSortOrder);
+			break;
+		case WA_PLAYLIST_SORT_BY_ALBUM:
+			qsort_s(This->pMetadataArray, This->dwCount, sizeof(WA_Playlist_Metadata), WA_Playlist_Cmp_Album, &nSortOrder);
+			break;
+		case WA_PLAYLIST_SORT_BY_GENRE:
+			qsort_s(This->pMetadataArray, This->dwCount, sizeof(WA_Playlist_Metadata), WA_Playlist_Cmp_Genre, &nSortOrder);
+			break;
+		case WA_PLAYLIST_SORT_BY_DURATION:
+			qsort_s(This->pMetadataArray, This->dwCount, sizeof(WA_Playlist_Metadata), WA_Playlist_Cmp_Duration, &nSortOrder);
+			break;
+		case WA_PLAYLIST_SORT_BY_SIZE:
+			qsort_s(This->pMetadataArray, This->dwCount, sizeof(WA_Playlist_Metadata), WA_Playlist_Cmp_Size, &nSortOrder);
+			break;
+		case WA_PLAYLIST_SORT_BY_PATH:
+			qsort_s(This->pMetadataArray, This->dwCount, sizeof(WA_Playlist_Metadata), WA_Playlist_Cmp_Path, &nSortOrder);
+	}
+
+	WA_Playlist_UpdateView(This, true);
 }
