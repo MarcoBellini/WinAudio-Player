@@ -14,6 +14,7 @@
 #define IDD_SETTINGS                    133
 #define IDR_PLAYLIST_MENU               135
 #define IDD_ABOUT                       136
+#define IDD_SEARCH_DLG                  138
 #define IDC_INPUT_COMBO                 1007
 #define IDC_OUTPUT_COMBO                1008
 #define IDC_EFFECT_COMBO                1009
@@ -30,6 +31,9 @@
 #define IDC_GITHUB_LINK                 1018
 #define IDC_BUILD_STATIC                1019
 #define IDC_PLATFORM_STATIC             1020
+#define IDC_SEARCH_FLG_EDIT             1021
+#define IDC_SEARCH_DLG_EDIT             1021
+#define IDC_SEARCH_DLG_LIST             1022
 #define ID_FILE_OPENFILE                40020
 #define ID_FILE_OPENFOLDER              40021
 #define ID_FILE_OPENCD                  40022
@@ -60,9 +64,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        138
+#define _APS_NEXT_RESOURCE_VALUE        140
 #define _APS_NEXT_COMMAND_VALUE         40046
-#define _APS_NEXT_CONTROL_VALUE         1021
+#define _APS_NEXT_CONTROL_VALUE         1023
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
