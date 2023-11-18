@@ -4,7 +4,7 @@
 
 #define WinAudio_Name "WinAudio Player"
 #define WinAudio_Exe  WinAudio_Name + ".exe"
-#define WinAudio_Version "0.04"
+#define WinAudio_Version "0.07"
 
 [Setup]
 AppName=WinAudio Player
