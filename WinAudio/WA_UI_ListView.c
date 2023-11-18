@@ -432,6 +432,9 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
             WA_Playlist_UpdateView(Globals2.pPlaylist, false);
             LeaveCriticalSection(&Globals2.CacheThreadSection);
         }
+    case ID_FILE_SEARCH:
+        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
+        break;
     }
 
 

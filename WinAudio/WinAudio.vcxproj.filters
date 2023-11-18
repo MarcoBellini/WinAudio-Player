@@ -81,6 +81,9 @@
     <ClCompile Include="About.c">
       <Filter>File di origine</Filter>
     </ClCompile>
+    <ClCompile Include="SearchDlg.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">

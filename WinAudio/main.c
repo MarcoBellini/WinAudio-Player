@@ -137,6 +137,38 @@ static bool MainWindow_GetPlaylistSaveFolder(wchar_t* pFolderPath)
     return true;
 }
 
+/// <summary>
+/// Restore Main window Position and Location after creation and after is shown
+/// </summary>
+static void MainWindow_RestoreWindowRectFromSettings()
+{
+    // Restore window position and size (if enabled in settings)
+    if (Settings2.bSaveWndSizePos)
+    {
+        bool bResize = ((Settings2.MainWindowRect.right != 0) || (Settings2.MainWindowRect.left != 0) ||
+            (Settings2.MainWindowRect.top != 0) || (Settings2.MainWindowRect.bottom != 0));
+        if (bResize)
+        {
+            HDWP hDefer = BeginDeferWindowPos(10);
+
+            if (hDefer)
+            {
+                int32_t nWidth = Settings2.MainWindowRect.right - Settings2.MainWindowRect.left;
+                int32_t nHeight = Settings2.MainWindowRect.bottom - Settings2.MainWindowRect.top;
+                int32_t nX = Settings2.MainWindowRect.left;
+                int32_t nY = Settings2.MainWindowRect.top;
+
+                hDefer = DeferWindowPos(hDefer, Globals2.hMainWindow, HWND_TOP, nX, nY, nWidth, nHeight, SWP_SHOWWINDOW);
+
+                if (hDefer)
+                    EndDeferWindowPos(hDefer);
+
+            }
+
+        }
+    }
+}
+
 
 /// <summary>
 /// Application Entry Point
@@ -246,7 +278,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     // Run Playlist Caching Thread
     WA_ListView_RunCacheThread();
 
-    _RPTW1(_CRT_WARN, L"DPI: %u\n", GetDpiForWindow(Globals2.hMainWindow));
+
+    // Load Keyboard accelerators
+    Globals2.hAccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR));
+
+    // Restore Saved Size and Position 
+    // (must be called here, after window creation and after is shown)
+    MainWindow_RestoreWindowRectFromSettings();
 
     // Run the message loop.
     MainWindow_StartMainLoop();   
@@ -393,8 +431,12 @@ void MainWindow_StartMainLoop()
 
     while (GetMessage(&msg, NULL, 0, 0))
     {    
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        if (!TranslateAccelerator(Globals2.hMainWindow, Globals2.hAccel, &msg))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+
     }
 
 }
@@ -692,6 +734,16 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case ID_PLAYLIST_SAVEAS:
         MainWindow_SaveAsPlaylistDialog(Globals2.hMainWindow);
         break;
+    case ID_PLAYLIST_SEARCH:
+        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
+        break;
+    case ID_PLAYBACK_PREV5SECONDS:
+        MainWindow_Back5Sec();
+        break;
+    case ID_PLAYBACK_FWD5SECONDS:
+        MainWindow_Fwd5Sec();
+         break;
+
     }
 }
 
@@ -1032,6 +1084,7 @@ void MainWindow_CreateUI(HWND hMainWindow)
 
     // Show Welcome Message in status bar
     MainWindow_Status_SetText(Globals2.hStatus, NULL, true);  
+
 }
 
 /// <summary>
@@ -1039,6 +1092,12 @@ void MainWindow_CreateUI(HWND hMainWindow)
 /// </summary>
 void MainWindow_DestroyUI()
 {
+    // Store MainWindow RECT used in SaveSettings
+    if (!GetWindowRect(Globals2.hMainWindow, &Settings2.MainWindowRect))
+    {
+        ZeroMemory(&Settings2.MainWindowRect, sizeof(RECT));
+    }
+
     MainWindow_Close();
 
     if (Globals2.pDropTargetHelper)
@@ -2085,6 +2144,69 @@ bool MainWindow_PreviousItem()
     return MainWindow_Open_Playlist_Index(dwIndex);
 }
 
+
+/// <summary>
+/// Move playback position back of 5 seconds
+/// </summary>
+bool MainWindow_Back5Sec()
+{
+    uint64_t uDuration, uPosition;
+
+    if (!Globals2.bFileIsOpen)
+        return false;
+
+    if (Globals2.dwCurrentStatus != MW_PLAYING)
+        return false;
+
+    if (!WA_Playback_Engine_Get_Duration(&uDuration))
+        return false;
+
+    if (!WA_Playback_Engine_Get_Position(&uPosition))
+        return false;
+
+    if (((int64_t)uPosition - 5000) < 0)
+        uPosition = 0;
+    else
+        uPosition -= 5000;
+
+    Sleep(50);
+
+    MainWindow_UpdatePositionTrackbar(uPosition);
+
+    return WA_Playback_Engine_Seek(uPosition);
+}
+
+/// <summary>
+/// Move playback position forward of 5 seconds
+/// </summary>
+bool MainWindow_Fwd5Sec()
+{
+    uint64_t uDuration, uPosition;
+
+    if (!Globals2.bFileIsOpen)
+        return false;
+
+    if (Globals2.dwCurrentStatus != MW_PLAYING)
+        return false;
+
+    if (!WA_Playback_Engine_Get_Duration(&uDuration))
+        return false;
+
+    if (!WA_Playback_Engine_Get_Position(&uPosition))
+        return false;
+
+    if ((uPosition + 5000) > uDuration)
+        return MainWindow_NextItem();
+    else
+        uPosition += 5000;
+
+    Sleep(50);
+
+    MainWindow_UpdatePositionTrackbar(uPosition);
+
+    return WA_Playback_Engine_Seek(uPosition);
+}
+
 /// <summary>
 /// Open a file using an Index of Playlist
 /// </summary>
@@ -2782,6 +2904,12 @@ void MainWindow_LoadSettings()
     Settings2.bPlayNextItem = WA_Ini_Read_Bool(pIni, false, L"Globals", L"PlayNextItem");
     Settings2.uCurrentVolume = WA_Ini_Read_UInt32(pIni, 255, L"Globals", L"CurrentVolume");
     Settings2.bSavePlaylistOnExit = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SavePlaylistOnExit");
+    Settings2.bSaveWndSizePos = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SaveWndPosSize");
+
+    if (!WA_Ini_Read_Struct(pIni, &Settings2.MainWindowRect, sizeof(RECT), L"Globals", L"WindowRECT"))
+    {
+        ZeroMemory(&Settings2.MainWindowRect, sizeof(RECT));
+    }
 
     WA_Ini_Read_String(pIni, Settings2.pActiveOutputDescr, MW_MAX_PLUGIN_DESC, L"", L"Globals", L"OutputPluginDescr");
     WA_Ini_Read_String(pIni, Settings2.pActiveEffectDescr, MW_MAX_PLUGIN_DESC, L"", L"Globals", L"OutputEffectDescr");
@@ -2802,6 +2930,10 @@ void MainWindow_SaveSettings()
     WA_Ini_Write_Bool(pIni, Settings2.bPlayNextItem, L"Globals", L"PlayNextItem");
     WA_Ini_Write_UInt32(pIni, Settings2.uCurrentVolume, L"Globals", L"CurrentVolume");
     WA_Ini_Write_Bool(pIni, Settings2.bSavePlaylistOnExit, L"Globals", L"SavePlaylistOnExit");
+
+    // Save MainWindow Position and Size
+    WA_Ini_Write_Struct(pIni, &Settings2.MainWindowRect, sizeof(RECT), L"Globals", L"WindowRECT");
+    WA_Ini_Write_Bool(pIni, Settings2.bSaveWndSizePos, L"Globals", L"SaveWndPosSize");
 
     WA_Ini_Write_String(pIni, Settings2.pActiveOutputDescr, MW_MAX_PLUGIN_DESC, L"Globals", L"OutputPluginDescr");
     WA_Ini_Write_String(pIni, Settings2.pActiveEffectDescr, MW_MAX_PLUGIN_DESC, L"Globals", L"OutputEffectDescr");
