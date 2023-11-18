@@ -2,7 +2,7 @@
 #define GLOBALS2_H
 
 // Increase at every commit
-#define MW_ID_BUILD_NR					6
+#define MW_ID_BUILD_NR					7
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480
@@ -101,6 +101,9 @@ struct
 	HANDLE hCacheThread;
 	CRITICAL_SECTION CacheThreadSection;
 	bool bCacheThreadFail;
+
+
+	HACCEL hAccel;
 } Globals2;
 
 
@@ -118,8 +121,11 @@ struct
 
 	bool bPlayNextItem;
 	bool bSavePlaylistOnExit;
+	bool bSaveWndSizePos;
 
 	uint32_t uCurrentVolume;
+
+	RECT MainWindowRect;
 
 } Settings2;
 
@@ -133,6 +139,8 @@ bool MainWindow_Open_Playlist_Index(DWORD dwIndex);
 bool MainWindow_Close();
 bool MainWindow_PreviousItem();
 bool MainWindow_NextItem();
+bool MainWindow_Back5Sec();
+bool MainWindow_Fwd5Sec();
 
 // Dialogs
 INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);

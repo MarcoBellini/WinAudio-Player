@@ -432,6 +432,9 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
             WA_Playlist_UpdateView(Globals2.pPlaylist, false);
             LeaveCriticalSection(&Globals2.CacheThreadSection);
         }
+    case ID_FILE_SEARCH:
+        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
+        break;
     }
 
 
@@ -996,12 +999,6 @@ LRESULT CALLBACK WA_UI_Listview_Proc(HWND hWnd, UINT uMsg, WPARAM wParam,
             if (GetAsyncKeyState(VK_CONTROL))
               ListView_SetItemState(hWnd, -1, 0, LVIS_SELECTED);
             return 0;
-        case 0x46: // CTRL + F -> Open Search Dialog
-            if (GetAsyncKeyState(VK_CONTROL))
-                DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
-               
-            return 0;
-
         }           
 
         break;

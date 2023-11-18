@@ -178,6 +178,9 @@ static BOOL Settings_Handle_WM_Command(HWND hDialog, WORD ControlID, WORD Messag
         case IDC_SAVEPLAYLIST:
             Settings2.bSavePlaylistOnExit = (bool)IsDlgButtonChecked(hDialog, IDC_SAVEPLAYLIST);
             break;
+        case IDC_SAVEWNDPOS:
+            Settings2.bSaveWndSizePos = (bool)IsDlgButtonChecked(hDialog, IDC_SAVEWNDPOS);
+            break;
         case IDC_BUTTON_CONF_INPUT:
             Settings_Configure_Plugin(GetDlgItem(hDialog, IDC_INPUT_COMBO), WA_PLUGINTYPE_INPUT);
             break;
@@ -294,7 +297,7 @@ INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
 
         CheckDlgButton(hwndDlg, IDC_PLAYNEXTFILE, Settings2.bPlayNextItem ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(hwndDlg, IDC_SAVEPLAYLIST, Settings2.bSavePlaylistOnExit ? BST_CHECKED : BST_UNCHECKED);
-     
+        CheckDlgButton(hwndDlg, IDC_SAVEWNDPOS, Settings2.bSaveWndSizePos ? BST_CHECKED : BST_UNCHECKED);
 
         return TRUE;
     }

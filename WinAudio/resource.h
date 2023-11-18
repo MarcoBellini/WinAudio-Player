@@ -15,6 +15,7 @@
 #define IDR_PLAYLIST_MENU               135
 #define IDD_ABOUT                       136
 #define IDD_SEARCH_DLG                  138
+#define IDR_ACCELERATOR                 140
 #define IDC_INPUT_COMBO                 1007
 #define IDC_OUTPUT_COMBO                1008
 #define IDC_EFFECT_COMBO                1009
@@ -27,11 +28,11 @@
 #define IDC_SAVEPLAYLIST                1016
 #define IDC_LOGO_CTRL                   1016
 #define IDC_ABOUT_TITLE                 1017
+#define IDC_SAVEWNDPOS                  1017
 #define IDC_SYSLINK1                    1018
 #define IDC_GITHUB_LINK                 1018
 #define IDC_BUILD_STATIC                1019
 #define IDC_PLATFORM_STATIC             1020
-#define IDC_SEARCH_FLG_EDIT             1021
 #define IDC_SEARCH_DLG_EDIT             1021
 #define IDC_SEARCH_DLG_LIST             1022
 #define ID_FILE_OPENFILE                40020
@@ -59,13 +60,17 @@
 #define ID_FILE_SELECTALL               40042
 #define ID_FILE_SELECTNONE              40043
 #define ID_FILE_CLEARPLAYLIST           40044
+#define ID_FILE_SEARCH                  40046
+#define ID_PLAYLIST_SEARCH              40047
+#define ID_PLAYBACK_PREV5SECONDS        40051
+#define ID_PLAYBACK_FWD5SECONDS         40052
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        140
-#define _APS_NEXT_COMMAND_VALUE         40046
+#define _APS_NEXT_RESOURCE_VALUE        141
+#define _APS_NEXT_COMMAND_VALUE         40053
 #define _APS_NEXT_CONTROL_VALUE         1023
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
