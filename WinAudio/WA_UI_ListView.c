@@ -432,6 +432,8 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
             WA_Playlist_UpdateView(Globals2.pPlaylist, false);
             LeaveCriticalSection(&Globals2.CacheThreadSection);
         }
+
+        break;
     case ID_FILE_SEARCH:
         DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
         break;
@@ -773,13 +775,22 @@ static void WA_Listview_Header_Click(HWND hListView, int32_t nItemIndex)
     if (!hHeader)
         return;
 
+    // Clear Item Memory
+    ZeroMemory(&Item, sizeof(HDITEM));
+
+    // Get all the informations for the item
+    Item.mask = HDI_FORMAT | HDI_ORDER | HDI_TEXT | HDI_WIDTH | HDI_STATE;
+
     // Show a sorting arrow on clicked column (UP or DOWN)
     bValue = Header_GetItem(hHeader, nItemIndex, &Item);
 
     if (!bValue)
         return;
 
-    Item.mask |= HDI_FORMAT;
+    // Restore Text informations from ID
+    Item.pszText = WA_Listview_GetStringFromID(dwColumnID);
+    Item.cchTextMax = (int) wcslen(Item.pszText);
+   
 
     if (Item.fmt & HDF_SORTUP)
     {
@@ -832,11 +843,23 @@ static void WA_Listview_Header_Click(HWND hListView, int32_t nItemIndex)
         if (i == nItemIndex)
             continue;
 
+        // Clear item memory
+        ZeroMemory(&Item, sizeof(HDITEM));        
+
+        // Get all the informations for the item
+        Item.mask = HDI_FORMAT | HDI_ORDER | HDI_TEXT | HDI_WIDTH | HDI_STATE;
+
         // Reset to default other items
         bValue = Header_GetItem(hHeader, i, &Item);
 
         if (bValue)
         {
+            // Restore Text informations from ID
+            dwColumnID = WA_UI_Listview_GetIDFromIndex((DWORD)i);
+
+            Item.pszText = WA_Listview_GetStringFromID(dwColumnID);
+            Item.cchTextMax = (int)wcslen(Item.pszText);
+
             Item.mask |= HDI_FORMAT;
             Item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
 

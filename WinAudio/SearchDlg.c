@@ -128,7 +128,7 @@ INT_PTR CALLBACK SearchDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 
                 if (nSelectedItem != LB_ERR)
                 {
-                    nItemIndex = ListBox_GetItemData(GetDlgItem(hDlg, IDC_SEARCH_DLG_LIST), nSelectedItem);
+                    nItemIndex = (int32_t) ListBox_GetItemData(GetDlgItem(hDlg, IDC_SEARCH_DLG_LIST), nSelectedItem);
 
                     if (nItemIndex != LB_ERR)
                     {                      

@@ -196,8 +196,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         MainWindow_CopyData(hExistingWindow, __argc, __wargv);
 
         // Show Existing Window
-        SetForegroundWindow(hExistingWindow);
-        ShowWindow(hExistingWindow, SW_RESTORE);
+        // // TODO: Check if it is userful to add this option on settings page
+        //SetForegroundWindow(hExistingWindow);
+        //ShowWindow(hExistingWindow, SW_RESTORE);
 
         _RPTFW0(_CRT_WARN, L"Found an already opened instance\n");
 
