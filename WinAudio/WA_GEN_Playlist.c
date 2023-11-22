@@ -775,13 +775,14 @@ static int WA_Playlist_Cmp_Duration(void* order, const void* obj1, const void* o
 		else
 			nResult = -1;
 
+		break;
 	case WA_PLAYLIST_SORT_DOWN:
 		if (p1->uFileDurationMs == p2->uFileDurationMs)
 			nResult = 0;
-		else if (p1->uFileDurationMs > p2->uFileDurationMs)
-			nResult = -1;
-		else
+		else if (p2->uFileDurationMs > p1->uFileDurationMs)
 			nResult = 1;
+		else
+			nResult = -1;
 
 	}
 
