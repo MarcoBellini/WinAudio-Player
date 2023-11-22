@@ -51,4 +51,6 @@ This project is licensed under the [MIT License](LICENSE), allowing you to use, 
 
 If you have any questions, suggestions, or just want to chat about WinAudio or programming in general, feel free to reach out to me at [marco.bellini8@gmail.com](mailto:marco.bellini8@gmail.com).
 
+<meta name="google-site-verification" content="L7SwBgfD1TgnFhcHs2WoDIhnhsIWzb7FVuOH_aBUSqk" />
+
 Happy coding!
