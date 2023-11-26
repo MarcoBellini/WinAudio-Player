@@ -95,6 +95,13 @@ BEGIN
         MENUITEM "Next\tALT-S",                 ID_PLAYBACK_NEXT
         MENUITEM "Back 5 Seconds\tLeft",        ID_PLAYBACK_PREV5SECONDS
         MENUITEM "Fwd 5 Seconds\tRight",        ID_PLAYBACK_FWD5SECONDS
+        MENUITEM SEPARATOR
+        POPUP "Repeat"
+        BEGIN
+            MENUITEM "None",                        ID_REPEAT_NONE, CHECKED
+            MENUITEM "Track",                       ID_REPEAT_TRACK
+            MENUITEM "Playlist",                    ID_REPEAT_PLAYLIST
+        END
     END
     POPUP "Playlist"
     BEGIN
