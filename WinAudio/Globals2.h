@@ -2,7 +2,7 @@
 #define GLOBALS2_H
 
 // Increase at every commit
-#define MW_ID_BUILD_NR					7
+#define MW_ID_BUILD_NR					8
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480
@@ -48,6 +48,10 @@
 #define MW_STOPPED						WA_STATUS_STOP
 
 #define MW_MAX_PLUGIN_DESC				127
+
+#define MW_REPEAT_NONE					0
+#define MW_REPEAT_TRACK					1
+#define MW_REPEAT_PLAYLIST				2
 
 
 // Main Window Globals Vars
@@ -126,6 +130,8 @@ struct
 	uint32_t uCurrentVolume;
 
 	RECT MainWindowRect;
+
+	int32_t RepeatOption;
 
 } Settings2;
 

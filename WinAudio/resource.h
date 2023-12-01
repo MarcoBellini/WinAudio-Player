@@ -64,13 +64,17 @@
 #define ID_PLAYLIST_SEARCH              40047
 #define ID_PLAYBACK_PREV5SECONDS        40051
 #define ID_PLAYBACK_FWD5SECONDS         40052
+#define ID_PLAYBACK_REPEAT              40053
+#define ID_REPEAT_NONE                  40054
+#define ID_REPEAT_TRACK                 40055
+#define ID_REPEAT_PLAYLIST              40056
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        141
-#define _APS_NEXT_COMMAND_VALUE         40053
+#define _APS_NEXT_COMMAND_VALUE         40057
 #define _APS_NEXT_CONTROL_VALUE         1023
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

@@ -72,6 +72,7 @@ void MainWindow_DrawSpectrum();
 void MainWindow_UpdateVolumeFromTrackbarValue();
 
 void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClearTitle);
+void MainWindow_CheckRepeatOption(int32_t nRepeatOption);
 
 void MainWindow_LoadSettings();
 void MainWindow_SaveSettings();
@@ -744,9 +745,46 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case ID_PLAYBACK_FWD5SECONDS:
         MainWindow_Fwd5Sec();
          break;
-
+    case ID_REPEAT_NONE:
+        MainWindow_CheckRepeatOption(MW_REPEAT_NONE);
+        break;
+    case ID_REPEAT_TRACK:
+        MainWindow_CheckRepeatOption(MW_REPEAT_TRACK);
+        break;
+    case ID_REPEAT_PLAYLIST:
+        MainWindow_CheckRepeatOption(MW_REPEAT_PLAYLIST);
+        break;
     }
 }
+
+
+
+void MainWindow_CheckRepeatOption(int32_t nRepeatOption)
+{
+
+    switch (nRepeatOption)
+    {
+    case MW_REPEAT_NONE:
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_NONE, MF_CHECKED);
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_TRACK, MF_UNCHECKED);
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_PLAYLIST, MF_UNCHECKED);
+        Settings2.RepeatOption = MW_REPEAT_NONE;
+        break;
+    case MW_REPEAT_TRACK:
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_TRACK, MF_CHECKED);
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_NONE, MF_UNCHECKED);
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_PLAYLIST, MF_UNCHECKED);
+        Settings2.RepeatOption = MW_REPEAT_TRACK;
+        break;
+    case MW_REPEAT_PLAYLIST:
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_PLAYLIST, MF_CHECKED);
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_NONE, MF_UNCHECKED);
+        CheckMenuItem(Globals2.hMainMenu, ID_REPEAT_TRACK, MF_UNCHECKED);
+        Settings2.RepeatOption = MW_REPEAT_PLAYLIST;
+        break;
+    }
+    }
+
 
 
 /// <summary>
@@ -1083,6 +1121,9 @@ void MainWindow_CreateUI(HWND hMainWindow)
     if SUCCEEDED(CoCreateInstance(&CLSID_DragDropHelper, NULL, CLSCTX_INPROC_SERVER, &IID_IDropTargetHelper, (LPVOID*)&Globals2.pDropTargetHelper))
         Globals2.bUseTargetHelper = true;
 
+    // Check Repeat option according to saved settings
+    MainWindow_CheckRepeatOption(Settings2.RepeatOption);
+
     // Show Welcome Message in status bar
     MainWindow_Status_SetText(Globals2.hStatus, NULL, true);  
 
@@ -1262,7 +1303,7 @@ HMENU MainWindow_CreateMenu(HWND hOwnerHandle)
 
     hMenuHandle = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_MAIN_MENU));
 
-    SetMenu(hOwnerHandle, hMenuHandle);   
+    SetMenu(hOwnerHandle, hMenuHandle);
 
     return hMenuHandle;
 }
@@ -2091,6 +2132,7 @@ bool MainWindow_NextItem()
     DWORD dwIndex = 0;
     DWORD dwCount;
 
+    
     if (!Globals2.pPlaylist)
         return false;
 
@@ -2122,7 +2164,7 @@ bool MainWindow_PreviousItem()
     DWORD dwCount;
 
     if (!Globals2.pPlaylist)
-        return false;
+       return false;
 
     EnterCriticalSection(&Globals2.CacheThreadSection);
     dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
@@ -2132,7 +2174,7 @@ bool MainWindow_PreviousItem()
         return false;
 
     if (!WA_Playlist_Get_SelectedIndex(Globals2.pPlaylist, &dwIndex))
-        return false;
+        return false;    
 
     MainWindow_Close();
 
@@ -2353,14 +2395,41 @@ void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue)
 /// </summary>
 DWORD MainWindow_HandleEndOfStreamMsg()
 {    
-    MainWindow_Stop();    
+    DWORD dwCount, dwCurrent;
+    bool bResult, bIsLastItem;
 
-   
-    // Play next file(if allowed in UI)
-    if (Settings2.bPlayNextItem)
-        MainWindow_NextItem(); 
-    else
+    MainWindow_Stop(); 
+
+    // Stop playing if PlayNextItem flag is not checked
+    // or playlist object is not valid
+    if ((!Settings2.bPlayNextItem) || (!Globals2.pPlaylist))
+    {
         MainWindow_Close();
+        return WA_OK;
+    }
+
+    dwCount = WA_Playlist_Get_Count(Globals2.pPlaylist);
+    bResult = WA_Playlist_Get_SelectedIndex(Globals2.pPlaylist, &dwCurrent);
+
+    bIsLastItem = ((dwCurrent + 1) == dwCount) ? true : false;
+    bIsLastItem &= bResult;
+
+    switch (Settings2.RepeatOption)
+    {
+    case MW_REPEAT_NONE:
+        if(bIsLastItem)
+            MainWindow_Close();
+        else
+            MainWindow_NextItem();
+
+        break;
+    case MW_REPEAT_TRACK:
+        MainWindow_Play();
+        break;
+    case MW_REPEAT_PLAYLIST:
+        MainWindow_NextItem();
+    }  
+
 
     return WA_OK;
 }
@@ -2906,6 +2975,7 @@ void MainWindow_LoadSettings()
     Settings2.uCurrentVolume = WA_Ini_Read_UInt32(pIni, 255, L"Globals", L"CurrentVolume");
     Settings2.bSavePlaylistOnExit = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SavePlaylistOnExit");
     Settings2.bSaveWndSizePos = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SaveWndPosSize");
+    Settings2.RepeatOption = WA_Ini_Read_Int32(pIni, MW_REPEAT_NONE, L"Globals", L"RepeatOption");
 
     if (!WA_Ini_Read_Struct(pIni, &Settings2.MainWindowRect, sizeof(RECT), L"Globals", L"WindowRECT"))
     {
@@ -2931,6 +3001,7 @@ void MainWindow_SaveSettings()
     WA_Ini_Write_Bool(pIni, Settings2.bPlayNextItem, L"Globals", L"PlayNextItem");
     WA_Ini_Write_UInt32(pIni, Settings2.uCurrentVolume, L"Globals", L"CurrentVolume");
     WA_Ini_Write_Bool(pIni, Settings2.bSavePlaylistOnExit, L"Globals", L"SavePlaylistOnExit");
+    WA_Ini_Write_Int32(pIni, Settings2.RepeatOption, L"Globals", L"RepeatOption");
 
     // Save MainWindow Position and Size
     WA_Ini_Write_Struct(pIni, &Settings2.MainWindowRect, sizeof(RECT), L"Globals", L"WindowRECT");
