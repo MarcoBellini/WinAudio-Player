@@ -74,6 +74,8 @@ typedef enum _ACCENT_STATE
 	ACCENT_INVALID_STATE = 6
 } ACCENT_STATE;
 
+// On w11 22621 in already defined in dwmapi.h
+#ifndef NTDDI_WIN10_NI
 typedef enum _DWM_SYSTEMBACKDROP_TYPE
 {
 	DWMSBT_AUTO = 0,
@@ -99,6 +101,7 @@ typedef enum _DWM_SYSTEMBACKDROP_TYPE
 	DWMSBT_TABBEDWINDOW = 4
 
 } DWM_SYSTEMBACKDROP_TYPE;
+#endif
 
 typedef struct _ACCENT_POLICY
 {
