@@ -6,6 +6,10 @@ WinAudio is a lightweight audio program developed in C and Win32, designed to ca
 
 **Note: The project is currently in an alpha phase and under active development.**
 
+## ⭐ Leave a Star
+
+If you find WinAudio useful or interesting, please consider leaving a star! Your support lets me know that the project is appreciated, and it encourages further development.
+
 ## Features
 
 - **Lightweight**: WinAudio is designed to be a lightweight audio program, ensuring a smooth and efficient user experience.
