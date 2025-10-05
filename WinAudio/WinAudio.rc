@@ -52,19 +52,19 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_MAIN_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\mainIcon.ico"
+IDI_MAIN_ICON           ICON                    "..\\Icons\\mainIcon.ico"
 
-IDI_OPEN_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\open.ico"
+IDI_OPEN_ICON           ICON                    "..\\Icons\\open.ico"
 
-IDI_NEXT_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\next.ico"
+IDI_NEXT_ICON           ICON                    "..\\Icons\\next.ico"
 
-IDI_PAUSE_ICON          ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\pause.ico"
+IDI_PAUSE_ICON          ICON                    "..\\Icons\\pause.ico"
 
-IDI_PLAY_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\play.ico"
+IDI_PLAY_ICON           ICON                    "..\\Icons\\play.ico"
 
-IDI_PREVIOUS_ICON       ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\previous.ico"
+IDI_PREVIOUS_ICON       ICON                    "..\\Icons\\previous.ico"
 
-IDI_STOP_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\stop.ico"
+IDI_STOP_ICON           ICON                    "..\\Icons\\stop.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////

@@ -15,14 +15,14 @@
 #include "resource.h"
 
 // String of Columns
-static wchar_t WA_Listview_Column_Status[] = L"Status\0";
-static wchar_t WA_Listview_Column_Index[] = L"Index\0";
-static wchar_t WA_Listview_Column_TileArtist[] = L"Title / Artist\0";
-static wchar_t WA_Listview_Column_Album[] = L"Album\0";
-static wchar_t WA_Listview_Column_Duration[] = L"Duration\0";
-static wchar_t WA_Listview_Column_Genre[] = L"Genre\0";
-static wchar_t WA_Listview_Column_Size[] = L"File Size(MB)\0";
-static wchar_t WA_Listview_Column_Path[] = L"File Path\0";
+static wchar_t WA_Listview_Column_Status[] = L"Status";
+static wchar_t WA_Listview_Column_Index[] = L"Index";
+static wchar_t WA_Listview_Column_TileArtist[] = L"Title / Artist";
+static wchar_t WA_Listview_Column_Album[] = L"Album";
+static wchar_t WA_Listview_Column_Duration[] = L"Duration";
+static wchar_t WA_Listview_Column_Genre[] = L"Genre";
+static wchar_t WA_Listview_Column_Size[] = L"File Size(MB)";
+static wchar_t WA_Listview_Column_Path[] = L"File Path";
 
 // Process Custom Draw (Recived in a form of WM_NOTIFY)
 LRESULT WA_UI_Listview_CustomDraw(HWND hWnd, LPNMLVCUSTOMDRAW lplvcd);

@@ -2,7 +2,7 @@
 #define GLOBALS2_H
 
 // Increase at every commit
-#define MW_ID_BUILD_NR					8
+#define MW_ID_BUILD_NR					9
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480
@@ -37,7 +37,7 @@
 
 #define MW_REBAR_HEIGHT					24
 #define MW_TRACKBAR_MIN_WIDTH			150
-#define MW_STATIC_MIN_WIDTH				100
+#define MW_STATIC_MIN_WIDTH				170
 
 #define MW_VOLUME_MIN					0
 #define MW_VOLUME_MAX					255

@@ -1,6 +1,7 @@
 // https://github.com/ysc3839/win32-darkmode
 
 #include "stdafx.h"
+#include <sdkddkver.h>
 #include "WA_UI_DarkMode.h"
 
 #define USE_DWMAPI 1
@@ -63,6 +64,7 @@ typedef enum TagWINDOWCOMPOSITIONATTRIB
 	WCA_LAST = 27
 } WINDOWCOMPOSITIONATTRIB;
 
+
 typedef enum _ACCENT_STATE
 {
 	ACCENT_DISABLED = 0,
@@ -74,6 +76,8 @@ typedef enum _ACCENT_STATE
 	ACCENT_INVALID_STATE = 6
 } ACCENT_STATE;
 
+// This enum is defined in dwmapi.h header on sdk >= 22621
+#if (WDK_NTDDI_VERSION < NTDDI_WIN10_NI)
 typedef enum _DWM_SYSTEMBACKDROP_TYPE
 {
 	DWMSBT_AUTO = 0,
@@ -99,6 +103,9 @@ typedef enum _DWM_SYSTEMBACKDROP_TYPE
 	DWMSBT_TABBEDWINDOW = 4
 
 } DWM_SYSTEMBACKDROP_TYPE;
+#endif
+
+
 
 typedef struct _ACCENT_POLICY
 {

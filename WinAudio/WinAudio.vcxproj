@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard_C>Default</LanguageStandard_C>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
       <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderOutputFile>$(IntDir)stdafx.pch</PrecompiledHeaderOutputFile>
       <Optimization>Disabled</Optimization>
@@ -175,6 +175,7 @@
     <ClCompile Include="About.c" />
     <ClCompile Include="CircleBuffer.c" />
     <ClCompile Include="SearchDlg.c" />
+    <ClCompile Include="WA_DPI.c" />
     <ClCompile Include="WA_DSP_Effect.c" />
     <ClCompile Include="WA_GEN_Messages.c" />
     <ClCompile Include="WA_GEN_Playlist.c" />
@@ -199,6 +200,7 @@
   <ItemGroup>
     <ClInclude Include="CircleBuffer.h" />
     <ClInclude Include="Globals2.h" />
+    <ClInclude Include="WA_DPI.h" />
     <ClInclude Include="WA_DSP_Effect.h" />
     <ClInclude Include="WA_GEN_Messages.h" />
     <ClInclude Include="WA_GEN_Playlist.h" />

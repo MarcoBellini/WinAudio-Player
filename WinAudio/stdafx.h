@@ -31,7 +31,7 @@
 #include <Shlobj.h>
 #include <shellapi.h>
 #include "d2d1_586.h"
-
+#include <sdkddkver.h>
 
 
 

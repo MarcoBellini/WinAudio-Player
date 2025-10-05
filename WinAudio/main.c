@@ -18,6 +18,7 @@
 #include "WA_GEN_Playlist.h"
 #include "..\WInAudio_SharedFunc\WA_GEN_INI.h"
 #include "WA_UI_Visualizations.h"
+#include "WA_DPI.h"
 #include "Globals2.h"
 
 
@@ -236,7 +237,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     InitCommonControlsEx(&commonCtrl);
     
     MainWindow_LoadSettings();
-    MainWindow_InitDarkMode(); 
+
+    // Use Per-Monitorv2 DPI Scaling (Send WM_DPICHANGED Message)
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         
     // Store Main Window Handle and Instance
     Globals2.hMainWindow = MainWindow_CreateMainWindow(hInstance);
@@ -244,8 +247,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
     // Check if Window has a valid handle
     if (Globals2.hMainWindow == NULL)
-    {
-        MainWindow_DestroyDarkMode();
+    {     
         CoUninitialize();
 
         if (hMutex)
@@ -258,8 +260,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     // Load Plugins
     if (!WA_Playback_Engine_New())
     {
-        DestroyWindow(Globals2.hMainWindow);
-        MainWindow_DestroyDarkMode();
+        DestroyWindow(Globals2.hMainWindow);       
         CoUninitialize();  
 
         if (hMutex)
@@ -280,7 +281,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     // Run Playlist Caching Thread
     WA_ListView_RunCacheThread();
 
-
     // Load Keyboard accelerators
     Globals2.hAccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR));
 
@@ -289,12 +289,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     MainWindow_RestoreWindowRectFromSettings();
 
     // Run the message loop.
-    MainWindow_StartMainLoop();   
- 
+    MainWindow_StartMainLoop();    
 
     // Clean Memory
     MainWindow_SaveSettings();
-    MainWindow_DestroyDarkMode();
     WA_Playback_Engine_Delete();
 
     OleUninitialize();
@@ -393,7 +391,7 @@ void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs)
 HWND MainWindow_CreateMainWindow(HINSTANCE hInstance)
 {
     WNDCLASS wc; 
-    HWND hWindowHandle;  
+    HWND hWindowHandle; 
 
     // Register the Window Class.   
     ZeroMemory(&wc, sizeof(WNDCLASS));
@@ -420,6 +418,11 @@ HWND MainWindow_CreateMainWindow(HINSTANCE hInstance)
         hInstance,  
         NULL        
     );
+
+    // Update Size based on DPI Scaling
+    if (hWindowHandle)    
+		WA_DPI_AdjustWindowForDPI(hWindowHandle, MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT);
+    
 
     return hWindowHandle;
 }
@@ -596,7 +599,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     } 
     case WM_SETTINGCHANGE:
     {
-        
+        UINT CurrentDpi;
+
         if (DarkMode_IsColorSchemeChangeMessage(uMsg, lParam))
         {
             DarkMode_HandleThemeChange();
@@ -604,14 +608,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             ColorPolicy_Close();
 
+            CurrentDpi = WA_DPI_GetCurrentDPI();
+
             if (DarkMode_IsEnabled())
             {
-                ColorPolicy_Init(Dark, Settings2.CurrentTheme);
+                ColorPolicy_Init(Dark, Settings2.CurrentTheme, CurrentDpi);
                 Settings2.CurrentMode = Dark;
             }
             else
             {
-                ColorPolicy_Init(Light, Settings2.CurrentTheme);
+                ColorPolicy_Init(Light, Settings2.CurrentTheme, CurrentDpi);
                 Settings2.CurrentMode = Light;
             }
             
@@ -626,6 +632,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     case WM_WA_MSG:
         return MainWindow_HandleMessage(hwnd, wParam, lParam);
+    case WM_DPICHANGED:
+        // TODO: Continua qui 27/05 Gestisci il cambio di DPI
+		WA_DPI_SetCurrentDPI(LOWORD(wParam));
+
+        //DestroyWindow(Globals2.hToolbar);
+		//Globals2.hToolbar = MainWindow_CreateToolbar(hwnd);
+        
+
+        break;
 	}
 
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -796,9 +811,12 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle)
 {
 
     HICON hicon;  // handle to icon 
+    UINT BitmapSize = MW_TOOLBAR_BITMAP_SIZE;
+
+    WA_DPI_AdjustSizeForDPI(&BitmapSize);
 
     // Create a masked image list large enough to hold the icons. 
-    Globals2.hToolbarImagelist = ImageList_Create(MW_TOOLBAR_BITMAP_SIZE, MW_TOOLBAR_BITMAP_SIZE, ILC_COLOR32 | ILC_MASK, MW_TOOLBAR_BUTTONS, 0);
+    Globals2.hToolbarImagelist = ImageList_Create(BitmapSize, BitmapSize, ILC_COLOR32 | ILC_MASK, MW_TOOLBAR_BUTTONS, 0);
 
     // Load the icon resources, and add the icons to the image list
     hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_PREVIOUS_ICON));
@@ -900,8 +918,8 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle)
     // Show tooltips (https://docs.microsoft.com/en-us/windows/win32/controls/display-tooltips-for-buttons)
     SendMessage(Globals2.hToolbar, TB_SETMAXTEXTROWS, 0, 0);
 
-    // Resize the toolbar, and then show it.
-    SendMessage(Globals2.hToolbar, TB_SETBUTTONSIZE, 0, MAKELONG(MW_TOOLBAR_BITMAP_SIZE, MW_TOOLBAR_BITMAP_SIZE));
+    // Resize the toolbar, and then show it.    
+    SendMessage(Globals2.hToolbar, TB_SETBUTTONSIZE, 0, MAKELPARAM(BitmapSize, BitmapSize));
 
     // Automatic size toolbar
     SendMessage(Globals2.hToolbar, TB_AUTOSIZE, 0, 0);
@@ -1060,6 +1078,8 @@ void MainWindow_DestroyListView()
 /// <param name="hMainWindow">= Parent Window Handle</param>
 void MainWindow_CreateUI(HWND hMainWindow)
 {
+    WA_DPI_Init(hMainWindow);
+    MainWindow_InitDarkMode();
 
     // Switch to Dark Mode (If Enabled)
     if (DarkMode_IsSupported() && DarkMode_IsEnabled())
@@ -1126,7 +1146,6 @@ void MainWindow_CreateUI(HWND hMainWindow)
 
     // Show Welcome Message in status bar
     MainWindow_Status_SetText(Globals2.hStatus, NULL, true);  
-
 }
 
 /// <summary>
@@ -1172,6 +1191,8 @@ void MainWindow_DestroyUI()
     MainWindow_DestroyStatus();
     MainWindow_DestroyListView();
     MainWindow_DestroyMenu();  
+    MainWindow_DestroyDarkMode();
+    WA_DPI_Destroy();
 }
 
 /// <summary>
@@ -1217,7 +1238,7 @@ HWND MainWindow_CreateRebar(HWND hwndOwner)
     Globals2.hStatic = MainWindow_CreateSpectrumBar(hRebarHandle);    
 
     // Get current window size and position
-    GetClientRect(hwndOwner, &WindowRect);   
+    GetClientRect(hRebarHandle, &WindowRect);
    
     
     // Create common struct info
@@ -1227,28 +1248,25 @@ HWND MainWindow_CreateRebar(HWND hwndOwner)
         RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE |
         RBBIM_SIZE | RBBIM_ID;
     rbBand.fStyle = RBBS_CHILDEDGE | RBBS_NOGRIPPER;
-    rbBand.hbmBack = NULL;     
+    rbBand.hbmBack = NULL;   
   
-
-    // Get the size of Toolbar button (loword = width - hiword = height)
-    DWORD dwToolbarButtonSize = (DWORD) SendMessage(Globals2.hToolbar, TB_GETBUTTONSIZE, 0, 0);
 
     // Create Rebar bands
     rbBand.hwndChild = Globals2.hToolbar;
     rbBand.wID = MW_ID_TOOLBAR;
-    rbBand.cxMinChild = MW_TOOLBAR_BUTTONS * LOWORD(dwToolbarButtonSize);
-    rbBand.cyMinChild = MW_REBAR_HEIGHT;
-    rbBand.cx = (UINT)((WindowRect.right - WindowRect.left) / 3);
-
+	rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(MW_TOOLBAR_BITMAP_SIZE * (MW_TOOLBAR_BUTTONS + 1)) ;
+    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
+    rbBand.cx = rbBand.cxMinChild;
+    
     // Add the band that has the Toolbar
     SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 
 
     rbBand.hwndChild = Globals2.hVolumeTrackbar;
     rbBand.wID = MW_ID_VOLUME_TRACKBAR;
-    rbBand.cxMinChild = MW_TRACKBAR_MIN_WIDTH;
-    rbBand.cyMinChild = MW_REBAR_HEIGHT;  
-    rbBand.cx = (UINT)((WindowRect.right - WindowRect.left ) / 3);
+    rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(MW_TRACKBAR_MIN_WIDTH);
+    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
+    rbBand.cx = (UINT)(WA_DPI_AdjustSizeForDPI2(WindowRect.right) / 3);
     
 
     // Add the band that has the Volume Trackbar
@@ -1257,9 +1275,9 @@ HWND MainWindow_CreateRebar(HWND hwndOwner)
 
     rbBand.hwndChild = Globals2.hStatic;
     rbBand.wID = MW_ID_SPECTRUM_STATIC;
-    rbBand.cxMinChild = MW_STATIC_MIN_WIDTH + 50;
-    rbBand.cyMinChild = MW_REBAR_HEIGHT;
-    rbBand.cx = (UINT)((WindowRect.right - WindowRect.left) / 3);
+    rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(MW_STATIC_MIN_WIDTH);
+    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
+    rbBand.cx = (UINT)(WA_DPI_AdjustSizeForDPI2(MAINWINDOW_WIDTH) / 3);
     rbBand.fStyle = rbBand.fStyle | RBBS_FIXEDSIZE;
 
     // Add the band that has the Static Control
@@ -1268,9 +1286,9 @@ HWND MainWindow_CreateRebar(HWND hwndOwner)
 
     rbBand.hwndChild = Globals2.hPositionTrackbar;
     rbBand.wID = MW_ID_POSITION_TRACKBAR;
-    rbBand.cxMinChild = (UINT)(WindowRect.right - WindowRect.left);
-    rbBand.cyMinChild = MW_REBAR_HEIGHT;
-    rbBand.cx = (UINT)(WindowRect.right - WindowRect.left);
+    rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(WindowRect.right - WindowRect.left);
+    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
+    rbBand.cx = WA_DPI_AdjustSizeForDPI2(WindowRect.right - WindowRect.left);
     rbBand.fStyle =  RBBS_CHILDEDGE | RBBS_NOGRIPPER | RBBS_BREAK;
 
     // Add the band that has the Volume Trackbar
@@ -1460,6 +1478,7 @@ void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
     RECT ListRect;
     RECT WindowRect;
 
+  
     // Resize Statusbar
     if (Globals2.hStatus && blParamValid)
         SendMessage(Globals2.hStatus, WM_SIZE, 0, lParam);
@@ -2937,18 +2956,22 @@ LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam)
 
 void MainWindow_InitDarkMode()
 {
+    UINT CurrentDpi;
+
     // Initialize Dark Mode
     DarkMode_Init(true);
+
+    CurrentDpi = WA_DPI_GetCurrentDPI();
 
     // Initialize ColorPolicy
     if (DarkMode_IsSupported() && DarkMode_IsEnabled())
     {
-        ColorPolicy_Init(Dark, Settings2.CurrentTheme);
+        ColorPolicy_Init(Dark, Settings2.CurrentTheme, CurrentDpi);
         Settings2.CurrentMode = Dark;
     }
     else
     {
-        ColorPolicy_Init(Light, Settings2.CurrentTheme);
+        ColorPolicy_Init(Light, Settings2.CurrentTheme, CurrentDpi);
         Settings2.CurrentMode = Light;
     }
         

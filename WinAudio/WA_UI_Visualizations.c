@@ -3,6 +3,7 @@
 #include "WA_FFT.h"
 #include "WA_UI_Visualizations.h"
 #include "WA_UI_ColorPolicy.h"
+#include "WA_DPI.h"
 
 // 06152247-6f50-465a-9245-118bfd3b6007
 static const IID IID_ID2D1Factory = { 0x06152247,0x6F50,0x465A,0x92,0x45,0x11,0x8B,0xFD,0x3B,0x60,0x07};	
@@ -32,6 +33,12 @@ struct TagWA_Visualizations
 	uint32_t pIndexesTable[WA_VISUALIZATIONS_OUTPUT_FFT_HALF];
 
 	WA_FFT* pFFT;
+
+	// Support DPI Scaling
+	float fBandWidth;
+	float fBandSpace;
+	float fScaleFactor;
+	float fFalloffVelocity;	
 };
 
 
@@ -41,8 +48,10 @@ static inline uint32_t WA_Visualizations_Get_VisibleBands(WA_Visualizations* Thi
 
 	if (This->StaticSize.width == 0)
 		return 0U;
-	
-	uVisibleBands = (uint32_t)(This->StaticSize.width / (WA_VISUALIZATIONS_BAND_WIDTH + WA_VISUALIZATIONS_BAND_SPACE)) + 1;
+
+	float fStaticWidthDIP = (This->StaticSize.width * 96.0f) / WA_DPI_GetCurrentDPI();
+
+	uVisibleBands = (uint32_t)(fStaticWidthDIP / (This->fBandWidth + This->fBandSpace)) + 1;
 	uVisibleBands = min(WA_VISUALIZATIONS_OUTPUT_FFT_HALF, uVisibleBands);
 
 	return uVisibleBands;
@@ -230,6 +239,7 @@ WA_Visualizations* WA_Visualizations_New(HWND hStatic)
 		_ASSERT(StaticRect.right > 0);
 		_ASSERT(StaticRect.bottom > 0);
 
+		// Convert to DIPs
 		This->StaticSize.width = StaticRect.right;
 		This->StaticSize.height = StaticRect.bottom;
 
@@ -258,10 +268,15 @@ WA_Visualizations* WA_Visualizations_New(HWND hStatic)
 
 	ZeroMemory(This->fBandDB, sizeof(float)* WA_VISUALIZATIONS_OUTPUT_FFT_HALF);
 
+	// Update DPI scaled values
+	This->fBandWidth = WA_VISUALIZATIONS_BAND_WIDTH;
+	This->fBandSpace = WA_VISUALIZATIONS_BAND_SPACE;
+	This->fScaleFactor = WA_VISUALIZATIONS_SCALE_FACTOR;
+	This->fFalloffVelocity = WA_VISUALIZATIONS_FALLOFF_VELOCITY;
+
 
 	// Subclass to intercept size events
 	SetWindowSubclass(hStatic, StaticSubclassProc, WA_VISUALIZATIONS_SUBCLASS_ID, (DWORD_PTR) This);
-
 
 	return This;
 }
@@ -288,6 +303,7 @@ void WA_Visualizations_Delete(WA_Visualizations* This)
 	free(This);
 	This = NULL;
 }
+
 
 void WA_Visualizations_UpdateFormat(WA_Visualizations* This, uint32_t uSamplerate, uint16_t uChannels, uint16_t uBitsPerSample)
 {
@@ -337,14 +353,13 @@ void WA_Visualizations_Draw(WA_Visualizations* This, int8_t* pBuffer)
 	WA_Visualizations_Bytes_To_Float(This, pBuffer, This->InBuffer);
 	WA_FFT_TimeToFrequencyDomain(This->pFFT, This->InBuffer, This->OutBuffer, true);
 
-	fMaxHeight = (float)This->StaticSize.height;
+	fMaxHeight = (This->StaticSize.height * 96.0f) / WA_DPI_GetCurrentDPI(); // Convert to DIPs
 	uVisibleBand = WA_Visualizations_Get_VisibleBands(This);
 
 	ID2D1HwndRenderTarget_BeginDraw(This->pTarget);
 	ID2D1HwndRenderTarget_Clear(This->pTarget, &BackgroundColor);
 	
-	uPrevIndex = This->pIndexesTable[0];
-	uDrawIndex = 0U;
+	uPrevIndex = This->pIndexesTable[0];	
 	fBarX = 1.0f;
 
 	for (i = 1U; i < uVisibleBand; i++)
@@ -352,28 +367,28 @@ void WA_Visualizations_Draw(WA_Visualizations* This, int8_t* pBuffer)
 		uDrawIndex = This->pIndexesTable[i]; 		
 
 		fDrawValue = WA_Visualizations_Avg_Bands(This, This->OutBuffer, uPrevIndex, uDrawIndex);
-		fDrawValue = fDrawValue * WA_VISUALIZATIONS_SCALE_FACTOR * fMaxHeight;
+		fDrawValue *= This->fScaleFactor;
 		fDrawValue = min(fMaxHeight, fDrawValue);
 
 
-		if (This->fBandDB[i] < fDrawValue)
+		if ((This->fBandDB[i] < fDrawValue) && (fDrawValue > 1.5f))
 		{
 			This->fBandDB[i] = fDrawValue;
 		}
 		else
 		{
-			This->fBandDB[i] -= WA_VISUALIZATIONS_FALLOFF_VELOCITY;
+			This->fBandDB[i] -= This->fFalloffVelocity;
 			This->fBandDB[i] = max(This->fBandDB[i], 0.0f);
 		}	
 
 		DrawRect.left = fBarX;
-		DrawRect.right = fBarX + WA_VISUALIZATIONS_BAND_WIDTH;
-		DrawRect.bottom = (float) This->StaticSize.height;
-		DrawRect.top = (float) This->StaticSize.height - This->fBandDB[i];
+		DrawRect.right = fBarX + This->fBandWidth;
+		DrawRect.bottom = fMaxHeight;
+		DrawRect.top = fMaxHeight - This->fBandDB[i];
 
 		ID2D1HwndRenderTarget_FillRectangle(This->pTarget, &DrawRect, (ID2D1Brush*) pFillBrush);
-					
-		fBarX += WA_VISUALIZATIONS_BAND_WIDTH + WA_VISUALIZATIONS_BAND_SPACE;
+
+		fBarX += This->fBandWidth + This->fBandSpace;
 		uPrevIndex = uDrawIndex;
 	}
 

@@ -23,19 +23,23 @@
 
 static void Settings_UpdateColors(HWND hCombobox)
 {
+    UINT CurrentDpi;
+
     ColorPolicy_Close();
 
     Settings2.CurrentTheme = ComboBox_GetCurSel(hCombobox);
 
+    CurrentDpi = GetDpiForWindow(Globals2.hMainWindow);
+
     // Initialize ColorPolicy
     if (DarkMode_IsSupported() && DarkMode_IsEnabled())
     {
-        ColorPolicy_Init(Dark, Settings2.CurrentTheme);
+        ColorPolicy_Init(Dark, Settings2.CurrentTheme, CurrentDpi);
         Settings2.CurrentMode = Dark;        
     }
     else
     {
-        ColorPolicy_Init(Light, Settings2.CurrentTheme);
+        ColorPolicy_Init(Light, Settings2.CurrentTheme, CurrentDpi);
         Settings2.CurrentMode = Light;
     }
 
