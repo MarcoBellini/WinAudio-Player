@@ -171,9 +171,6 @@
     <Image Include="..\Icons\mainIcon.ico">
       <Filter>File di risorse</Filter>
     </Image>
-    <Image Include="..\Icons\mute.ico">
-      <Filter>File di risorse</Filter>
-    </Image>
     <Image Include="..\Icons\next.ico">
       <Filter>File di risorse</Filter>
     </Image>
@@ -187,6 +184,24 @@
       <Filter>File di risorse</Filter>
     </Image>
     <Image Include="..\Icons\stop.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\next_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\open_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\pause_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\play_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\previous_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\stop_black.ico">
       <Filter>File di risorse</Filter>
     </Image>
   </ItemGroup>

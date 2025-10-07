@@ -9,6 +9,12 @@
 #define IDI_PLAY_ICON                   107
 #define IDI_PREVIOUS_ICON               108
 #define IDI_STOP_ICON                   109
+#define IDI_OPEN_ICON_BLACK             110
+#define IDI_NEXT_ICON_BLACK             111
+#define IDI_PAUSE_ICON_BLACK            112
+#define IDI_PLAY_ICON_BLACK             113
+#define IDI_PREVIOUS_ICON_BLACK         114
+#define IDI_STOP_ICON_BLACK             115
 #define IDS_STATUS_WELCOME              127
 #define IDR_MAIN_MENU                   130
 #define IDD_SETTINGS                    133

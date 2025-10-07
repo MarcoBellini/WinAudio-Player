@@ -66,6 +66,18 @@ IDI_PREVIOUS_ICON       ICON                    "..\\Icons\\previous.ico"
 
 IDI_STOP_ICON           ICON                    "..\\Icons\\stop.ico"
 
+IDI_OPEN_ICON_BLACK     ICON                    "..\\Icons\\open_black.ico"
+
+IDI_NEXT_ICON_BLACK     ICON                    "..\\Icons\\next_black.ico"
+
+IDI_PAUSE_ICON_BLACK    ICON                    "..\\Icons\\pause_black.ico"
+
+IDI_PLAY_ICON_BLACK     ICON                    "..\\Icons\\play_black.ico"
+
+IDI_PREVIOUS_ICON_BLACK ICON                    "..\\Icons\\previous_black.ico"
+
+IDI_STOP_ICON_BLACK     ICON                    "..\\Icons\\stop_black.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
