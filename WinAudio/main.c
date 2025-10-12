@@ -33,7 +33,12 @@ HWND MainWindow_CreateMainWindow(HINSTANCE hInstance);
 void MainWindow_StartMainLoop();
 void MainWindow_ProcessStartupFiles(int32_t nParams, wchar_t **pArgs);
 void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs);
+
+HIMAGELIST MainWindow_CreateLightModeImageList(UINT IconsSize);
+HIMAGELIST MainWindow_CreateDarkModeImageList(UINT IconsSize);
+
 HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
+void MainWindow_CreateToolbarButtons();
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
 void MainWindow_DestroyMenu();
 HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle);
@@ -56,20 +61,20 @@ void MainWindow_DestroyListView();
 
 void MainWindow_CreateUI(HWND hwndOwner);
 void MainWindow_DestroyUI();
-HWND MainWindow_CreateRebar(HWND hwndOwner);
+HWND MainWindow_CreateRebar(HWND OwnerHandle);
 void MainWindow_DestroyRebar();
 
 void MainWindow_Resize(LPARAM lParam, BOOL blParamValid);
 void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam);
 bool MainWindow_OpenFileDialog(HWND hOwnerHandle);
-bool MainWindow_AddFilesDialog(HWND hOwnerHandle);
-bool MainWindow_AddFolderDialog(HWND hOwnerHandle);
-bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle);
-bool MainWindow_SaveAsPlaylistDialog(HWND hOwnerHandle);
+bool MainWindow_ShowAddFilesDialog(HWND hOwnerHandle);
+bool MainWindow_ShowAddFolderDialog(HWND hOwnerHandle);
+bool MainWindow_ShowOpenPlaylistDialog(HWND hOwnerHandle);
+bool MainWindow_ShowSaveAsPlaylistDialog(HWND hOwnerHandle);
 
 DWORD MainWindow_HandleEndOfStreamMsg();
 void MainWindow_UpdatePositionTrackbar(uint64_t uNewValue);
-void MainWindow_DrawSpectrum();
+void MainWindow_DrawVisualizationsOnStaticControl();
 void MainWindow_UpdateVolumeFromTrackbarValue();
 
 void MainWindow_UpdateWindowTitle(const wchar_t* pString, bool bClearTitle);
@@ -90,6 +95,12 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
 LRESULT MainWindow_HandleMessage(HWND hWnd, WPARAM wParam, LPARAM lParam);
 LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam);
+void MainWindow_HandleColorSchemeMessage(HWND hwnd);
+REBARBANDINFO MainWindow_GetRebarBandInfoById(UINT BandID);
+void MainWindow_SetRebarBandInfoById(UINT BandID, REBARBANDINFO* pInfo);
+void MainWindow_ResizeRebar(LPRECT NewWindowRect);
+void MainWindow_ResizeToolbar();
+void MainWindow_HandleDPIChangeMessage(INT NewMonitorDPI, LPRECT SystemSizedWindowRect);
 
 
 HRESULT STDMETHODCALLTYPE QueryInterface(IDropTarget* This, REFIID riid, void** ppvObject);
@@ -103,72 +114,99 @@ HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, DWORD g
 static IDropTargetVtbl DropTargetVtbl = {QueryInterface, AddRef, Release, DragEnter, DragOver, DragLeave, Drop};
 
 
-static bool MainWindow_GetPlaylistSaveFolder(wchar_t* pFolderPath)
+static bool MainWindow_GetPathForAppSettings(wchar_t* Path)
 {
-    if (!pFolderPath)
+    if (!Path)
         return false;
 
     HRESULT hr;
-    PWSTR lpwUserPath;
+    PWSTR UserRoadmingPath;
 
     // Get User Roadming Folder
     hr = SHGetKnownFolderPath(&FOLDERID_RoamingAppData,
         KF_FLAG_DEFAULT,
         NULL,
-        &lpwUserPath);
+        &UserRoadmingPath);
 
     if FAILED(hr)
         return false;    
 
     // Create Path to our settings folder
-    PathAppend(pFolderPath, lpwUserPath);
-    PathAppend(pFolderPath, L"\\WinAudio");
+    PathAppend(Path, UserRoadmingPath);
+    PathAppend(Path, L"\\WinAudio");
 
 
     // Check if Directory Exist
-    if (!PathFileExists(pFolderPath))
-        CreateDirectory(pFolderPath, NULL);
+    if (!PathFileExists(Path))
+        CreateDirectory(Path, NULL);
 
 
-    PathAppend(pFolderPath, L"\\Playlist.m3u8");
+    PathAppend(Path, L"\\Playlist.m3u8");
 
     // See doc: https://learn.microsoft.com/it-it/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath?redirectedfrom=MSDN
-    if (lpwUserPath)
-        CoTaskMemFree(lpwUserPath);
+    if (UserRoadmingPath)
+        CoTaskMemFree(UserRoadmingPath);
 
     return true;
 }
 
 /// <summary>
+/// Check if a RECT is fully inside the primary monitor
+/// </summary>
+static bool MainWindow_IsRectFullyInsidePrimaryMonitor(RECT rect) 
+{
+    HMONITOR PrimaryMonitorHandle = MonitorFromPoint((POINT) { 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO MonitorInfo = { sizeof(MonitorInfo) };
+
+    if (GetMonitorInfo(PrimaryMonitorHandle, &MonitorInfo)) 
+    {
+        RECT Monitor = MonitorInfo.rcMonitor;
+
+        return rect.left >= Monitor.left &&
+            rect.top >= Monitor.top &&
+            rect.right <= Monitor.right &&
+            rect.bottom <= Monitor.bottom;
+    }
+
+    return false;
+}
+
+/// <summary>
+/// Check if a RECT has all coordinate set(not all 0)
+/// </summary>
+static bool MainWindow_IsRectValidForWindow(RECT rect)
+{
+    return ((rect.right != 0) || (rect.left != 0) ||
+        (rect.top != 0) || (rect.bottom != 0));
+}
+
+
+/// <summary>
 /// Restore Main window Position and Location after creation and after is shown
 /// </summary>
 static void MainWindow_RestoreWindowRectFromSettings()
-{
-    // Restore window position and size (if enabled in settings)
-    if (Settings2.bSaveWndSizePos)
-    {
-        bool bResize = ((Settings2.MainWindowRect.right != 0) || (Settings2.MainWindowRect.left != 0) ||
-            (Settings2.MainWindowRect.top != 0) || (Settings2.MainWindowRect.bottom != 0));
-        if (bResize)
-        {
-            HDWP hDefer = BeginDeferWindowPos(10);
+{   
+    if (!Settings2.AllowSaveWindowPositionAndSize)
+        return;
 
-            if (hDefer)
-            {
-                int32_t nWidth = Settings2.MainWindowRect.right - Settings2.MainWindowRect.left;
-                int32_t nHeight = Settings2.MainWindowRect.bottom - Settings2.MainWindowRect.top;
-                int32_t nX = Settings2.MainWindowRect.left;
-                int32_t nY = Settings2.MainWindowRect.top;
+    if (!MainWindow_IsRectValidForWindow(Settings2.MainWindowRect))
+        return;
 
-                hDefer = DeferWindowPos(hDefer, Globals2.hMainWindow, HWND_TOP, nX, nY, nWidth, nHeight, SWP_SHOWWINDOW);
+	if (!MainWindow_IsRectFullyInsidePrimaryMonitor(Settings2.MainWindowRect))
+        return;
 
-                if (hDefer)
-                    EndDeferWindowPos(hDefer);
+    int32_t Width = Settings2.MainWindowRect.right - Settings2.MainWindowRect.left;
+    int32_t Height = Settings2.MainWindowRect.bottom - Settings2.MainWindowRect.top;
+    int32_t X = Settings2.MainWindowRect.left;
+    int32_t Y = Settings2.MainWindowRect.top;
 
-            }
-
-        }
-    }
+    SetWindowPos(Globals2.hMainWindow,
+        NULL,
+        X,
+        Y,
+        Width,
+        Height,
+        SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 
@@ -242,8 +280,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         
     // Store Main Window Handle and Instance
+    Globals2.CurrentProcessHInstance = hInstance;
     Globals2.hMainWindow = MainWindow_CreateMainWindow(hInstance);
-    Globals2.hMainWindowInstance = hInstance;
+   
 
     // Check if Window has a valid handle
     if (Globals2.hMainWindow == NULL)
@@ -345,12 +384,8 @@ void MainWindow_ProcessStartupFiles(int32_t nParams, wchar_t** pArgs)
     LeaveCriticalSection(&Globals2.CacheThreadSection);
 
     // Open and Play file at Index [0]
-    if (MainWindow_Open_Playlist_Index(0)) 
+    if (MainWindow_OpenAndPlayFileFromPlaylistIndex(0)) 
         MainWindow_Play();
-    
-  
-        
-
 
 }
 
@@ -417,11 +452,7 @@ HWND MainWindow_CreateMainWindow(HINSTANCE hInstance)
         NULL,       
         hInstance,  
         NULL        
-    );
-
-    // Update Size based on DPI Scaling
-    if (hWindowHandle)    
-		WA_DPI_AdjustWindowForDPI(hWindowHandle, MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT);
+    ); 
     
 
     return hWindowHandle;
@@ -441,7 +472,6 @@ void MainWindow_StartMainLoop()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-
     }
 
 }
@@ -453,61 +483,52 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LRESULT lr = 0;
 
-    if(DarkMode_IsEnabled()) // TODO: Decidere se toglierlo, il menù risulta molto chiaro
-        if (UAHWndProc(hwnd, uMsg, wParam, lParam, &lr))
-        {
-            return lr;
-        }
+    if(DarkMode_IsEnabled() && DrawDarkModeMenu(hwnd, uMsg, wParam, lParam, &lr))      
+       return lr;        
 
-	switch (uMsg)
-	{
-	case WM_DESTROY:
+    switch (uMsg)
+    {
+    case WM_DESTROY:
 
         // Destroy Main Window UI
-		MainWindow_DestroyUI();          
+        MainWindow_DestroyUI();
 
         // Close Message Loop
-		PostQuitMessage(EXIT_SUCCESS);
+        PostQuitMessage(EXIT_SUCCESS);
 
-		return 0;
+        return 0;
 
-	case WM_CREATE:
-	{    
-		// Create Main Window UI
-		MainWindow_CreateUI(hwnd);  
-
-		return 0;
-	}    
-	case WM_PAINT:
-	{
-		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hwnd, &ps);
-
-		// Fill Background with window color
-		FillRect(hdc, &ps.rcPaint, ColorPolicy_Get_Background_Brush());
-
-		EndPaint(hwnd, &ps);
-
-		return 0;
-	}
-    case WM_COMMAND:
+    case WM_CREATE:
     {
-        // Handle Commands
+        // Create Main Window UI
+        MainWindow_CreateUI(hwnd);
+
+        return 0;
+    }
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+
+        // Fill Background with window color
+        FillRect(hdc, &ps.rcPaint, ColorPolicy_Get_Background_Brush());
+
+        EndPaint(hwnd, &ps);
+
+        return 0;
+    }
+    case WM_COMMAND:
+    {        
         MainWindow_HandleCommand(uMsg, wParam, lParam);
         return 0;
     }
     case WM_DRAWITEM:
     {
-        if (wParam == MW_ID_SPECTRUM_STATIC)
-        {
-            if (lParam)
-            {
-                if (Globals2.pVisualizations)
-                    WA_Visualizations_Clear(Globals2.pVisualizations);
+        if ((wParam == MW_ID_SPECTRUM_STATIC) && (lParam) && (Globals2.pVisualizations))
+        {            
+            WA_Visualizations_Clear(Globals2.pVisualizations);
 
-                return true;
-            }
-            
+            return true;
         }
         break;
     }
@@ -518,13 +539,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         // Split for Control ID
         switch (lpHdr->idFrom)
         {
-        case MW_ID_LISTVIEW:      
+        case MW_ID_LISTVIEW:
             return WA_UI_Listview_OnNotify(hwnd, uMsg, wParam, lParam);
         case MW_ID_REBAR:
         {
             switch (lpHdr->code)
             {
-             // Change Listbox size when rebar size(height) change
+                // Change Listbox size when rebar size(height) change
             case RBN_HEIGHTCHANGE:
                 MainWindow_Resize(lParam, false);
             }
@@ -537,14 +558,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             case NM_RELEASEDCAPTURE:
             {
                 DWORD uPositionValue;
-                uPositionValue = (DWORD) SendMessage(Globals2.hPositionTrackbar, TBM_GETPOS, 0, 0);
-                
+                uPositionValue = (DWORD)SendMessage(Globals2.hPositionTrackbar, TBM_GETPOS, 0, 0);
+
                 // Seek only if playing
                 if (Globals2.dwCurrentStatus == WA_STATUS_PLAY)
                     WA_Playback_Engine_Seek((uint64_t)uPositionValue);
-               
+
                 break;
-            } 
+            }
             case NM_CUSTOMDRAW:
             {
                 return WA_UI_Trackbar_CustomDraw(lpHdr->hwndFrom, (LPNMCUSTOMDRAW)lParam);
@@ -553,17 +574,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             break;
-        }   
+        }
         case MW_ID_VOLUME_TRACKBAR:
-        {       
+        {
 
             switch (lpHdr->code)
             {
-            case NM_CUSTOMDRAW:                
+            case NM_CUSTOMDRAW:
                 return WA_UI_Trackbar_CustomDraw(lpHdr->hwndFrom, (LPNMCUSTOMDRAW)lParam);
             }
         }
-       
+
         }
         break;
 
@@ -578,16 +599,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         switch (TimerID)
         {
-        case MW_ID_POS_TIMER:   
+        case MW_ID_POS_TIMER:
         {
             uint64_t uPositionMs = 0;
 
-            if(WA_Playback_Engine_Get_Position(&uPositionMs))
+            if (WA_Playback_Engine_Get_Position(&uPositionMs))
                 MainWindow_UpdatePositionTrackbar(uPositionMs);
         }
-                   
+
         case MW_ID_SPECTRUM_TIMER:
-            MainWindow_DrawSpectrum();
+            MainWindow_DrawVisualizationsOnStaticControl();
         }
 
 
@@ -596,54 +617,183 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_COPYDATA:
     {
         return MainWindow_HandleCopyData(hwnd, wParam, lParam);
-    } 
+    }
     case WM_SETTINGCHANGE:
     {
-        UINT CurrentDpi;
 
         if (DarkMode_IsColorSchemeChangeMessage(uMsg, lParam))
         {
-            DarkMode_HandleThemeChange();
-            DarkMode_RefreshTitleBarThemeColor(hwnd);
-
-            ColorPolicy_Close();
-
-            CurrentDpi = WA_DPI_GetCurrentDPI();
-
-            if (DarkMode_IsEnabled())
-            {
-                ColorPolicy_Init(Dark, Settings2.CurrentTheme, CurrentDpi);
-                Settings2.CurrentMode = Dark;
-            }
-            else
-            {
-                ColorPolicy_Init(Light, Settings2.CurrentTheme, CurrentDpi);
-                Settings2.CurrentMode = Light;
-            }
-            
-            SendMessage(Globals2.hListView, WM_THEMECHANGED, 0, 0);
-
-            ListView_SetBkColor(Globals2.hListView, ColorPolicy_Get_Background_Color());
-            ListView_SetTextColor(Globals2.hListView, ColorPolicy_Get_TextOnBackground_Color());
-
-            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE);
+            MainWindow_HandleColorSchemeMessage(hwnd);
+            return 0;
         }
-        
+
     }
     case WM_WA_MSG:
         return MainWindow_HandleMessage(hwnd, wParam, lParam);
     case WM_DPICHANGED:
-        // TODO: Continua qui 27/05 Gestisci il cambio di DPI
-		WA_DPI_SetCurrentDPI(LOWORD(wParam));
+    {
+        INT NewMonitorDPI = HIWORD(wParam);
+        LPRECT NewWindowRect = (LPRECT)lParam;
 
-        //DestroyWindow(Globals2.hToolbar);
-		//Globals2.hToolbar = MainWindow_CreateToolbar(hwnd);
-        
+        MainWindow_HandleDPIChangeMessage(NewMonitorDPI, NewWindowRect);
 
-        break;
-	}
+        return 0;
+    }
+    }
 
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+REBARBANDINFO MainWindow_GetRebarBandInfoById(UINT BandID)
+{
+    REBARBANDINFO rbBandInfo = { 0 };
+    UINT BandIndex;
+
+    BandIndex = (UINT) SendMessage(Globals2.hRebar, RB_IDTOINDEX, BandID, 0);
+
+    rbBandInfo.cbSize = sizeof(REBARBANDINFO);
+    rbBandInfo.fMask = RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_ID;    
+
+    SendMessage(Globals2.hRebar, RB_GETBANDINFO, BandIndex, (LPARAM)&rbBandInfo);
+    
+    return rbBandInfo;
+}
+
+void MainWindow_SetRebarBandInfoById(UINT BandID, REBARBANDINFO* pInfo)
+{
+    UINT BandIndex;
+
+    if (!pInfo)
+        return;
+
+    BandIndex = (UINT)SendMessage(Globals2.hRebar, RB_IDTOINDEX, BandID, 0);
+
+    SendMessage(Globals2.hRebar, RB_SETBANDINFO, BandIndex, (LPARAM)pInfo);
+}
+
+void MainWindow_ResizeRebar(LPRECT NewWindowRect)
+{	
+	REBARBANDINFO rbBandInfo = { 0 };
+	INT RebarHeight = WA_DPI_ScaleInt(MW_REBAR_HEIGHT);
+    INT WindowWidthDividedByThree = WA_DPI_ScaleInt(NewWindowRect->right - NewWindowRect->left) / 3;
+
+    // Toolbar band
+	rbBandInfo = MainWindow_GetRebarBandInfoById(MW_ID_TOOLBAR);
+    rbBandInfo.cyMinChild = RebarHeight;
+    rbBandInfo.cxMinChild = WA_DPI_ScaleInt(MW_TOOLBAR_BITMAP_SIZE * (MW_TOOLBAR_BUTTONS + 2));
+    rbBandInfo.cx = rbBandInfo.cxMinChild;
+
+	MainWindow_SetRebarBandInfoById(MW_ID_TOOLBAR, &rbBandInfo);
+
+    // Volume Trackbar band
+    rbBandInfo = MainWindow_GetRebarBandInfoById(MW_ID_VOLUME_TRACKBAR);
+    rbBandInfo.cyMinChild = RebarHeight;
+    rbBandInfo.cxMinChild = WA_DPI_ScaleInt(MW_TRACKBAR_MIN_WIDTH);
+    rbBandInfo.cx = WindowWidthDividedByThree;
+
+    MainWindow_SetRebarBandInfoById(MW_ID_VOLUME_TRACKBAR, &rbBandInfo);
+
+    // Static (visualizations) band
+    rbBandInfo = MainWindow_GetRebarBandInfoById(MW_ID_SPECTRUM_STATIC);
+    rbBandInfo.cyMinChild = RebarHeight;
+    rbBandInfo.cxMinChild = WA_DPI_ScaleInt(MW_STATIC_MIN_WIDTH);
+    rbBandInfo.cx = WindowWidthDividedByThree;
+
+    MainWindow_SetRebarBandInfoById(MW_ID_SPECTRUM_STATIC, &rbBandInfo);
+
+    // Position Trackbar band
+    rbBandInfo = MainWindow_GetRebarBandInfoById(MW_ID_POSITION_TRACKBAR);
+    rbBandInfo.cyMinChild = RebarHeight;
+    rbBandInfo.cxMinChild = WA_DPI_ScaleInt(NewWindowRect->right - NewWindowRect->left);
+    rbBandInfo.cx = rbBandInfo.cxMinChild;
+ 
+
+    MainWindow_SetRebarBandInfoById(MW_ID_POSITION_TRACKBAR, &rbBandInfo);    
+}
+
+void MainWindow_ResizeToolbar()
+{
+    // Update Imagelists
+    INT IconSize = WA_DPI_ScaleInt(MW_TOOLBAR_BITMAP_SIZE);
+
+	ImageList_Destroy(Globals2.ToolbarImageListLightMode);
+    ImageList_Destroy(Globals2.ToolbarImageListDarkMode);
+
+    Globals2.ToolbarImageListLightMode = MainWindow_CreateLightModeImageList(IconSize);
+    Globals2.ToolbarImageListDarkMode = MainWindow_CreateDarkModeImageList(IconSize);
+
+    // Set the image list
+    if (Settings2.CurrentMode == Dark)
+        SendMessage(Globals2.hToolbar, TB_SETIMAGELIST,
+            (WPARAM)MW_TOOLBAR_IMAGELIST_NR,
+            (LPARAM)Globals2.ToolbarImageListDarkMode);
+    else
+        SendMessage(Globals2.hToolbar, TB_SETIMAGELIST,
+            (WPARAM)MW_TOOLBAR_IMAGELIST_NR,
+            (LPARAM)Globals2.ToolbarImageListLightMode);
+
+    // Resize the toolbar, and then show it.    
+    SendMessage(Globals2.hToolbar, TB_SETBUTTONSIZE, 0, MAKELPARAM(IconSize, IconSize));
+
+    // Automatic size toolbar
+    SendMessage(Globals2.hToolbar, TB_AUTOSIZE, 0, 0);
+}
+
+void MainWindow_HandleDPIChangeMessage(INT NewMonitorDPI, LPRECT NewWindowRect)
+{
+    // Update DPI
+    WA_DPI_SetCurrentDPI(NewMonitorDPI);
+
+    // Update ColorPolicy
+    ColorPolicy_Close();
+    ColorPolicy_Init(Settings2.CurrentMode, Settings2.CurrentTheme, NewMonitorDPI);
+
+    // Update MainWindow position and Size
+    SetWindowPos(Globals2.hMainWindow,
+        NULL,
+        NewWindowRect->left,
+        NewWindowRect->top,
+        NewWindowRect->right - NewWindowRect->left,
+        NewWindowRect->bottom - NewWindowRect->top,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+
+    MainWindow_ResizeToolbar();
+    MainWindow_ResizeRebar(NewWindowRect);
+
+    RedrawWindow(Globals2.hMainWindow, NULL, NULL, RDW_INVALIDATE);
+}
+
+/// <summary>
+/// Handle Color Scheme Change Message
+/// </summary>
+/// <param name="hwnd">Main window Handle</param>
+void MainWindow_HandleColorSchemeMessage(HWND hwnd)
+{ 
+
+    DarkMode_HandleThemeChange();
+    DarkMode_RefreshTitleBarThemeColor(hwnd);
+    ColorPolicy_Close();
+
+
+    if (DarkMode_IsEnabled())
+    {
+        ColorPolicy_Init(Dark, Settings2.CurrentTheme, WA_DPI_GetCurrentDPI());
+        Settings2.CurrentMode = Dark;
+        SendMessage(Globals2.hToolbar, TB_SETIMAGELIST, 0, (LPARAM) Globals2.ToolbarImageListDarkMode);
+    }
+    else
+    {
+        ColorPolicy_Init(Light, Settings2.CurrentTheme, WA_DPI_GetCurrentDPI());
+        Settings2.CurrentMode = Light;
+        SendMessage(Globals2.hToolbar, TB_SETIMAGELIST, 0, (LPARAM) Globals2.ToolbarImageListLightMode);
+    }
+
+    SendMessage(Globals2.hListView, WM_THEMECHANGED, 0, 0);
+
+    ListView_SetBkColor(Globals2.hListView, ColorPolicy_Get_Background_Color());
+    ListView_SetTextColor(Globals2.hListView, ColorPolicy_Get_TextOnBackground_Color());   
+
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE);    
 }
 
 /// <summary>
@@ -678,14 +828,14 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     case ID_FILE_ADDFILES:
     {
-        if (!MainWindow_AddFilesDialog(Globals2.hMainWindow))
+        if (!MainWindow_ShowAddFilesDialog(Globals2.hMainWindow))
             MessageBox(Globals2.hMainWindow, L"Unable to Show File Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
 
         break;
     }
     case ID_FILE_ADDFOLDER:
     {
-        if (!MainWindow_AddFolderDialog(Globals2.hMainWindow))
+        if (!MainWindow_ShowAddFolderDialog(Globals2.hMainWindow))
             MessageBox(Globals2.hMainWindow, L"Unable to Show Folder Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
 
         break;
@@ -703,10 +853,10 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
         DestroyWindow(Globals2.hMainWindow);
         break;
     case ID_FILE_SETTINGS:   
-        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);     
+        DialogBox(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDD_SETTINGS), Globals2.hMainWindow, SettingsProc);     
         break;    
     case ID_ABOUT_INFO:
-        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_ABOUT), Globals2.hMainWindow, AboutProc);
+        DialogBox(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDD_ABOUT), Globals2.hMainWindow, AboutProc);
         break;
     case ID_PLAYBACK_PLAY:
         MainWindow_Play();
@@ -718,20 +868,20 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
         MainWindow_Stop();
         break;
     case ID_PLAYBACK_PREVIOUS:
-        MainWindow_PreviousItem();
+        MainWindow_PlayPreviousItem();
         break;
     case ID_PLAYBACK_NEXT:
-        MainWindow_NextItem();
+        MainWindow_PlayNextItem();
         break;
     case WM_TOOLBAR_PREV:
-        MainWindow_PreviousItem();
+        MainWindow_PlayPreviousItem();
         break;
     case WM_TOOLBAR_NEXT:
-        MainWindow_NextItem();
+        MainWindow_PlayNextItem();
         break;
     case WM_TOOLBAR_OPEN:
 
-        if (!MainWindow_AddFilesDialog(Globals2.hMainWindow))
+        if (!MainWindow_ShowAddFilesDialog(Globals2.hMainWindow))
             MessageBox(Globals2.hMainWindow, L"Unable to Show File Dialog", L"WinAudio Error", MB_ICONERROR | MB_OK);
 
         break;
@@ -746,19 +896,19 @@ void MainWindow_HandleCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         break;
     case ID_PLAYLIST_OPEN:
-        MainWindow_OpenPlaylistDialog(Globals2.hMainWindow);
+        MainWindow_ShowOpenPlaylistDialog(Globals2.hMainWindow);
         break;
     case ID_PLAYLIST_SAVEAS:
-        MainWindow_SaveAsPlaylistDialog(Globals2.hMainWindow);
+        MainWindow_ShowSaveAsPlaylistDialog(Globals2.hMainWindow);
         break;
     case ID_PLAYLIST_SEARCH:
-        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
+        DialogBox(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
         break;
     case ID_PLAYBACK_PREV5SECONDS:
-        MainWindow_Back5Sec();
+        MainWindow_SeekBackFiveSeconds();
         break;
     case ID_PLAYBACK_FWD5SECONDS:
-        MainWindow_Fwd5Sec();
+        MainWindow_SeekForwardFiveSeconds();
          break;
     case ID_REPEAT_NONE:
         MainWindow_CheckRepeatOption(MW_REPEAT_NONE);
@@ -798,8 +948,129 @@ void MainWindow_CheckRepeatOption(int32_t nRepeatOption)
         Settings2.RepeatOption = MW_REPEAT_PLAYLIST;
         break;
     }
-    }
+}
 
+/// <summary>
+/// Create image list for Light Mode Toolbar
+/// </summary>
+/// <param name="IconsSize">Scaled icon size according to DPI</param>
+/// <returns>Instance to the created image list</returns>
+HIMAGELIST MainWindow_CreateLightModeImageList(UINT IconsSize)
+{
+    HIMAGELIST Imagelist = ImageList_Create(IconsSize, IconsSize, ILC_COLOR32 | ILC_MASK, MW_TOOLBAR_BUTTONS, 0);
+    HICON Icon;
+    
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_PREVIOUS_ICON_LIGHTMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_PLAY_ICON_LIGHTMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_PAUSE_ICON_LIGHTMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_STOP_ICON_LIGHTMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_NEXT_ICON_LIGHTMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);;
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_OPEN_ICON_LIGHTMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    return Imagelist;
+}
+
+/// <summary>
+/// Create image list for Dark Mode Toolbar
+/// </summary>
+/// <param name="IconsSize">Scaled icon size according to DPI</param>
+/// <returns>Instance to the created image list</returns>
+HIMAGELIST MainWindow_CreateDarkModeImageList(UINT IconsSize)
+{
+    HIMAGELIST Imagelist = ImageList_Create(IconsSize, IconsSize, ILC_COLOR32 | ILC_MASK, MW_TOOLBAR_BUTTONS, 0);
+    HICON Icon;
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_PREVIOUS_ICON_DARKMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_PLAY_ICON_DARKMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_PAUSE_ICON_DARKMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_STOP_ICON_DARKMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_NEXT_ICON_DARKMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    Icon = LoadImage(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_OPEN_ICON_DARKMODE), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    ImageList_AddIcon(Imagelist, Icon);
+
+    return Imagelist;
+}
+
+void MainWindow_CreateToolbarButtons()
+{
+    // Add buttons
+    TBBUTTON tbButtons[MW_TOOLBAR_BUTTONS];
+
+    ZeroMemory(&tbButtons, sizeof(tbButtons));
+
+    tbButtons[0].iBitmap = 0;
+    tbButtons[0].fsState = TBSTATE_ENABLED;
+    tbButtons[0].fsStyle = BTNS_BUTTON;
+    tbButtons[0].idCommand = WM_TOOLBAR_PREV;
+    tbButtons[0].iString = (INT_PTR)L"Previous";
+
+    tbButtons[1].iBitmap = 1;
+    tbButtons[1].fsState = TBSTATE_ENABLED;
+    tbButtons[1].fsStyle = BTNS_BUTTON;
+    tbButtons[1].idCommand = WM_TOOLBAR_PLAY;
+    tbButtons[1].iString = (INT_PTR)L"Play";
+
+    tbButtons[2].iBitmap = 2;
+    tbButtons[2].fsState = TBSTATE_ENABLED;
+    tbButtons[2].fsStyle = BTNS_BUTTON;
+    tbButtons[2].idCommand = WM_TOOLBAR_PAUSE;
+    tbButtons[2].iString = (INT_PTR)L"Pause";
+
+    tbButtons[3].iBitmap = 3;
+    tbButtons[3].fsState = TBSTATE_ENABLED | TBSTATE_CHECKED;
+    tbButtons[3].fsStyle = BTNS_BUTTON;
+    tbButtons[3].idCommand = WM_TOOLBAR_STOP;
+    tbButtons[3].iString = (INT_PTR)L"Stop";
+
+    tbButtons[4].iBitmap = 4;
+    tbButtons[4].fsState = TBSTATE_ENABLED;
+    tbButtons[4].fsStyle = BTNS_BUTTON;
+    tbButtons[4].idCommand = WM_TOOLBAR_NEXT;
+    tbButtons[4].iString = (INT_PTR)L"Next";
+
+    tbButtons[5].iBitmap = MW_TOOLBAR_SEPARATOR_WIDTH;
+    tbButtons[5].fsState = 0;
+    tbButtons[5].fsStyle = BTNS_SEP;
+    tbButtons[5].idCommand = 0;
+    tbButtons[5].iString = 0;
+
+    tbButtons[6].iBitmap = 5;
+    tbButtons[6].fsState = TBSTATE_ENABLED;
+    tbButtons[6].fsStyle = BTNS_BUTTON;
+    tbButtons[6].idCommand = WM_TOOLBAR_OPEN;
+    tbButtons[6].iString = (INT_PTR)L"Add Files...";
+
+    // If an application uses the CreateWindowEx function to create the 
+    // toolbar, the application must send this message to the toolbar before 
+    // sending the TB_ADDBITMAP or TB_ADDBUTTONS message. The CreateToolbarEx 
+    // function automatically sends TB_BUTTONSTRUCTSIZE, and the size of the 
+    // TBBUTTON structure is a parameter of the function.
+    SendMessage(Globals2.hToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
+
+    // Add buttons
+    SendMessage(Globals2.hToolbar, TB_ADDBUTTONS, (WPARAM)MW_TOOLBAR_BUTTONS, (LPARAM)&tbButtons);
+}
 
 
 /// <summary>
@@ -808,112 +1079,33 @@ void MainWindow_CheckRepeatOption(int32_t nRepeatOption)
 /// <param name="hOwnerHandle">Rebar Handle</param>
 /// <returns>Toolbar Handle</returns>
 HWND MainWindow_CreateToolbar(HWND hOwnerHandle)
-{
+{  
+    INT BitmapSize = WA_DPI_ScaleInt(MW_TOOLBAR_BITMAP_SIZE);
 
-    HICON hicon;  // handle to icon 
-    UINT BitmapSize = MW_TOOLBAR_BITMAP_SIZE;
+	Globals2.ToolbarImageListLightMode = MainWindow_CreateLightModeImageList(BitmapSize);
+    Globals2.ToolbarImageListDarkMode = MainWindow_CreateDarkModeImageList(BitmapSize);
 
-    WA_DPI_AdjustSizeForDPI(&BitmapSize);
+    // Create toolbar (CCS_NOPARENTALIGN | CCS_NORESIZE) styles is needed to allow toolbar
+    // resizing by rebar. See this on StackOverflow:
+    // https://stackoverflow.com/questions/70939363/winapi-rebar-control-not-showing-up
+    Globals2.hToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, 0,
+                                       TBSTYLE_FLAT | CCS_NODIVIDER | WS_CHILD | WS_VISIBLE | TBSTYLE_TOOLTIPS | CCS_NOPARENTALIGN | CCS_NORESIZE,           
+                                        0, 0, 0, 0,
+                                        hOwnerHandle, (HMENU)MW_ID_TOOLBAR, Globals2.CurrentProcessHInstance, 0);
 
-    // Create a masked image list large enough to hold the icons. 
-    Globals2.hToolbarImagelist = ImageList_Create(BitmapSize, BitmapSize, ILC_COLOR32 | ILC_MASK, MW_TOOLBAR_BUTTONS, 0);
-
-    // Load the icon resources, and add the icons to the image list
-    hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_PREVIOUS_ICON));
-    ImageList_AddIcon(Globals2.hToolbarImagelist, hicon);
-    DestroyIcon(hicon);
-
-    hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_PLAY_ICON));
-    ImageList_AddIcon(Globals2.hToolbarImagelist, hicon);
-    DestroyIcon(hicon);
-
-    hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_PAUSE_ICON));
-    ImageList_AddIcon(Globals2.hToolbarImagelist, hicon);
-    DestroyIcon(hicon);
-
-    hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_STOP_ICON));
-    ImageList_AddIcon(Globals2.hToolbarImagelist, hicon);
-    DestroyIcon(hicon);
-
-    hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_NEXT_ICON));
-    ImageList_AddIcon(Globals2.hToolbarImagelist, hicon);
-    DestroyIcon(hicon);
-
-    hicon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_OPEN_ICON));
-    ImageList_AddIcon(Globals2.hToolbarImagelist, hicon);
-    DestroyIcon(hicon);
-
-    // Create toolbar
-   Globals2.hToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, 0,
-            TBSTYLE_FLAT | CCS_NODIVIDER | WS_CHILD | 
-            WS_VISIBLE | TBSTYLE_TOOLTIPS | CCS_NOPARENTALIGN | CCS_NORESIZE,           
-            0, 0, 0, 0,
-       hOwnerHandle, (HMENU)MW_ID_TOOLBAR, GetModuleHandle(NULL), 0);
-
-
-    // If an application uses the CreateWindowEx function to create the 
-   // toolbar, the application must send this message to the toolbar before 
-   // sending the TB_ADDBITMAP or TB_ADDBUTTONS message. The CreateToolbarEx 
-   // function automatically sends TB_BUTTONSTRUCTSIZE, and the size of the 
-   // TBBUTTON structure is a parameter of the function.
-    SendMessage(Globals2.hToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
     
-
-    // Set the image list.
-    SendMessage(Globals2.hToolbar, TB_SETIMAGELIST,
-        (WPARAM)MW_ID_TOOLBAR_IMAGELIST_NR,
-        (LPARAM)Globals2.hToolbarImagelist);
-
-    // Add buttons
-    TBBUTTON tbButtons[MW_TOOLBAR_BUTTONS];
-
-    ZeroMemory(&tbButtons, sizeof(tbButtons));
-
-    tbButtons[0].iBitmap = MAKELONG(0, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[0].fsState = TBSTATE_ENABLED;
-    tbButtons[0].fsStyle = BTNS_BUTTON;
-    tbButtons[0].idCommand = WM_TOOLBAR_PREV;
-    tbButtons[0].iString = (INT_PTR) L"Previous";
-
-    tbButtons[1].iBitmap = MAKELONG(1, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[1].fsState = TBSTATE_ENABLED;
-    tbButtons[1].fsStyle = BTNS_BUTTON;
-    tbButtons[1].idCommand = WM_TOOLBAR_PLAY;
-    tbButtons[1].iString = (INT_PTR) L"Play";
-
-    tbButtons[2].iBitmap = MAKELONG(2, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[2].fsState = TBSTATE_ENABLED;
-    tbButtons[2].fsStyle = BTNS_BUTTON;
-    tbButtons[2].idCommand = WM_TOOLBAR_PAUSE;
-    tbButtons[2].iString = (INT_PTR) L"Pause";
-
-    tbButtons[3].iBitmap = MAKELONG(3, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[3].fsState = TBSTATE_ENABLED | TBSTATE_CHECKED;
-    tbButtons[3].fsStyle = BTNS_BUTTON;
-    tbButtons[3].idCommand = WM_TOOLBAR_STOP;
-    tbButtons[3].iString = (INT_PTR) L"Stop";
-
-    tbButtons[4].iBitmap = MAKELONG(4, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[4].fsState = TBSTATE_ENABLED;
-    tbButtons[4].fsStyle = BTNS_BUTTON;
-    tbButtons[4].idCommand = WM_TOOLBAR_NEXT;
-    tbButtons[4].iString = (INT_PTR) L"Next";
-
-    tbButtons[5].iBitmap = 5;
-    tbButtons[5].fsState = 0;
-    tbButtons[5].fsStyle = BTNS_SEP;
-    tbButtons[5].idCommand = 0;
-    tbButtons[5].iString = (INT_PTR)L"";
-
-    tbButtons[6].iBitmap = MAKELONG(5, MW_ID_TOOLBAR_IMAGELIST_NR);
-    tbButtons[6].fsState = TBSTATE_ENABLED;
-    tbButtons[6].fsStyle = BTNS_BUTTON;
-    tbButtons[6].idCommand = WM_TOOLBAR_OPEN;
-    tbButtons[6].iString = (INT_PTR)L"Add Files...";
+    // Set the image list
+    if(Settings2.CurrentMode == Dark)
+        SendMessage(Globals2.hToolbar, TB_SETIMAGELIST,
+            (WPARAM)MW_TOOLBAR_IMAGELIST_NR,
+            (LPARAM)Globals2.ToolbarImageListDarkMode);
+	else
+        SendMessage(Globals2.hToolbar, TB_SETIMAGELIST,
+            (WPARAM)MW_TOOLBAR_IMAGELIST_NR,
+            (LPARAM)Globals2.ToolbarImageListLightMode);
 
 
-    // Add buttons
-    SendMessage(Globals2.hToolbar, TB_ADDBUTTONS, (WPARAM)MW_TOOLBAR_BUTTONS, (LPARAM)&tbButtons);
+    MainWindow_CreateToolbarButtons();
 
     // Show tooltips (https://docs.microsoft.com/en-us/windows/win32/controls/display-tooltips-for-buttons)
     SendMessage(Globals2.hToolbar, TB_SETMAXTEXTROWS, 0, 0);
@@ -923,10 +1115,11 @@ HWND MainWindow_CreateToolbar(HWND hOwnerHandle)
 
     // Automatic size toolbar
     SendMessage(Globals2.hToolbar, TB_AUTOSIZE, 0, 0);
-
-     
+        
     return Globals2.hToolbar;
 }
+
+
 
 /// <summary>
 /// Destroy Toolbar resources
@@ -936,7 +1129,8 @@ void MainWindow_DestroyToolbar()
     RemoveWindowSubclass(Globals2.hPositionTrackbar, PositionSubclassProc, MW_ID_POS_SUBCLASS);
     RemoveWindowSubclass(Globals2.hVolumeTrackbar, VolumeSubclassProc, MW_ID_VOL_SUBCLASS);
 
-    ImageList_Destroy(Globals2.hToolbarImagelist);
+    ImageList_Destroy(Globals2.ToolbarImageListLightMode);
+    ImageList_Destroy(Globals2.ToolbarImageListDarkMode);
 }
 
 /// <summary>
@@ -950,29 +1144,19 @@ HWND MainWindow_CreateStatus(HWND hOwnerHandle)
 
     // Create the status bar.
     hStatusHandle = CreateWindowEx(
-        0,                       // no extended styles
-        STATUSCLASSNAME,         // name of status bar class
-        (PCTSTR)NULL,           // no text when first created
-        SBARS_SIZEGRIP |         // includes a sizing grip
-        WS_CHILD | WS_VISIBLE,   // creates a visible child window
-        0, 0, 0, 0,              // ignores size and position
-        hOwnerHandle,              // handle to parent window
-        (HMENU)MW_ID_STATUS,          // child window identifier
-        GetModuleHandle(NULL),     // handle to application instance
-        NULL);                   // no window creation data
+        0,                  
+        STATUSCLASSNAME,         
+        NULL,           
+        SBARS_SIZEGRIP |        
+        WS_CHILD | WS_VISIBLE,  
+        0, 0, 0, 0,             
+        hOwnerHandle,            
+        (HMENU)MW_ID_STATUS,          
+        Globals2.CurrentProcessHInstance,   
+        NULL);                   
 
    // Create Simple toolbar
-   SendMessage(hStatusHandle, SB_SIMPLE, (WPARAM)TRUE, (LPARAM)0); 
-
-    /*
-    INT Parts[3] = { 100, 340, -1 };
-
-    SendMessage(hStatusHandle, SB_SETPARTS, 3, Parts);
-
-    SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(0, SBT_NOBORDERS), (LPARAM)L"Testo 1\0");
-    SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(1, SBT_NOBORDERS), (LPARAM)L"Testo 2 Lorem Ipsum\0");
-    SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(2, SBT_NOBORDERS), (LPARAM)L"Testo 3 In Fondo 0:00\0");
-    */
+   SendMessage(hStatusHandle, SB_SIMPLE, (WPARAM)TRUE, (LPARAM)0);   
 
    //Init Theme
    WA_UI_Status_Init(hStatusHandle);
@@ -999,20 +1183,19 @@ void MainWindow_DestroyStatus()
 /// </summary>
 /// <param name="hStatusHandle">Handle to Main Window Statusbar</param>
 /// <param name="pText">Pointer to Text value</param>
-void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t* pText, bool bResetMessage)
+void MainWindow_Status_SetText(HWND hStatusHandle, wchar_t* pText, bool UseWelcomeMessage)
 {
-    if (bResetMessage)
+    if (UseWelcomeMessage)
     {
-        wchar_t pWelcomeString[MAX_PATH];
-        LoadString(GetModuleHandle(NULL), IDS_STATUS_WELCOME, pWelcomeString, MAX_PATH);
+        wchar_t WelcomeString[MAX_PATH];
 
-        SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)pWelcomeString);
-    }
-    else
-    {
-        SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)pText);   
+        LoadString(Globals2.CurrentProcessHInstance, IDS_STATUS_WELCOME, WelcomeString, MAX_PATH);
+        SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)WelcomeString);
+
+        return;
     }
 
+    SendMessage(hStatusHandle, SB_SETTEXT, MAKEWORD(SB_SIMPLEID, 0), (LPARAM)pText);   
 }
 
 /// <summary>
@@ -1090,6 +1273,9 @@ void MainWindow_CreateUI(HWND hMainWindow)
 
     }
 
+    // Update Size based on DPI Scaling 
+    WA_DPI_ScaleWindow(hMainWindow, MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT);
+
     // Create main controls
     Globals2.hMainMenu = MainWindow_CreateMenu(hMainWindow);
     Globals2.hStatus = MainWindow_CreateStatus(hMainWindow);
@@ -1119,7 +1305,7 @@ void MainWindow_CreateUI(HWND hMainWindow)
         {
             wchar_t PlaylistPath[MAX_PATH];
 
-            if (MainWindow_GetPlaylistSaveFolder(PlaylistPath))
+            if (MainWindow_GetPathForAppSettings(PlaylistPath))
             {
                 EnterCriticalSection(&Globals2.CacheThreadSection);
                 WA_Playlist_LoadM3U(Globals2.pPlaylist, PlaylistPath);
@@ -1173,7 +1359,7 @@ void MainWindow_DestroyUI()
     {
         wchar_t PlaylistPath[MAX_PATH];
 
-        if (MainWindow_GetPlaylistSaveFolder(PlaylistPath))
+        if (MainWindow_GetPathForAppSettings(PlaylistPath))
         {
             EnterCriticalSection(&Globals2.CacheThreadSection);
             WA_Playlist_SaveAsM3U(Globals2.pPlaylist, PlaylistPath);
@@ -1198,106 +1384,80 @@ void MainWindow_DestroyUI()
 /// <summary>
 /// Create a Rebar Control with Volume, Position, Toolbar and Static
 /// </summary>
-HWND MainWindow_CreateRebar(HWND hwndOwner)
-{
-    REBARINFO     rbi;
-    REBARBANDINFO rbBand;
+HWND MainWindow_CreateRebar(HWND OwnerHandle)
+{    
+    REBARBANDINFO BandInfo = { 0 };
     HWND hRebarHandle;
-    RECT WindowRect;
-   
-    // https://stackoverflow.com/questions/70939363/winapi-rebar-control-not-showing-up
+    RECT WindowRect;   
 
-    // Create Rebar
     hRebarHandle = CreateWindowEx(WS_EX_TOOLWINDOW,
                     REBARCLASSNAME,
                     NULL,
                     WS_VISIBLE |  WS_CHILD | WS_CLIPCHILDREN |
                     WS_CLIPSIBLINGS | RBS_BANDBORDERS |
                     CCS_NODIVIDER, 0, 0, 0, 0,
-                    hwndOwner, 
+                    OwnerHandle, 
                     (HMENU)MW_ID_REBAR, 
-                    GetModuleHandle(NULL), NULL);
+                    Globals2.CurrentProcessHInstance, NULL);
 
 
-    // Check Rebar Handle
     if (!hRebarHandle)
-        return NULL;
-
-    // Initialize and send the REBARINFO structure.
-    rbi.cbSize = sizeof(REBARINFO);  
-    rbi.fMask = 0;
-    rbi.himl = (HIMAGELIST)NULL;
-
-    if (!SendMessage(hRebarHandle, RB_SETBARINFO, 0, (LPARAM)&rbi))
         return NULL;
  
     // Create Objects for Rebar Bands
-    Globals2.hToolbar = MainWindow_CreateToolbar(hRebarHandle);
+    Globals2.hToolbar = MainWindow_CreateToolbar(hRebarHandle); 
     Globals2.hPositionTrackbar = MainWindow_CreatePositionTrackbar(hRebarHandle);
     Globals2.hVolumeTrackbar = MainWindow_CreateVolumeTrackbar(hRebarHandle);      
     Globals2.hStatic = MainWindow_CreateSpectrumBar(hRebarHandle);    
 
     // Get current window size and position
-    GetClientRect(hRebarHandle, &WindowRect);
-   
+    GetClientRect(OwnerHandle, &WindowRect);   
     
-    // Create common struct info
-    ZeroMemory(&rbBand, sizeof(REBARBANDINFO));
-    rbBand.cbSize = sizeof(REBARBANDINFO);  
-    rbBand.fMask = RBBIM_TEXT | RBBIM_BACKGROUND |
-        RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE |
-        RBBIM_SIZE | RBBIM_ID;
-    rbBand.fStyle = RBBS_CHILDEDGE | RBBS_NOGRIPPER;
-    rbBand.hbmBack = NULL;   
+    // Create common struct info    
+    BandInfo.cbSize = sizeof(REBARBANDINFO);  
+    BandInfo.fMask = RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_ID | RBBIM_STYLE;
+    BandInfo.fStyle = RBBS_CHILDEDGE | RBBS_NOGRIPPER;  
+    BandInfo.cyMinChild = WA_DPI_ScaleInt(MW_REBAR_HEIGHT);
   
 
-    // Create Rebar bands
-    rbBand.hwndChild = Globals2.hToolbar;
-    rbBand.wID = MW_ID_TOOLBAR;
-	rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(MW_TOOLBAR_BITMAP_SIZE * (MW_TOOLBAR_BUTTONS + 1)) ;
-    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
-    rbBand.cx = rbBand.cxMinChild;
+    // Toolbar band
+    BandInfo.hwndChild = Globals2.hToolbar;
+    BandInfo.wID = MW_ID_TOOLBAR;
+	BandInfo.cxMinChild = WA_DPI_ScaleInt(MW_TOOLBAR_BITMAP_SIZE * (MW_TOOLBAR_BUTTONS + 1));    
+    BandInfo.cx = BandInfo.cxMinChild;   
     
-    // Add the band that has the Toolbar
-    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
+    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&BandInfo);
 
+	// Volume Trackbar band
+    BandInfo.hwndChild = Globals2.hVolumeTrackbar;
+    BandInfo.wID = MW_ID_VOLUME_TRACKBAR;
+    BandInfo.cxMinChild = WA_DPI_ScaleInt(MW_TRACKBAR_MIN_WIDTH);
+    BandInfo.cx = WA_DPI_ScaleInt(WindowRect.right) / 3; 
 
-    rbBand.hwndChild = Globals2.hVolumeTrackbar;
-    rbBand.wID = MW_ID_VOLUME_TRACKBAR;
-    rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(MW_TRACKBAR_MIN_WIDTH);
-    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
-    rbBand.cx = (UINT)(WA_DPI_AdjustSizeForDPI2(WindowRect.right) / 3);
-    
+    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&BandInfo);
 
-    // Add the band that has the Volume Trackbar
-    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
+    // Static (visualizations) band
+    BandInfo.hwndChild = Globals2.hStatic;
+    BandInfo.wID = MW_ID_SPECTRUM_STATIC;
+    BandInfo.cxMinChild = WA_DPI_ScaleInt(MW_STATIC_MIN_WIDTH);
+    BandInfo.cx = WA_DPI_ScaleInt(WindowRect.right) / 3;
+    BandInfo.fStyle |= RBBS_FIXEDSIZE;   
 
+    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&BandInfo);
 
-    rbBand.hwndChild = Globals2.hStatic;
-    rbBand.wID = MW_ID_SPECTRUM_STATIC;
-    rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(MW_STATIC_MIN_WIDTH);
-    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
-    rbBand.cx = (UINT)(WA_DPI_AdjustSizeForDPI2(MAINWINDOW_WIDTH) / 3);
-    rbBand.fStyle = rbBand.fStyle | RBBS_FIXEDSIZE;
+    // Position Trackbar band
+    BandInfo.hwndChild = Globals2.hPositionTrackbar;
+    BandInfo.wID = MW_ID_POSITION_TRACKBAR;
+    BandInfo.cxMinChild = WA_DPI_ScaleInt(WindowRect.right - WindowRect.left);
+    BandInfo.cx = BandInfo.cxMinChild;
+    BandInfo.fStyle =  RBBS_CHILDEDGE | RBBS_NOGRIPPER | RBBS_BREAK;
 
-    // Add the band that has the Static Control
-    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
+    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&BandInfo); 
 
-
-    rbBand.hwndChild = Globals2.hPositionTrackbar;
-    rbBand.wID = MW_ID_POSITION_TRACKBAR;
-    rbBand.cxMinChild = WA_DPI_AdjustSizeForDPI2(WindowRect.right - WindowRect.left);
-    rbBand.cyMinChild = WA_DPI_AdjustSizeForDPI2(MW_REBAR_HEIGHT);
-    rbBand.cx = WA_DPI_AdjustSizeForDPI2(WindowRect.right - WindowRect.left);
-    rbBand.fStyle =  RBBS_CHILDEDGE | RBBS_NOGRIPPER | RBBS_BREAK;
-
-    // Add the band that has the Volume Trackbar
-    SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand); 
 
     WA_UI_Rebar_Init(hRebarHandle);
 
-    SetWindowSubclass(hRebarHandle, WA_UI_Rebar_Proc, MW_ID_REBAR, 0);
-   
+    SetWindowSubclass(hRebarHandle, WA_UI_Rebar_Proc, MW_ID_REBAR, 0);   
 
     return hRebarHandle;
 }
@@ -1308,8 +1468,8 @@ HWND MainWindow_CreateRebar(HWND hwndOwner)
 void MainWindow_DestroyRebar()
 {
     MainWindow_DestroyToolbar(); 
-    RemoveWindowSubclass(Globals2.hRebar, WA_UI_Rebar_Proc, MW_ID_REBAR);
     WA_UI_Rebar_Close(Globals2.hRebar);
+    RemoveWindowSubclass(Globals2.hRebar, WA_UI_Rebar_Proc, MW_ID_REBAR);    
 }
 
 /// <summary>
@@ -1335,20 +1495,20 @@ HWND MainWindow_CreatePositionTrackbar(HWND hOwnerHandle)
 
 
     hTrackbarHandle = CreateWindowEx(
-                            0,                               // no extended styles 
-                            TRACKBAR_CLASS,                  // class name 
-                            L"Position Control",              // title (caption) 
+                            0,                              
+                            TRACKBAR_CLASS,                
+                            L"Position Control",            
                             WS_CHILD |
                             WS_VISIBLE |
                             TBS_NOTICKS |
                             TBS_TRANSPARENTBKGND | 
-                            WS_DISABLED,              // style 
-                            0, 0,                          // position 
-                            0, 0,                         // size 
-                            hOwnerHandle,                    // parent window 
-                            (HMENU)MW_ID_POSITION_TRACKBAR,       // control identifier 
-                            GetModuleHandle(NULL),            // instance 
-                            NULL                             // no WM_CREATE parameter 
+                            WS_DISABLED,            
+                            0, 0,                         
+                            0, 0,                        
+                            hOwnerHandle,                    
+                            (HMENU)MW_ID_POSITION_TRACKBAR,       
+                            Globals2.CurrentProcessHInstance,           
+                            NULL                             
     );
 
     // Hide Focus Dots
@@ -1402,20 +1562,20 @@ HWND MainWindow_CreateVolumeTrackbar(HWND hOwnerHandle)
 
 
     hTrackbarHandle = CreateWindowEx(
-        0,                               // no extended styles 
-        TRACKBAR_CLASS,                  // class name 
-        L"Volume Control",              // title (caption) 
+        0,                              
+        TRACKBAR_CLASS,                  
+        L"Volume Control",              
         WS_CHILD |
         WS_VISIBLE |
         TBS_NOTICKS |
         TBS_TRANSPARENTBKGND |
-        TBS_TOOLTIPS,              // style 
-        0, 0,                          // position 
-        0, 0,                         // size 
-        hOwnerHandle,                    // parent window 
-        (HMENU)MW_ID_VOLUME_TRACKBAR,       // control identifier 
-        GetModuleHandle(NULL),            // instance 
-        NULL                             // no WM_CREATE parameter 
+        TBS_TOOLTIPS,           
+        0, 0,                         
+        0, 0,                        
+        hOwnerHandle,                  
+        (HMENU)MW_ID_VOLUME_TRACKBAR,       
+        Globals2.CurrentProcessHInstance,           
+        NULL                            
     );
 
     // Set Min and Max Range
@@ -1441,19 +1601,18 @@ HWND MainWindow_CreateSpectrumBar(HWND hOwnerHandle)
     HWND hStaticControl;
 
     hStaticControl = CreateWindowEx(
-        0,                               // no extended styles 
-        L"STATIC",                  // class name 
-        L"",              // title (caption) 
+        0,                              
+        L"STATIC",                 
+        L"",              
         WS_CHILD |
         WS_VISIBLE |
-        SS_OWNERDRAW     
-        ,              // style 
-        0, 0,                          // position 
-        0, 0,                         // size 
-        hOwnerHandle,                    // parent window 
-        (HMENU)MW_ID_SPECTRUM_STATIC,       // control identifier 
-        GetModuleHandle(NULL),            // instance 
-        NULL                             // no WM_CREATE parameter 
+        SS_OWNERDRAW,              
+        0, 0,                          
+        0, 0,                         
+        hOwnerHandle,                    
+        (HMENU)MW_ID_SPECTRUM_STATIC,       
+        Globals2.CurrentProcessHInstance,        
+        NULL                             
     );
 
     return hStaticControl;
@@ -1471,7 +1630,7 @@ void MainWindow_DestroyMenu()
 /// <summary>
 /// Resize Main Window Elements (lParam = New MainWindow Size in WM_SIZE)
 /// </summary>
-void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
+void MainWindow_Resize(LPARAM lParam, BOOL IslParamValid)
 {
     RECT RebarRect;
     RECT StatusRect;
@@ -1480,11 +1639,11 @@ void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
 
   
     // Resize Statusbar
-    if (Globals2.hStatus && blParamValid)
+    if (Globals2.hStatus && IslParamValid)
         SendMessage(Globals2.hStatus, WM_SIZE, 0, lParam);
 
     // Resize Rebar
-    if (Globals2.hRebar && blParamValid)
+    if (Globals2.hRebar && IslParamValid)
         SendMessage(Globals2.hRebar, WM_SIZE, 0, lParam);
 
     // Resize Listbox
@@ -1508,8 +1667,6 @@ void MainWindow_Resize(LPARAM lParam, BOOL blParamValid)
         // Resize ListVIew
         MoveWindow(Globals2.hListView, ListRect.left, ListRect.top, ListRect.right, ListRect.bottom, TRUE);
     }
-        
-
 }
 
 
@@ -1619,7 +1776,7 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
                     LeaveCriticalSection(&Globals2.CacheThreadSection);
 
                     // Open First Index in the playlist
-                    MainWindow_Open_Playlist_Index(0);
+                    MainWindow_OpenAndPlayFileFromPlaylistIndex(0);
 
                 }
 
@@ -1642,7 +1799,7 @@ bool MainWindow_OpenFileDialog(HWND hOwnerHandle)
 /// Show a File Dialog
 /// </summary>
 /// <param name="hOwnerHandle">Main Window Handle</param>
-bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
+bool MainWindow_ShowAddFilesDialog(HWND hOwnerHandle)
 {
     IFileOpenDialog* pFileOpen;
     uint32_t uArrayCount;
@@ -1756,7 +1913,7 @@ bool MainWindow_AddFilesDialog(HWND hOwnerHandle)
 /// Add supported files of a folder into the playlist
 /// </summary>
 /// <param name="pszFilePath">Folder Path</param>
-static void MainWindow_Folder2Playlist(const LPWSTR pszFilePath)
+static void MainWindow_AddFolderToCurrentPlaylist(const LPWSTR pszFilePath)
 {
     WIN32_FIND_DATA data;
     HANDLE hFind;
@@ -1806,7 +1963,7 @@ static void MainWindow_Folder2Playlist(const LPWSTR pszFilePath)
 /// Show a File Dialog
 /// </summary>
 /// <param name="hOwnerHandle">Main Window Handle</param>
-bool MainWindow_AddFolderDialog(HWND hOwnerHandle)
+bool MainWindow_ShowAddFolderDialog(HWND hOwnerHandle)
 {
     IFileOpenDialog* pFileOpen;
     HRESULT hr;
@@ -1849,7 +2006,7 @@ bool MainWindow_AddFolderDialog(HWND hOwnerHandle)
 
                 if SUCCEEDED(hr)
                 {
-                    MainWindow_Folder2Playlist(pszFilePath);
+                    MainWindow_AddFolderToCurrentPlaylist(pszFilePath);
                     CoTaskMemFree(pszFilePath);
                 }
 
@@ -1868,7 +2025,7 @@ bool MainWindow_AddFolderDialog(HWND hOwnerHandle)
 /// Show Playlist Open File Dialog
 /// On success, tihs function open playlist from specified path
 /// </summary>
-bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle)
+bool MainWindow_ShowOpenPlaylistDialog(HWND hOwnerHandle)
 {
     IFileOpenDialog* pFileOpen;
     COMDLG_FILTERSPEC Filter;
@@ -1951,7 +2108,7 @@ bool MainWindow_OpenPlaylistDialog(HWND hOwnerHandle)
 /// Show Playlist File Save Dialog.
 /// On success, this function save the playlist at specified path
 /// </summary>
-bool MainWindow_SaveAsPlaylistDialog(HWND hOwnerHandle)
+bool MainWindow_ShowSaveAsPlaylistDialog(HWND hOwnerHandle)
 {
     IFileSaveDialog* pFileSave;
     COMDLG_FILTERSPEC Filter;
@@ -2146,7 +2303,7 @@ bool MainWindow_Stop()
 /// Go to next file into playlist
 /// </summary>
 /// <returns>True on Success</returns>
-bool MainWindow_NextItem()
+bool MainWindow_PlayNextItem()
 {
     DWORD dwIndex = 0;
     DWORD dwCount;
@@ -2170,14 +2327,14 @@ bool MainWindow_NextItem()
     dwIndex++;
     dwIndex = dwIndex % dwCount;
     
-    return MainWindow_Open_Playlist_Index(dwIndex);
+    return MainWindow_OpenAndPlayFileFromPlaylistIndex(dwIndex);
 }
 
 /// <summary>
 /// Go to previous file into playlist
 /// </summary>
 /// <returns>True on Success</returns>
-bool MainWindow_PreviousItem()
+bool MainWindow_PlayPreviousItem()
 {
     DWORD dwIndex = 0;
     DWORD dwCount;
@@ -2203,14 +2360,14 @@ bool MainWindow_PreviousItem()
         dwIndex--;
 
   
-    return MainWindow_Open_Playlist_Index(dwIndex);
+    return MainWindow_OpenAndPlayFileFromPlaylistIndex(dwIndex);
 }
 
 
 /// <summary>
 /// Move playback position back of 5 seconds
 /// </summary>
-bool MainWindow_Back5Sec()
+bool MainWindow_SeekBackFiveSeconds()
 {
     uint64_t uDuration, uPosition;
 
@@ -2241,7 +2398,7 @@ bool MainWindow_Back5Sec()
 /// <summary>
 /// Move playback position forward of 5 seconds
 /// </summary>
-bool MainWindow_Fwd5Sec()
+bool MainWindow_SeekForwardFiveSeconds()
 {
     uint64_t uDuration, uPosition;
 
@@ -2258,7 +2415,7 @@ bool MainWindow_Fwd5Sec()
         return false;
 
     if ((uPosition + 5000) > uDuration)
-        return MainWindow_NextItem();
+        return MainWindow_PlayNextItem();
     else
         uPosition += 5000;
 
@@ -2274,7 +2431,7 @@ bool MainWindow_Fwd5Sec()
 /// </summary>
 /// <param name="dwIndex">0-BAsed Index</param>
 /// <returns>True on Success</returns>
-bool MainWindow_Open_Playlist_Index(DWORD dwIndex)
+bool MainWindow_OpenAndPlayFileFromPlaylistIndex(DWORD dwIndex)
 {
     WA_Playlist_Metadata* pMetadata;
 
@@ -2439,14 +2596,14 @@ DWORD MainWindow_HandleEndOfStreamMsg()
         if(bIsLastItem)
             MainWindow_Close();
         else
-            MainWindow_NextItem();
+            MainWindow_PlayNextItem();
 
         break;
     case MW_REPEAT_TRACK:
         MainWindow_Play();
         break;
     case MW_REPEAT_PLAYLIST:
-        MainWindow_NextItem();
+        MainWindow_PlayNextItem();
     }  
 
 
@@ -2696,7 +2853,7 @@ LRESULT CALLBACK VolumeSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 /// <summary>
 /// Draw Visualizations on Static Control
 /// </summary>
-void MainWindow_DrawSpectrum()
+void MainWindow_DrawVisualizationsOnStaticControl()
 {
     int8_t* pBuffer;
     uint32_t uBufferSize;
@@ -2925,7 +3082,7 @@ LRESULT MainWindow_HandleCopyData(HWND hWnd, WPARAM wParam, LPARAM lParam)
         LeaveCriticalSection(&Globals2.CacheThreadSection);
 
         // Open and Play file at Index [0]
-        if (MainWindow_Open_Playlist_Index(0)) 
+        if (MainWindow_OpenAndPlayFileFromPlaylistIndex(0)) 
             MainWindow_Play();
        
           
@@ -2997,7 +3154,7 @@ void MainWindow_LoadSettings()
     Settings2.bPlayNextItem = WA_Ini_Read_Bool(pIni, false, L"Globals", L"PlayNextItem");
     Settings2.uCurrentVolume = WA_Ini_Read_UInt32(pIni, 255, L"Globals", L"CurrentVolume");
     Settings2.bSavePlaylistOnExit = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SavePlaylistOnExit");
-    Settings2.bSaveWndSizePos = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SaveWndPosSize");
+    Settings2.AllowSaveWindowPositionAndSize = WA_Ini_Read_Bool(pIni, true, L"Globals", L"SaveWndPosSize");
     Settings2.RepeatOption = WA_Ini_Read_Int32(pIni, MW_REPEAT_NONE, L"Globals", L"RepeatOption");
 
     if (!WA_Ini_Read_Struct(pIni, &Settings2.MainWindowRect, sizeof(RECT), L"Globals", L"WindowRECT"))
@@ -3028,7 +3185,7 @@ void MainWindow_SaveSettings()
 
     // Save MainWindow Position and Size
     WA_Ini_Write_Struct(pIni, &Settings2.MainWindowRect, sizeof(RECT), L"Globals", L"WindowRECT");
-    WA_Ini_Write_Bool(pIni, Settings2.bSaveWndSizePos, L"Globals", L"SaveWndPosSize");
+    WA_Ini_Write_Bool(pIni, Settings2.AllowSaveWindowPositionAndSize, L"Globals", L"SaveWndPosSize");
 
     WA_Ini_Write_String(pIni, Settings2.pActiveOutputDescr, MW_MAX_PLUGIN_DESC, L"Globals", L"OutputPluginDescr");
     WA_Ini_Write_String(pIni, Settings2.pActiveEffectDescr, MW_MAX_PLUGIN_DESC, L"Globals", L"OutputEffectDescr");

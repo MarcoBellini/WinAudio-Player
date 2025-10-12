@@ -14,23 +14,8 @@ void WA_DPI_Destroy()
 	// This function can be used for future cleanup if needed
 }
 
-void WA_DPI_AdjustRectForDPI(RECT* rc)
-{
 
-}
-
-void WA_DPI_AdjustSizeForDPI(INT* Size)
-{
-    if(Size == NULL)
-		return;
-
-    if (uCurrentDPI == USER_DEFAULT_SCREEN_DPI)
-        return;
-
-	*Size = MulDiv(*Size, uCurrentDPI, USER_DEFAULT_SCREEN_DPI);
-}
-
-INT WA_DPI_AdjustSizeForDPI2(INT Size)
+INT WA_DPI_ScaleInt(INT Size)
 {
     if (uCurrentDPI == USER_DEFAULT_SCREEN_DPI)
         return Size;
@@ -38,7 +23,7 @@ INT WA_DPI_AdjustSizeForDPI2(INT Size)
     return MulDiv(Size, uCurrentDPI, USER_DEFAULT_SCREEN_DPI);
 }
 
-float WA_DPI_AdjustSizeForDPI2F(float Size)
+float WA_DPI_ScaleFloat(float Size)
 {
     if (uCurrentDPI == USER_DEFAULT_SCREEN_DPI)
         return Size;
@@ -46,7 +31,7 @@ float WA_DPI_AdjustSizeForDPI2F(float Size)
     return Size * uCurrentDPI / USER_DEFAULT_SCREEN_DPI;
 }
 
-void WA_DPI_AdjustWindowForDPI(HWND hwnd, INT UnscaledWidth, INT UnscaldedHeight)
+void WA_DPI_ScaleWindow(HWND hwnd, INT UnscaledWidth, INT UnscaldedHeight)
 {
     RECT rcWindow;
 

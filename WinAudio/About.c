@@ -21,7 +21,7 @@ INT_PTR CALLBACK AboutProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     {
     case WM_INITDIALOG:
     {
-        HICON hIcon = LoadIcon(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDI_MAIN_ICON));
+        HICON hIcon = LoadIcon(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_MAIN_ICON));
         wchar_t BuildUnicode[ABOUT_BUILD_STR_LEN];
         char BuildAnsi[ABOUT_BUILD_STR_LEN];
 

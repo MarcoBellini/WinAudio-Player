@@ -125,7 +125,7 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
 
     if (!PathFileExists(lpwPath))
     {
-        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not found, try another file path", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
+        TaskDialog(Globals2.hMainWindow, Globals2.CurrentProcessHInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not found, try another file path", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 
@@ -133,7 +133,7 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
 
     if (!pIn)
     {       
-        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not supported, try to add a proper plugin to support it", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
+        TaskDialog(Globals2.hMainWindow, Globals2.CurrentProcessHInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not supported, try to add a proper plugin to support it", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 
@@ -142,7 +142,7 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
 
     if (uResult != WA_OK)
     {  
-        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not supported, or the input is not able to decode it", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
+        TaskDialog(Globals2.hMainWindow, Globals2.CurrentProcessHInstance, L"WinAudio Error", L"Unable to open input file", L"The file format is not supported, or the input is not able to decode it", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 
@@ -175,7 +175,7 @@ bool WA_Playback_Engine_OpenFile(const wchar_t* lpwPath)
     if (uResult != WA_OK)
     {
         pIn->WA_Input_Close(pIn);         
-        TaskDialog(Globals2.hMainWindow, Globals2.hMainWindowInstance, L"WinAudio Error", L"Unable to open output", L"The file format is not supported, or the output is not active", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
+        TaskDialog(Globals2.hMainWindow, Globals2.CurrentProcessHInstance, L"WinAudio Error", L"Unable to open output", L"The file format is not supported, or the output is not active", TDCBF_OK_BUTTON, TD_ERROR_ICON, NULL);
         return false;
     }
 

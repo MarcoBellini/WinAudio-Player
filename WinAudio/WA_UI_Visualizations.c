@@ -432,7 +432,7 @@ LRESULT CALLBACK StaticSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
 			This->StaticSize = dSize;
 		
-			ID2D1HwndRenderTarget_Resize(This->pTarget, &dSize);
+			//ID2D1HwndRenderTarget_Resize(This->pTarget, &dSize);
 		}		
 	}
 

@@ -2,7 +2,7 @@
 #define GLOBALS2_H
 
 // Increase at every commit
-#define MW_ID_BUILD_NR					9
+#define MW_ID_BUILD_NR					10
 
 #define MAINWINDOW_WIDTH				640
 #define MAINWINDOW_HEIGHT				480
@@ -22,7 +22,10 @@
 #define MW_ID_POS_SUBCLASS				1009
 #define MW_ID_SPECTRUM_TIMER			1010
 #define MW_ID_VOL_SUBCLASS				1011
-#define MW_ID_TOOLBAR_IMAGELIST_NR		0x0
+
+#define MW_TOOLBAR_IMAGELIST_NR			0
+#define MW_TOOLBAR_SEPARATOR_WIDTH		5
+
 
 #define WM_TOOLBAR_PLAY					(WM_APP + 0x010)
 #define WM_TOOLBAR_PAUSE				(WM_APP + 0x011)
@@ -59,8 +62,9 @@ struct
 {
 	HWND hMainWindow;				// Main Window Handle
 	HMENU hMainMenu;				// Main Menu
-	HINSTANCE hMainWindowInstance;
-	HIMAGELIST hToolbarImagelist;
+	HINSTANCE CurrentProcessHInstance;
+	HIMAGELIST ToolbarImageListLightMode;
+	HIMAGELIST ToolbarImageListDarkMode;
 	HWND hRebar;
 	HWND hToolbar;
 	HWND hStatus;
@@ -125,7 +129,7 @@ struct
 
 	bool bPlayNextItem;
 	bool bSavePlaylistOnExit;
-	bool bSaveWndSizePos;
+	bool AllowSaveWindowPositionAndSize;
 
 	uint32_t uCurrentVolume;
 
@@ -141,12 +145,12 @@ bool MainWindow_Play();
 bool MainWindow_Pause();
 bool MainWindow_Stop();
 bool MainWindow_Open(const wchar_t* wPath);
-bool MainWindow_Open_Playlist_Index(DWORD dwIndex);
+bool MainWindow_OpenAndPlayFileFromPlaylistIndex(DWORD dwIndex);
 bool MainWindow_Close();
-bool MainWindow_PreviousItem();
-bool MainWindow_NextItem();
-bool MainWindow_Back5Sec();
-bool MainWindow_Fwd5Sec();
+bool MainWindow_PlayPreviousItem();
+bool MainWindow_PlayNextItem();
+bool MainWindow_SeekBackFiveSeconds();
+bool MainWindow_SeekForwardFiveSeconds();
 
 // Dialogs
 INT_PTR CALLBACK SettingsProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);

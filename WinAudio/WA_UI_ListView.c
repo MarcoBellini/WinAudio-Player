@@ -378,7 +378,7 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
     HMENU hMenu, hSubMenu;
     DWORD dwMenuID;
 
-    hMenu = LoadMenu(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDR_PLAYLIST_MENU));
+    hMenu = LoadMenu(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDR_PLAYLIST_MENU));
 
 
     if (!hMenu)
@@ -410,7 +410,7 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
         nIndex = ListView_GetNextItem(hListview, -1, LVNI_SELECTED);
 
         if (nIndex != -1)      
-            MainWindow_Open_Playlist_Index((DWORD) nIndex);
+            MainWindow_OpenAndPlayFileFromPlaylistIndex((DWORD) nIndex);
 
         break;
     }
@@ -435,7 +435,7 @@ static void WA_UI_Listview_ShowItemContextMenu(HWND hListview, int32_t x, int32_
 
         break;
     case ID_FILE_SEARCH:
-        DialogBox(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
+        DialogBox(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDD_SEARCH_DLG), Globals2.hMainWindow, SearchDlgProc);
         break;
     }
 
@@ -740,7 +740,7 @@ static void WA_Listview_DBLCKL(HWND hListview, LPNMITEMACTIVATE pItemActivate)
     if (pItemActivate->iItem == -1)
         return;
  
-    MainWindow_Open_Playlist_Index((DWORD)pItemActivate->iItem);  
+    MainWindow_OpenAndPlayFileFromPlaylistIndex((DWORD)pItemActivate->iItem);  
 }
 
 static void WA_Listview_OpenSelectedItem(HWND hListview)
@@ -751,7 +751,7 @@ static void WA_Listview_OpenSelectedItem(HWND hListview)
 
     if (nIndex != -1)
     {      
-        MainWindow_Open_Playlist_Index(nIndex);        
+        MainWindow_OpenAndPlayFileFromPlaylistIndex(nIndex);        
     }
 }
 
