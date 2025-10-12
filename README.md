@@ -28,14 +28,13 @@ To get started with WinAudio, follow these steps:
 2. Download and install [CMake](https://cmake.org/download), if you haven't already.
 3. Download the [mpg123 library source code](https://www.mpg123.de/) and extract it.
 4. Create a build directory within the mpg123 source directory.
-5. Generate the build files using CMake, specifying the appropriate generator for your system (e.g., Visual Studio).
+5. Generate the build files using CMake, specifying the appropriate generator for your system
 6. Build the mpg123 library using the generated build files.
 7. Copy the compiled mpg123 library and headers to the WinAudio project directory.
 8. Download the [libsndfile library](https://libsndfile.github.io/libsndfile/) and extract it.
 9. Link the static library `sndfile.lib` to the WinAudio_WaveForm project to enable support for WAV, AIFF, OGG, FLAC, and OPUS file formats.
-10. Open the WinAudio project in Visual Studio 2022.
+10. Open the WinAudio project in Visual Studio 2022 and link libraries.
 11. Build and run the application.
-12. Explore the various features of WinAudio and enjoy its lightweight and extensible design.
 
 ## Contributing
 
@@ -50,10 +49,6 @@ Contributions to WinAudio are more than welcome! If you're interested in enhanci
 ## License
 
 This project is licensed under the [MIT License](LICENSE), allowing you to use, modify, and distribute the code as per the terms specified.
-
-## Contact
-
-If you have any questions, suggestions, or just want to chat about WinAudio or programming in general, feel free to reach out to me at [marco.bellini8@gmail.com](mailto:marco.bellini8@gmail.com).
 
 <meta name="google-site-verification" content="L7SwBgfD1TgnFhcHs2WoDIhnhsIWzb7FVuOH_aBUSqk" />
 
