@@ -533,10 +533,10 @@ static void ColorPolicy_InitDark(ColorThemes Theme)
 }
 
 
-void ColorPolicy_Init(ColorMode Mode, ColorThemes Theme)
+void ColorPolicy_Init(ColorMode Mode, ColorThemes Theme, UINT uCurrentDpi)
 {
 	LOGFONT LogFont;
-
+	
 
 	Palette.Mode = Mode;
 	Palette.Theme = Theme;
@@ -552,7 +552,7 @@ void ColorPolicy_Init(ColorMode Mode, ColorThemes Theme)
 	}
 
 	// Create Font Object
-	SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LogFont), &LogFont, 0);
+	SystemParametersInfoForDpi(SPI_GETICONTITLELOGFONT, sizeof(LogFont), &LogFont, 0, uCurrentDpi);
 	Palette.hDefaultFont = CreateFontIndirect(&LogFont);
 
 }

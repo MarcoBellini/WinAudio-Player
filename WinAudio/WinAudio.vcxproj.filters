@@ -84,6 +84,9 @@
     <ClCompile Include="SearchDlg.c">
       <Filter>File di origine</Filter>
     </ClCompile>
+    <ClCompile Include="WA_DPI.c">
+      <Filter>File di origine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -152,6 +155,9 @@
     <ClInclude Include="WA_GEN_Playlist.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+    <ClInclude Include="WA_DPI.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="WinAudio.rc">
@@ -163,9 +169,6 @@
       <Filter>File di risorse</Filter>
     </Image>
     <Image Include="..\Icons\mainIcon.ico">
-      <Filter>File di risorse</Filter>
-    </Image>
-    <Image Include="..\Icons\mute.ico">
       <Filter>File di risorse</Filter>
     </Image>
     <Image Include="..\Icons\next.ico">
@@ -181,6 +184,24 @@
       <Filter>File di risorse</Filter>
     </Image>
     <Image Include="..\Icons\stop.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\next_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\open_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\pause_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\play_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\previous_black.ico">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="..\Icons\stop_black.ico">
       <Filter>File di risorse</Filter>
     </Image>
   </ItemGroup>

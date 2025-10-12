@@ -37,7 +37,7 @@ typedef struct TagUIColors
 	COLORREF TextOnSurface;
 } UIColors;
 
-void ColorPolicy_Init(ColorMode Mode, ColorThemes Theme);
+void ColorPolicy_Init(ColorMode Mode, ColorThemes Theme, UINT uCurrentDpi);
 void ColorPolicy_Close();
 
 HFONT ColorPolicy_Get_Default_Font();

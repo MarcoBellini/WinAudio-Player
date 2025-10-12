@@ -2,13 +2,19 @@
 // File di inclusione generato con Microsoft Visual C++.
 // Utilizzato da WinAudio.rc
 //
-#define IDI_MAIN_ICON                   102
-#define IDI_OPEN_ICON                   103
-#define IDI_NEXT_ICON                   105
-#define IDI_PAUSE_ICON                  106
-#define IDI_PLAY_ICON                   107
-#define IDI_PREVIOUS_ICON               108
-#define IDI_STOP_ICON                   109
+#define IDI_MAIN_ICON			        102
+#define IDI_OPEN_ICON_LIGHTMODE         103
+#define IDI_NEXT_ICON_LIGHTMODE         105
+#define IDI_PAUSE_ICON_LIGHTMODE        106
+#define IDI_PLAY_ICON_LIGHTMODE         107
+#define IDI_PREVIOUS_ICON_LIGHTMODE     108
+#define IDI_STOP_ICON_LIGHTMODE         109
+#define IDI_OPEN_ICON_DARKMODE          110
+#define IDI_NEXT_ICON_DARKMODE          111
+#define IDI_PAUSE_ICON_DARKMODE         112
+#define IDI_PLAY_ICON_DARKMODE          113
+#define IDI_PREVIOUS_ICON_DARKMODE      114
+#define IDI_STOP_ICON_DARKMODE          115
 #define IDS_STATUS_WELCOME              127
 #define IDR_MAIN_MENU                   130
 #define IDD_SETTINGS                    133

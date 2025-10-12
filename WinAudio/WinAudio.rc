@@ -52,19 +52,31 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_MAIN_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\mainIcon.ico"
+IDI_MAIN_ICON                  ICON                    "..\\Icons\\mainIcon.ico"
 
-IDI_OPEN_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\open.ico"
+IDI_OPEN_ICON_LIGHTMODE        ICON                    "..\\Icons\\open_lightmode.ico"
 
-IDI_NEXT_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\next.ico"
+IDI_NEXT_ICON_LIGHTMODE        ICON                    "..\\Icons\\next_lightmode.ico"
 
-IDI_PAUSE_ICON          ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\pause.ico"
+IDI_PAUSE_ICON_LIGHTMODE       ICON                    "..\\Icons\\pause_lightmode.ico"
 
-IDI_PLAY_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\play.ico"
+IDI_PLAY_ICON_LIGHTMODE        ICON                    "..\\Icons\\play_lightmode.ico"
 
-IDI_PREVIOUS_ICON       ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\previous.ico"
+IDI_PREVIOUS_ICON_LIGHTMODE    ICON                    "..\\Icons\\previous_lightmode.ico"
 
-IDI_STOP_ICON           ICON                    "C:\\Users\\Marco\\source\\repos\\WinAudio\\Icons\\stop.ico"
+IDI_STOP_ICON_LIGHTMODE        ICON                    "..\\Icons\\stop_lightmode.ico"
+
+IDI_OPEN_ICON_DARKMODE         ICON                    "..\\Icons\\open_darkmode.ico"
+
+IDI_NEXT_ICON_DARKMODE         ICON                    "..\\Icons\\next_darkmode.ico"
+
+IDI_PAUSE_ICON_DARKMODE        ICON                    "..\\Icons\\pause_darkmode.ico"
+
+IDI_PLAY_ICON_DARKMODE         ICON                    "..\\Icons\\play_darkmode.ico"
+
+IDI_PREVIOUS_ICON_DARKMODE     ICON                    "..\\Icons\\previous_darkmode.ico"
+
+IDI_STOP_ICON_DARKMODE         ICON                    "..\\Icons\\stop_darkmode.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////

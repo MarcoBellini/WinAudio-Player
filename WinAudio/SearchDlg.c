@@ -80,7 +80,7 @@ INT_PTR CALLBACK SearchDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     {
     case WM_INITDIALOG:
     {
-        HICON hIcon = LoadIcon(Globals2.hMainWindowInstance, MAKEINTRESOURCE(IDI_MAIN_ICON));
+        HICON hIcon = LoadIcon(Globals2.CurrentProcessHInstance, MAKEINTRESOURCE(IDI_MAIN_ICON));
 
         SendMessage(hDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
         SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIcon);    
@@ -132,7 +132,7 @@ INT_PTR CALLBACK SearchDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 
                     if (nItemIndex != LB_ERR)
                     {                      
-                        MainWindow_Open_Playlist_Index((DWORD) nItemIndex);
+                        MainWindow_OpenAndPlayFileFromPlaylistIndex((DWORD) nItemIndex);
                         EndDialog(hDlg, 0);
 
                         return TRUE;
