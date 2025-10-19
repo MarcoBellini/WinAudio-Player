@@ -37,6 +37,7 @@ void MainWindow_CopyData(HWND hExistingWindow, int32_t nParams, wchar_t** pArgs)
 HIMAGELIST MainWindow_CreateLightModeImageList(UINT IconsSize);
 HIMAGELIST MainWindow_CreateDarkModeImageList(UINT IconsSize);
 
+LONG MainWindow_GetToolbarMaxWidth();
 HWND MainWindow_CreateToolbar(HWND hOwnerHandle);
 void MainWindow_CreateToolbarButtons();
 HMENU MainWindow_CreateMenu(HWND hOwnerHandle);
