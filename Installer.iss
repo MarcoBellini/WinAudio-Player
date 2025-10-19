@@ -4,7 +4,7 @@
 
 #define WinAudio_Name "WinAudio Player"
 #define WinAudio_Exe  WinAudio_Name + ".exe"
-#define WinAudio_Version "0.07"
+#define WinAudio_Version "0.10"
 
 [Setup]
 AppName=WinAudio Player
@@ -12,8 +12,8 @@ AppVersion={#WinAudio_Version}
 DefaultDirName={autopf64}\{#WinAudio_Name}
 DefaultGroupName={#WinAudio_Name}
 WizardStyle=classic
-ArchitecturesInstallIn64BitMode=x64
-ArchitecturesAllowed=x64 
+ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64compatible 
 AppPublisherURL=https://github.com/MarcoBellini/WinAudio-Player
 LicenseFile=LICENSE.txt
 SetupIconFile=Icons\mainIcon.ico
