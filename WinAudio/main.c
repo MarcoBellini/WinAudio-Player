@@ -680,7 +680,7 @@ void MainWindow_ResizeRebar(LPRECT NewWindowRect)
     // Toolbar band
 	rbBandInfo = MainWindow_GetRebarBandInfoById(MW_ID_TOOLBAR);
     rbBandInfo.cyMinChild = RebarHeight;
-    rbBandInfo.cxMinChild = WA_DPI_ScaleInt(MW_TOOLBAR_BITMAP_SIZE * (MW_TOOLBAR_BUTTONS + 2));
+    rbBandInfo.cxMinChild = MainWindow_GetToolbarMaxWidth();
     rbBandInfo.cx = rbBandInfo.cxMinChild;
 
 	MainWindow_SetRebarBandInfoById(MW_ID_TOOLBAR, &rbBandInfo);
@@ -1382,6 +1382,18 @@ void MainWindow_DestroyUI()
 }
 
 /// <summary>
+/// Get total width of the Toolbar
+/// </summary>
+/// <returns></returns>
+LONG MainWindow_GetToolbarMaxWidth()
+{
+    SIZE ToolbarMaxSize;
+
+    SendMessage(Globals2.hToolbar, TB_GETMAXSIZE, 0, (LPARAM)&ToolbarMaxSize);
+    return ToolbarMaxSize.cx;
+}
+
+/// <summary>
 /// Create a Rebar Control with Volume, Position, Toolbar and Static
 /// </summary>
 HWND MainWindow_CreateRebar(HWND OwnerHandle)
@@ -1412,7 +1424,7 @@ HWND MainWindow_CreateRebar(HWND OwnerHandle)
 
     // Get current window size and position
     GetClientRect(OwnerHandle, &WindowRect);   
-    
+
     // Create common struct info    
     BandInfo.cbSize = sizeof(REBARBANDINFO);  
     BandInfo.fMask = RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_ID | RBBIM_STYLE;
@@ -1423,7 +1435,7 @@ HWND MainWindow_CreateRebar(HWND OwnerHandle)
     // Toolbar band
     BandInfo.hwndChild = Globals2.hToolbar;
     BandInfo.wID = MW_ID_TOOLBAR;
-	BandInfo.cxMinChild = WA_DPI_ScaleInt(MW_TOOLBAR_BITMAP_SIZE * (MW_TOOLBAR_BUTTONS + 1));    
+    BandInfo.cxMinChild = MainWindow_GetToolbarMaxWidth();
     BandInfo.cx = BandInfo.cxMinChild;   
     
     SendMessage(hRebarHandle, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&BandInfo);
